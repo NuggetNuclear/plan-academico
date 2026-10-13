@@ -1,0 +1,191 @@
+// ── Progreso de una persona en una carrera (se guarda en localStorage) ──
+
+export interface Nota {
+  /** Nota obtenida (1,0 a 7,0) o null si aún no se rinde. */
+  n: number | null;
+  /** Peso relativo dentro de la categoría (×1 por defecto, 0 = no cuenta). */
+  f: number;
+  /** Fecha de la evaluación (AAAA-MM-DD) para el calendario. */
+  fecha?: string | null;
+  /** Nombre opcional de la evaluación ("Control 2"). */
+  etiqueta?: string;
+}
+
+export interface Categoria {
+  nombre: string;
+  /** Porcentaje del ramo (0-100). */
+  peso: number;
+  /** Requisito aprobatorio: debe promediar 4,0 por sí sola. */
+  req?: boolean;
+  notas: Nota[];
+}
+
+export type ModoPromedio = "actual" | "peor";
+
+export interface Entrada {
+  uid: string;
+  id: string;
+  categorias: Categoria[];
+  notaFinal: number | null;
+  decimas?: number;
+  modo?: ModoPromedio;
+  colapsado?: boolean;
+  /** Créditos reales (solo cursos flexibles como OFG). */
+  creditos?: number | null;
+  siglaReal?: string;
+  nombreReal?: string;
+  /** Nota que te gustaría sacar en el ramo (calcula lo que necesitas). */
+  meta?: number | null;
+}
+
+export type TipoPeriodo = "regular" | "verano" | "convalidaciones";
+
+export interface Periodo {
+  tipo: TipoPeriodo;
+  /** Semestre académico (0 para convalidaciones; el verano usa el semestre que lo precede). */
+  numero: number;
+  ramos: Entrada[];
+  /** Ventana (UDP) o banner (UC) de toma de ramos. */
+  ventana?: string;
+}
+
+export interface Congelacion {
+  /** Semestre académico que quedó pendiente. */
+  desde: number;
+  /** Cantidad de semestres calendario que duró la pausa. */
+  duracion: number;
+}
+
+export type ModoPractica = "carga" | "sobrecupo" | "verano" | "quitar";
+export type TipoSemestrePlan = "cursando" | "futuro" | "verano" | "overflow";
+
+export interface PlanGuardado {
+  fecha: string;
+  etiqueta: string;
+  semestreBase: number;
+  semestres: { numero: number; tipo: TipoSemestrePlan; ids: string[] }[];
+}
+
+export interface Preferencias {
+  marcadoRapido: boolean;
+  mostrarNotas: boolean;
+  checklistOculto: boolean;
+  /** Semestre cuyo aviso de "pasar al siguiente" ya se descartó. */
+  avanceDescartado: number;
+  /** PPA que quieres alcanzar al titularte. */
+  metaPPA: number | null;
+  wizardHecho: boolean;
+}
+
+export interface PlannerState {
+  version: 1;
+  semestreActual: number;
+  /** Cantidad de niveles de inglés eximidos (desde el primero). */
+  inglesEximido: number;
+  /** null usa el máximo de la carrera. */
+  maxCreditos: number | null;
+  rutaAcademica: string | null;
+  gruposAltModo: Record<string, "dividido" | "unico">;
+  congelaciones: Congelacion[];
+  /**
+   * Aprobaciones marcadas a mano en la malla:
+   * número = semestre en que se aprobó (0 = convalidado), null = marcado rápido.
+   */
+  marcas: Record<string, number | null>;
+  /** Ramos que estaban en Cursando antes de un marcado rápido (para restaurarlos). */
+  rapidosDesdeCursando: string[];
+  cursando: string[];
+  periodos: Periodo[];
+  /** Nombre y sigla reales de cursos flexibles (OPR, electivos con alternativas). */
+  alias: Record<string, { sigla?: string; nombre?: string }>;
+  /** Semestres tras los cuales la UDP aceptó la permanencia por la causal c. */
+  excepcionesCausalC: number[];
+  modoPractica: ModoPractica;
+  planFijado: PlanGuardado | null;
+  prefs: Preferencias;
+}
+
+export function estadoInicial(): PlannerState {
+  return {
+    version: 1,
+    semestreActual: 1,
+    inglesEximido: 0,
+    maxCreditos: null,
+    rutaAcademica: null,
+    gruposAltModo: {},
+    congelaciones: [],
+    marcas: {},
+    rapidosDesdeCursando: [],
+    cursando: [],
+    periodos: [],
+    alias: {},
+    excepcionesCausalC: [],
+    modoPractica: "carga",
+    planFijado: null,
+    prefs: {
+      marcadoRapido: false,
+      mostrarNotas: true,
+      checklistOculto: false,
+      avanceDescartado: 0,
+      metaPPA: null,
+      wizardHecho: false,
+    },
+  };
+}
+
+const num = (v: unknown, def: number) => (typeof v === "number" && Number.isFinite(v) ? v : def);
+
+/** Repara datos guardados (o importados) para que siempre cumplan el modelo. */
+export function normalizarEstado(raw: unknown): PlannerState {
+  const base = estadoInicial();
+  if (!raw || typeof raw !== "object") return base;
+  const r = raw as Partial<PlannerState>;
+  const periodos = Array.isArray(r.periodos) ? r.periodos : [];
+  return {
+    ...base,
+    semestreActual: Math.max(1, Math.trunc(num(r.semestreActual, 1))),
+    inglesEximido: Math.max(0, Math.trunc(num(r.inglesEximido, 0))),
+    maxCreditos: typeof r.maxCreditos === "number" ? r.maxCreditos : null,
+    rutaAcademica: typeof r.rutaAcademica === "string" ? r.rutaAcademica : null,
+    gruposAltModo: r.gruposAltModo && typeof r.gruposAltModo === "object" ? r.gruposAltModo : {},
+    congelaciones: (Array.isArray(r.congelaciones) ? r.congelaciones : [])
+      .map((c) => ({ desde: Math.trunc(num(c?.desde, 0)), duracion: Math.trunc(num(c?.duracion, 0)) }))
+      .filter((c) => c.desde >= 1 && c.duracion >= 1),
+    marcas: r.marcas && typeof r.marcas === "object" ? r.marcas : {},
+    rapidosDesdeCursando: Array.isArray(r.rapidosDesdeCursando) ? r.rapidosDesdeCursando : [],
+    cursando: Array.isArray(r.cursando) ? [...new Set(r.cursando)] : [],
+    periodos: periodos
+      .filter((p) => p && typeof p === "object")
+      .map((p) => ({
+        tipo: p.tipo === "verano" || p.tipo === "convalidaciones" ? p.tipo : "regular",
+        numero: p.tipo === "convalidaciones" ? 0 : Math.max(1, Math.trunc(num(p.numero, 1))),
+        ventana: typeof p.ventana === "string" ? p.ventana : undefined,
+        ramos: (Array.isArray(p.ramos) ? p.ramos : []).map((e) => ({
+          ...e,
+          uid: e.uid || nuevoUid(),
+          categorias: (Array.isArray(e.categorias) ? e.categorias : []).map((c) => ({
+            ...c,
+            nombre: c.nombre ?? "",
+            peso: num(c.peso, 0),
+            notas: (Array.isArray(c.notas) ? c.notas : []).map((n) =>
+              typeof n === "number" ? { n, f: 1 } : { ...n, n: n?.n ?? null, f: num(n?.f, 1) },
+            ),
+          })),
+          notaFinal: typeof e.notaFinal === "number" ? e.notaFinal : null,
+        })),
+      })),
+    alias: r.alias && typeof r.alias === "object" ? r.alias : {},
+    excepcionesCausalC: Array.isArray(r.excepcionesCausalC) ? r.excepcionesCausalC.filter(Number.isInteger) : [],
+    modoPractica: (["carga", "sobrecupo", "verano", "quitar"] as const).includes(r.modoPractica as never)
+      ? (r.modoPractica as PlannerState["modoPractica"])
+      : "carga",
+    planFijado: r.planFijado ?? null,
+    prefs: { ...base.prefs, ...(r.prefs ?? {}) },
+  };
+}
+
+let contadorUid = 0;
+export function nuevoUid(): string {
+  contadorUid = (contadorUid + 1) % 1e6;
+  return Date.now().toString(36) + "-" + contadorUid.toString(36) + "-" + Math.random().toString(36).slice(2, 6);
+}

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacidad · Notas</title>
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <style>
+    :root { color-scheme: light dark; --fg: #0e1121; --fg2: #4a5170; --bg: #f5f6fa; --card: #fff; --line: #e3e6ef; --accent: #5b47f0; }
+    @media (prefers-color-scheme: dark) { :root { --fg: #eef0f8; --fg2: #a8aec6; --bg: #0a0c13; --card: #12151f; --line: #242a3a; --accent: #8e80ff; } }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px; }
+    h1 { font-size: 26px; margin: 0 0 4px; } h2 { font-size: 17px; margin: 24px 0 6px; }
+    p, li { color: var(--fg2); } a { color: var(--accent); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <main>
+    <p><a href="./">← Volver a la app</a></p>
+    <div class="card">
+      <h1>Política de privacidad</h1>
+      <p>Resumen: tus datos académicos son tuyos y se quedan en tu dispositivo.</p>
+      <h2>Qué se guarda</h2>
+      <ul>
+        <li>Los ramos que marcas, tus notas, periodos, planes y preferencias se guardan en el almacenamiento local de tu navegador.</li>
+        <li>No hay cuentas obligatorias, analítica ni publicidad.</li>
+      </ul>
+      <h2>Sincronización con Google (opcional)</h2>
+      <p>Si el sitio tiene la sincronización configurada y decides iniciar sesión, se guarda una copia de tu progreso en un documento privado de Firestore asociado a tu cuenta. Solo se usan tu nombre, correo y foto para mostrar tu sesión; no se accede a tu calendario, contactos ni Drive. Puedes cerrar sesión o eliminar tu cuenta y sus datos desde «Mi cuenta».</p>
+      <h2>Exportar y borrar</h2>
+      <p>Desde «Mi cuenta» puedes descargar un respaldo en JSON y borrar todos los datos de este dispositivo en cualquier momento.</p>
+      <h2>Exactitud</h2>
+      <p>Los cálculos (PPA, causales, planificación) son una orientación. Confirma siempre la información oficial con tu universidad.</p>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "default": "inf",
+  "carreras": [
+    {
+      "id": "inf",
+      "nombre": "Ing. Civil en Informática y Telecomunicaciones",
+      "universidad": "UDP",
+      "archivo": "carreras/inf.json",
+      "planes": ["informatica y telecom"]
+    },
+    {
+      "id": "ds",
+      "nombre": "Ciencia de Datos",
+      "universidad": "UC",
+      "archivo": "carreras/ds.json"
+    }
+  ]
+}

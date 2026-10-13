@@ -1,0 +1,291 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Tokens de diseño ── */
+:root {
+  color-scheme: light;
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --surface-2: #f2f4f9;
+  --surface-3: #e9ecf4;
+  --line: #e3e6ef;
+  --line-strong: #cfd5e3;
+  --fg: #0e1121;
+  --fg-2: #4a5170;
+  --fg-3: #858ba3;
+
+  --accent: #5b47f0;
+  --accent-hover: #4a36de;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(91 71 240 / 0.09);
+  --accent-line: rgb(91 71 240 / 0.3);
+
+  --ok: #0c8f62;
+  --ok-soft: rgb(12 143 98 / 0.1);
+  --info: #2a6fd0;
+  --info-soft: rgb(42 111 208 / 0.1);
+  --warn: #b26b00;
+  --warn-soft: rgb(214 140 10 / 0.13);
+  --danger: #cc3434;
+  --danger-soft: rgb(204 52 52 / 0.09);
+
+  /* Relaciones al explorar la malla */
+  --rel-prereq: #c27803;
+  --rel-unlock: #0e8fa8;
+  --rel-partial: #7c5cd6;
+
+  /* Paleta categórica para los tipos de ramo (validada para daltonismo) */
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --s4: #eda100;
+  --s5: #e87ba4;
+  --s6: #008300;
+  --s7: #6250d6;
+  --s8: #e34948;
+
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.05);
+  --shadow: 0 1px 3px rgb(16 24 40 / 0.06), 0 6px 16px -4px rgb(16 24 40 / 0.08);
+  --shadow-lg: 0 24px 48px -12px rgb(16 24 40 / 0.25);
+}
+
+.dark {
+  color-scheme: dark;
+  --bg: #0a0c13;
+  --surface: #12151f;
+  --surface-2: #181c28;
+  --surface-3: #212636;
+  --line: #242a3a;
+  --line-strong: #323a50;
+  --fg: #eef0f8;
+  --fg-2: #a8aec6;
+  --fg-3: #6e7592;
+
+  --accent: #8e80ff;
+  --accent-hover: #a094ff;
+  --accent-fg: #0a0c13;
+  --accent-soft: rgb(142 128 255 / 0.14);
+  --accent-line: rgb(142 128 255 / 0.4);
+
+  --ok: #2fc48c;
+  --ok-soft: rgb(47 196 140 / 0.13);
+  --info: #5ea2f2;
+  --info-soft: rgb(94 162 242 / 0.14);
+  --warn: #f0b23c;
+  --warn-soft: rgb(240 178 60 / 0.14);
+  --danger: #f06a6a;
+  --danger-soft: rgb(240 106 106 / 0.13);
+
+  --rel-prereq: #f0b23c;
+  --rel-unlock: #3cc3dc;
+  --rel-partial: #a894ff;
+
+  --s1: #3987e5;
+  --s2: #d95926;
+  --s3: #199e70;
+  --s4: #c98500;
+  --s5: #d55181;
+  --s6: #008300;
+  --s7: #9085e9;
+  --s8: #e66767;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.35), 0 8px 20px -6px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 24px 60px -12px rgb(0 0 0 / 0.7);
+}
+
+@theme inline {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-fg-3: var(--fg-3);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-line: var(--accent-line);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --shadow-card: var(--shadow);
+  --shadow-soft: var(--shadow-sm);
+  --shadow-pop: var(--shadow-lg);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 5rem;
+    touch-action: manipulation; /* sin zoom por doble toque */
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    background: var(--accent-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    opacity: 0.4;
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 1.1rem;
+    box-shadow: var(--shadow-sm);
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .scroll-x {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  .input {
+    width: 100%;
+    border-radius: 0.65rem;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--fg);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .input:hover {
+    border-color: var(--fg-3);
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .input::placeholder {
+    color: var(--fg-3);
+  }
+  .label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--fg-2);
+    margin-bottom: 0.35rem;
+  }
+}
+
+/* Rango (simulador) */
+input[type="range"].rango {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent) var(--avance, 50%), var(--surface-3) var(--avance, 50%));
+}
+input[type="range"].rango::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+input[type="range"].rango::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+}
+input[type="range"].rango:disabled {
+  opacity: 0.5;
+}
+
+/* Animaciones suaves */
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fundido {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animar-entrada {
+  animation: aparecer 0.18s ease-out both;
+}
+.animar-fundido {
+  animation: fundido 0.15s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Impresión: solo el contenido principal */
+/* iOS hace zoom al enfocar un campo con letra menor a 16px. En pantallas táctiles los campos usan 16px (sin capa, para ganarle a las utilidades). */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@media print {
+  aside,
+  header,
+  nav,
+  footer,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}
