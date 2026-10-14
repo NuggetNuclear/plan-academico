@@ -10,10 +10,10 @@
   --surface-2: #f2f4f9;
   --surface-3: #e9ecf4;
   --line: #e3e6ef;
-  --line-strong: #cfd5e3;
+  --line-strong: #858ca3;
   --fg: #0e1121;
   --fg-2: #4a5170;
-  --fg-3: #858ba3;
+  --fg-3: #606981;
 
   --accent: #5b47f0;
   --accent-hover: #4a36de;
@@ -21,13 +21,13 @@
   --accent-soft: rgb(91 71 240 / 0.09);
   --accent-line: rgb(91 71 240 / 0.3);
 
-  --ok: #0c8f62;
+  --ok: #08734f;
   --ok-soft: rgb(12 143 98 / 0.1);
-  --info: #2a6fd0;
+  --info: #245fb5;
   --info-soft: rgb(42 111 208 / 0.1);
-  --warn: #b26b00;
+  --warn: #8a5200;
   --warn-soft: rgb(214 140 10 / 0.13);
-  --danger: #cc3434;
+  --danger: #ba2929;
   --danger-soft: rgb(204 52 52 / 0.09);
 
   /* Relaciones al explorar la malla */
@@ -57,10 +57,10 @@
   --surface-2: #181c28;
   --surface-3: #212636;
   --line: #242a3a;
-  --line-strong: #323a50;
+  --line-strong: #69738d;
   --fg: #eef0f8;
   --fg-2: #a8aec6;
-  --fg-3: #6e7592;
+  --fg-3: #9ba4bf;
 
   --accent: #8e80ff;
   --accent-hover: #a094ff;
@@ -188,7 +188,8 @@
     border-color: var(--fg-3);
   }
   .input:focus {
-    outline: none;
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
@@ -263,19 +264,49 @@ input[type="range"].rango:disabled {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
 }
 
 /* Impresión: solo el contenido principal */
 /* iOS hace zoom al enfocar un campo con letra menor a 16px. En pantallas táctiles los campos usan 16px (sin capa, para ganarle a las utilidades). */
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 640px) {
   input,
   select,
   textarea {
-    font-size: 16px;
+    font-size: 16px !important;
+    min-height: 44px;
+  }
+  button:not([role="switch"]), a, summary {
+    min-height: 44px;
+  }
+  button[aria-label] {
+    min-width: 44px;
   }
 }
+
+/* El foco debe seguir siendo visible incluso en campos con outline-none. */
+:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 3px;
+}
+summary { cursor: pointer; }
+button, a, input, select, textarea, summary { scroll-margin-block: 7rem; }
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  transform: translateY(-160%);
+  background: var(--surface);
+  color: var(--accent);
+  padding: 12px 20px;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+}
+.skip-link:focus { transform: none; }
 
 @media print {
   aside,

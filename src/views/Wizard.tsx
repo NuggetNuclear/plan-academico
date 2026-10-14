@@ -19,7 +19,7 @@ export const wizardSaltado = () => {
 
 function Opcion({ activo, onClick, titulo, descripcion, icono }: { activo: boolean; onClick: () => void; titulo: string; descripcion: string; icono?: React.ReactNode }) {
   return (
-    <button type="button" role="radio" aria-checked={activo} onClick={onClick} className={cx("flex w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition-colors", activo ? "border-accent bg-accent-soft" : "border-line hover:border-line-strong")}>
+    <button type="button" aria-pressed={activo} onClick={onClick} className={cx("flex w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition-colors", activo ? "border-accent bg-accent-soft" : "border-line hover:border-line-strong")}>
       {icono && <span className={cx("mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl", activo ? "bg-accent text-accent-fg" : "bg-surface-2 text-fg-2")}>{icono}</span>}
       <span className="min-w-0 flex-1">
         <strong className="block text-[14px]">{titulo}</strong>
@@ -130,7 +130,7 @@ export function Wizard() {
             <CabeceraModal icono={<GraduationCap className="size-5" />} sobretitulo="Paso 1 de 3" titulo="¿Qué estudias?">
               Cargaremos la malla oficial de tu carrera. Cada carrera guarda su propio progreso.
             </CabeceraModal>
-            <div className="space-y-2 px-6 pt-4" role="radiogroup">
+            <div className="space-y-2 px-6 pt-4" role="group" aria-label="Selecciona una opción">
               {indice.map((c) => (
                 <Opcion key={c.id} activo={carrera === c.id} onClick={() => setCarrera(c.id)} titulo={c.nombre} descripcion={c.universidad} icono={<GraduationCap className="size-4" />} />
               ))}
@@ -181,7 +181,7 @@ export function Wizard() {
                   </div>
                 )}
               </div>
-              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup">
+              <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="Selecciona una opción">
                 <Opcion activo={!congelo} onClick={() => setCongelo(false)} titulo="Nunca he congelado" descripcion="Sigue al paso siguiente." />
                 <Opcion activo={congelo} onClick={() => setCongelo(true)} titulo="Congelé alguna vez" descripcion="Para ubicar bien los ramos anuales." />
               </div>
@@ -189,11 +189,11 @@ export function Wizard() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="label">Semestre que quedó pendiente</label>
-                    <input type="number" min={1} max={20} className="input" value={cong.desde} onChange={(e) => setCong({ ...cong, desde: Math.max(1, Number(e.target.value) || 1) })} />
+                    <input aria-label="Semestre desde el que congelaste" type="number" min={1} max={20} className="input" value={cong.desde} onChange={(e) => setCong({ ...cong, desde: Math.max(1, Number(e.target.value) || 1) })} />
                   </div>
                   <div>
                     <label className="label">Semestres que duró</label>
-                    <input type="number" min={1} max={20} className="input" value={cong.duracion} onChange={(e) => setCong({ ...cong, duracion: Math.max(1, Number(e.target.value) || 1) })} />
+                    <input aria-label="Cantidad de semestres congelados" type="number" min={1} max={20} className="input" value={cong.duracion} onChange={(e) => setCong({ ...cong, duracion: Math.max(1, Number(e.target.value) || 1) })} />
                   </div>
                 </div>
               )}
@@ -206,7 +206,7 @@ export function Wizard() {
             <CabeceraModal icono={<Grid3x3 className="size-5" />} sobretitulo="Paso 3 de 3" titulo="¿Cómo quieres marcar tu avance?">
               Puedes cambiarlo después con el interruptor «Marcado rápido» de la malla.
             </CabeceraModal>
-            <div className="space-y-2 px-6 pt-4" role="radiogroup">
+            <div className="space-y-2 px-6 pt-4" role="group" aria-label="Selecciona una opción">
               {indice.find((c) => c.id === carrera)?.planes?.length ? (
                 <button
                   type="button"

@@ -83,7 +83,7 @@ function exportarPlan(plan: Plan, titulo: string, carrera: string, verano: strin
 // ── Ramo arrastrable ──
 function RamoPlan({ ramo, idPlan, sem, editable, deuda, sobrecupo, onMover }: { ramo: Ramo; idPlan: number; sem: SemestrePlan; editable: boolean; deuda: string[]; sobrecupo: boolean; onMover?: (el: HTMLElement) => void }) {
   const ctx = useCtx();
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `${idPlan}|${ramo.id}|${sem.numero}`, disabled: !editable, data: { ramo, origen: sem.numero, idPlan } });
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({ id: `${idPlan}|${ramo.id}|${sem.numero}`, disabled: !editable, data: { ramo, origen: sem.numero, idPlan } });
   const ref = useRef<HTMLDivElement | null>(null);
   return (
     <div
@@ -94,11 +94,11 @@ function RamoPlan({ ramo, idPlan, sem, editable, deuda, sobrecupo, onMover }: { 
       className={cx(
         "group relative flex items-start gap-1.5 overflow-hidden rounded-lg border border-line bg-surface py-1.5 pr-1.5 pl-3 text-[12px] shadow-soft",
         isDragging && "opacity-30",
-        editable && "touch-none",
+
       )}
       title={ramo.reglaPractica ? "Práctica profesional: exige todo aprobado hasta su semestre" : editable ? "Arrastra para mover a otro semestre" : undefined}
-      {...(editable ? { ...listeners, ...attributes } : {})}
     >
+      {editable && <button type="button" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-roledescription="ramo arrastrable" aria-label={`Arrastrar ${nombreRamo(ctx, ramo.id)}`} className="grid min-h-8 min-w-8 touch-none place-items-center rounded text-fg-2 hover:bg-surface-2"><GripVertical className="size-4" /></button>}
       <span className="absolute inset-y-0 left-0 w-1" style={{ background: colorTipo(ctx.cur, ramo.tipo) }} aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1 font-mono text-[10px] font-semibold text-fg-3">
@@ -154,10 +154,10 @@ function ColumnaSemestre({ sem, plan, idPlan, editable, arrastrando, onMover }: 
     >
       <header className="px-0.5">
         <div className="flex items-center justify-between gap-2">
-          <h4 className="flex items-center gap-1 text-[12.5px] font-bold">
+          <h3 className="flex items-center gap-1 text-[12.5px] font-bold">
             {sem.tipo === "verano" && <Sun className="size-3.5" />}
             {etiquetaSemestre(sem, verano)}
-          </h4>
+          </h3>
           <span className="text-[11px] font-bold tabular text-fg-2">
             {sem.creditos} cr{sobrecupo ? <span className="text-warn"> +{sobrecupo}</span> : null}
           </span>

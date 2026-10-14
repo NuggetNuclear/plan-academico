@@ -111,15 +111,14 @@ export function TusDatos() {
                 <p className="text-[13.5px] font-bold">Malla que quieres visualizar</p>
                 <Insignia tono="ok">Tu progreso común se conserva</Insignia>
               </div>
-              <div role="radiogroup" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div role="group" aria-label="Selecciona una opción" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {rutas.map((r) => {
                   const activa = cur.ruta?.id === r.id;
                   return (
                     <button
                       key={r.id}
                       type="button"
-                      role="radio"
-                      aria-checked={activa}
+                      aria-pressed={activa}
                       title={r.nota}
                       onClick={() => !activa && mutar(`Cambiar a ${r.nombre}`, ({ st }) => ((st.rutaAcademica = r.id), (st.maxCreditos = null)))}
                       className={cx("rounded-2xl border p-3 text-left transition-colors", activa ? "border-accent bg-accent-soft" : "border-line hover:border-line-strong")}

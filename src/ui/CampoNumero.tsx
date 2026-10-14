@@ -1,5 +1,6 @@
-import { useEffect, useState, type InputHTMLAttributes } from "react";
+import { useEffect, useId, useRef, useState, type InputHTMLAttributes } from "react";
 import { leerNumero, numeroConComa } from "../core/format";
+import { toast } from "../store/ui";
 import { cx } from "./primitives";
 
 /**
@@ -29,20 +30,28 @@ export function CampoNumero({
   const mostrar = (v: number | null | undefined) =>
     v === null || v === undefined ? "" : minDecimales > 0 && Number.isInteger(v * 10 ** minDecimales) ? v.toFixed(minDecimales).replace(".", ",") : numeroConComa(v);
   const [texto, setTexto] = useState(mostrar(valor));
+  const [error, setError] = useState("");
+  const errorId = useId();
+  const cancelando = useRef(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => setTexto(mostrar(valor)), [valor]);
+  useEffect(() => { setTexto(mostrar(valor)); setError(""); }, [valor]);
 
   const guardar = () => {
+    if (cancelando.current) { cancelando.current = false; return; }
     const n = leerNumero(texto);
-    if (Number.isNaN(n)) {
-      if (texto.trim() === "" && vacioPermitido) {
-        if (valor !== null && valor !== undefined) onGuardar(null);
-      } else setTexto(mostrar(valor));
+    if (texto.trim() === "" && vacioPermitido) {
+      setError("");
+      if (valor !== null && valor !== undefined) onGuardar(null);
       return;
     }
+    if (!Number.isFinite(n) || (min !== undefined && n < min) || (max !== undefined && n > max)) {
+      const mensaje = min !== undefined && max !== undefined ? `Escribe un número entre ${numeroConComa(min)} y ${numeroConComa(max)}.` : min !== undefined ? `Escribe un número mayor o igual a ${numeroConComa(min)}.` : "Escribe un número válido.";
+      setError(mensaje);
+      toast(`${rest["aria-label"] ?? "Valor no guardado"}: ${mensaje}`, "error");
+      return;
+    }
+    setError("");
     let v = n;
-    if (min !== undefined) v = Math.max(min, v);
-    if (max !== undefined) v = Math.min(max, v);
     const f = 10 ** decimales;
     v = Math.round(v * f) / f;
     setTexto(mostrar(v));
@@ -50,17 +59,15 @@ export function CampoNumero({
   };
 
   return (
+    <>
     <input
       type="text"
       inputMode="decimal"
       autoComplete="off"
       value={texto}
-      onChange={(e) => {
-        let v = e.target.value.replace(".", ",").replace(/[^\d,]/g, "");
-        const i = v.indexOf(",");
-        if (i !== -1) v = v.slice(0, i + 1) + v.slice(i + 1).replace(/,/g, "");
-        setTexto(v);
-      }}
+      onChange={(e) => { setTexto(e.target.value); setError(""); }}
+      aria-invalid={!!error || undefined}
+      aria-describedby={[rest["aria-describedby"], error ? errorId : null].filter(Boolean).join(" ") || undefined}
       onBlur={guardar}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
@@ -68,6 +75,8 @@ export function CampoNumero({
           (e.target as HTMLInputElement).blur();
         }
         if (e.key === "Escape") {
+          cancelando.current = true;
+          setError("");
           setTexto(mostrar(valor));
           (e.target as HTMLInputElement).blur();
         }
@@ -75,22 +84,26 @@ export function CampoNumero({
       className={cx("tabular", className)}
       {...rest}
     />
+    {error && <span id={errorId} className="sr-only">{error}</span>}
+    </>
   );
 }
 
 /** Campo de texto que guarda al salir (para nombres de categorías, siglas, etc.). */
 export function CampoTexto({ valor, onGuardar, className, ...rest }: { valor: string; onGuardar: (v: string) => void } & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
   const [texto, setTexto] = useState(valor);
+  const cancelando = useRef(false);
   useEffect(() => setTexto(valor), [valor]);
   return (
     <input
       type="text"
       value={texto}
       onChange={(e) => setTexto(e.target.value)}
-      onBlur={() => texto !== valor && onGuardar(texto.trim())}
+      onBlur={() => { if (cancelando.current) { cancelando.current = false; return; } if (texto !== valor) onGuardar(texto.trim()); }}
       onKeyDown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
         if (e.key === "Escape") {
+          cancelando.current = true;
           setTexto(valor);
           (e.target as HTMLInputElement).blur();
         }

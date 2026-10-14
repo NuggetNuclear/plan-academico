@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useId, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
@@ -14,8 +14,8 @@ const VARIANTES: Record<Variante, string> = {
 };
 
 const TAMANOS: Record<Tamano, string> = {
-  sm: "h-8 px-3 text-[13px] gap-1.5 rounded-lg",
-  md: "h-10 px-4 text-sm gap-2 rounded-xl",
+  sm: "min-h-9 px-3 py-1.5 text-[13px] gap-1.5 rounded-lg",
+  md: "min-h-11 px-4 py-2 text-sm gap-2 rounded-xl",
 };
 
 export interface BotonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -33,7 +33,7 @@ export const Boton = forwardRef<HTMLButtonElement, BotonProps>(function Boton(
       ref={ref}
       type={type}
       className={cx(
-        "inline-flex shrink-0 items-center justify-center font-semibold whitespace-nowrap transition-colors disabled:opacity-50 disabled:pointer-events-none",
+        "inline-flex max-w-full shrink-0 items-center justify-center font-semibold whitespace-normal transition-colors sm:whitespace-nowrap disabled:opacity-50 disabled:pointer-events-none [&>svg]:shrink-0",
         VARIANTES[variante],
         TAMANOS[tamano],
         className,
@@ -56,7 +56,7 @@ export const BotonIcono = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTM
         title={etiqueta}
         className={cx(
           "inline-flex shrink-0 items-center justify-center rounded-lg text-fg-2 transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-40",
-          tamano === "sm" ? "size-7" : "size-9",
+          tamano === "sm" ? "size-8" : "size-11",
           className,
         )}
         {...rest}
@@ -110,12 +110,14 @@ export function Insignia({ tono = "neutro", children, className, icono, title }:
 }
 
 export function Interruptor({ checked, onChange, etiqueta, descripcion, id }: { checked: boolean; onChange: (v: boolean) => void; etiqueta: ReactNode; descripcion?: string; id?: string }) {
+  const etiquetaId = useId();
   return (
     <label className="inline-flex cursor-pointer items-center gap-2.5 select-none" title={descripcion}>
       <button
         id={id}
         type="button"
         role="switch"
+        aria-labelledby={etiquetaId}
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={cx(
@@ -125,7 +127,7 @@ export function Interruptor({ checked, onChange, etiqueta, descripcion, id }: { 
       >
         <span className={cx("absolute top-0.5 left-0.5 size-4.5 rounded-full bg-white shadow transition-transform", checked && "translate-x-4")} />
       </button>
-      <span className="text-[13px] font-semibold text-fg-2">{etiqueta}</span>
+      <span id={etiquetaId} className="text-[13px] font-semibold text-fg-2">{etiqueta}</span>
     </label>
   );
 }

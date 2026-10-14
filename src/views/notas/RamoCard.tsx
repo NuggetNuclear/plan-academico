@@ -2,7 +2,6 @@ import {
   Asterisk,
   Calculator,
   CalendarDays,
-  ChevronDown,
   CircleCheck,
   CircleX,
   Flag,
@@ -10,11 +9,12 @@ import {
   MoreHorizontal,
   Plus,
   RotateCcw,
+  Settings2,
   Target,
   Trash2,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { creditosEntrada, esPeriodoActual, nombreEntrada, nombreRamo, ramoCatalogo, siglaEntrada, siglaRamo, type Ctx } from "../../core/academic";
 import { esPersonalizable } from "../../core/curriculum";
 import { NOTA_APROB, fmtNota, leerNumero, numeroConComa } from "../../core/format";
@@ -27,6 +27,8 @@ import { confirmar, pedirTexto, toast } from "../../store/ui";
 import { CampoNumero, CampoTexto } from "../../ui/CampoNumero";
 import { OpcionMenu, Popover } from "../../ui/overlays";
 import { Boton, BotonIcono, Insignia, Segmentado, cx } from "../../ui/primitives";
+
+import type { SeleccionNota } from "./RegistroNota";
 
 type Editor = (etiqueta: string | null, fn: (e: Entrada, ctx: Ctx, p: Periodo) => void) => void;
 
@@ -43,17 +45,18 @@ function useEditor(clave: string, uid: string): Editor {
 const claseNota = (n: number | null) => (n === null ? "text-fg-3" : n >= NOTA_APROB ? "text-ok" : "text-danger");
 
 // ── Casilla de una evaluación ──
-function CasillaNota({ nota, onEditar, onBorrar, soloLectura, modoActual }: { nota: Nota; onEditar: (n: Partial<Nota>) => void; onBorrar: () => void; soloLectura: boolean; modoActual: boolean }) {
+function CasillaNota({ nota, etiqueta, onEditar, onBorrar, soloLectura, modoActual }: { etiqueta: string; nota: Nota; onEditar: (n: Partial<Nota>) => void; onBorrar: () => void; soloLectura: boolean; modoActual: boolean }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [abierto, setAbierto] = useState(false);
   const [puntaje, setPuntaje] = useState({ obtenido: "", max: "", exigencia: "60" });
-  const nombre = nota.etiqueta?.trim();
+  const campoId = useId();
+  const nombre = nota.etiqueta?.trim() || etiqueta;
   const fechaCorta = nota.fecha ? new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short" }).format(new Date(nota.fecha + "T12:00:00")) : null;
   const notaPuntaje = (() => {
     const o = leerNumero(puntaje.obtenido);
     const m = leerNumero(puntaje.max);
     const ex = leerNumero(puntaje.exigencia);
-    if (Number.isNaN(o) || Number.isNaN(m) || Number.isNaN(ex) || m <= 0) return null;
+    if (Number.isNaN(o) || Number.isNaN(m) || Number.isNaN(ex) || m <= 0 || o < 0 || o > m || ex <= 0 || ex >= 100) return null;
     return notaDesdePuntaje(o, { puntajeMax: m, exigencia: ex / 100 });
   })();
 
@@ -83,9 +86,11 @@ function CasillaNota({ nota, onEditar, onBorrar, soloLectura, modoActual }: { no
             ref={ref}
             type="button"
             onClick={() => setAbierto((v) => !v)}
-            aria-label="Opciones de la evaluación"
+            aria-label={`Opciones de ${nombre}`}
+            aria-expanded={abierto}
+            aria-haspopup="dialog"
             className={cx(
-              "grid w-5 place-items-center border-l border-line text-fg-3 hover:bg-surface-2 hover:text-fg",
+              "grid min-w-8 place-items-center border-l border-line text-fg-3 hover:bg-surface-2 hover:text-fg",
               nota.f !== 1 && "w-auto px-1 font-mono text-[10px] font-bold text-accent",
             )}
           >
@@ -102,18 +107,18 @@ function CasillaNota({ nota, onEditar, onBorrar, soloLectura, modoActual }: { no
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <div className="col-span-2">
-              <label className="label">Nombre</label>
-              <CampoTexto className="input !py-1.5" valor={nota.etiqueta ?? ""} placeholder="Ej. Solemne 2" onGuardar={(v) => onEditar({ etiqueta: v || undefined })} />
+              <label className="label" htmlFor={`${campoId}-nombre`}>Nombre</label>
+              <CampoTexto id={`${campoId}-nombre`} className="input !py-1.5" valor={nota.etiqueta ?? ""} placeholder="Ej. Solemne 2" onGuardar={(v) => onEditar({ etiqueta: v || undefined })} />
             </div>
             <div>
-              <label className="label">Fecha</label>
-              <input type="date" className="input !px-2 !py-1.5" value={nota.fecha ?? ""} onChange={(e) => onEditar({ fecha: e.target.value || null })} />
+              <label className="label" htmlFor={`${campoId}-fecha`}>Fecha</label>
+              <input id={`${campoId}-fecha`} type="date" className="input !px-2 !py-1.5" value={nota.fecha ?? ""} onChange={(e) => onEditar({ fecha: e.target.value || null })} />
             </div>
             <div>
-              <label className="label" title="Cuánto vale frente a las demás de su categoría (0 = no cuenta)">
+              <label htmlFor={`${campoId}-factor`} className="label" title="Cuánto vale frente a las demás de su categoría (0 = no cuenta)">
                 Peso ×
               </label>
-              <CampoNumero className="input !py-1.5" valor={nota.f} min={0} max={100} vacioPermitido={false} onGuardar={(v) => onEditar({ f: v ?? 1 })} />
+              <CampoNumero id={`${campoId}-factor`} className="input !py-1.5" valor={nota.f} min={0} max={100} vacioPermitido={false} onGuardar={(v) => onEditar({ f: v ?? 1 })} />
             </div>
           </div>
           <div className="rounded-xl bg-surface-2 p-2.5">
@@ -156,8 +161,8 @@ function FilaCategoria({ cat, ci, editar, soloLectura, modoActual }: { cat: Cate
   const prom = modoActual ? st.promRendido : st.prom;
   const editarCat = (et: string | null, fn: (c: Categoria) => void) => editar(et, (e) => fn(e.categorias[ci]));
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface-2/50 p-2.5 sm:flex-row sm:items-start">
-      <div className="flex items-center gap-1.5 sm:w-[200px] sm:shrink-0">
+    <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface-2/50 p-3">
+      <div className="flex items-center gap-1.5">
         <CampoTexto
           valor={cat.nombre}
           disabled={soloLectura}
@@ -186,6 +191,7 @@ function FilaCategoria({ cat, ci, editar, soloLectura, modoActual }: { cat: Cate
           <CasillaNota
             key={ni}
             nota={n}
+            etiqueta={`${cat.nombre || "Evaluación"} ${ni + 1}`}
             soloLectura={soloLectura}
             modoActual={modoActual}
             onEditar={(cambio) => editarCat("Editar nota", (c) => Object.assign(c.notas[ni], cambio))}
@@ -197,7 +203,7 @@ function FilaCategoria({ cat, ci, editar, soloLectura, modoActual }: { cat: Cate
             type="button"
             onClick={() => editarCat("Agregar evaluación", (c) => c.notas.push({ n: null, f: 1 }))}
             className="grid h-[34px] w-9 place-items-center rounded-lg border border-dashed border-line-strong text-fg-3 transition-colors hover:border-accent hover:text-accent"
-            aria-label="Agregar evaluación"
+            aria-label={`Agregar evaluación a ${cat.nombre || "esta categoría"}`}
             title="Agregar evaluación"
           >
             <Plus className="size-4" />
@@ -210,6 +216,7 @@ function FilaCategoria({ cat, ci, editar, soloLectura, modoActual }: { cat: Cate
           disabled={soloLectura}
           onClick={() => editarCat(cat.req ? "Quitar requisito" : "Marcar requisito", (c) => (c.req = !c.req))}
           title={cat.req ? "Requisito aprobatorio: debe promediar 4,0 por sí sola (clic para quitar)" : "Marcar como requisito aprobatorio (debe promediar 4,0)"}
+          aria-label={`Exigir promedio 4,0 en ${cat.nombre || "esta categoría"}`}
           aria-pressed={!!cat.req}
           className={cx(
             "grid size-7 place-items-center rounded-lg transition-colors",
@@ -223,7 +230,11 @@ function FilaCategoria({ cat, ci, editar, soloLectura, modoActual }: { cat: Cate
           {fmtNota(prom, 2)}
         </span>
         {!soloLectura && (
-          <BotonIcono tamano="sm" etiqueta="Eliminar categoría" onClick={() => editar("Eliminar categoría", (e) => e.categorias.splice(ci, 1))}>
+          <BotonIcono tamano="sm" etiqueta={`Eliminar categoría ${cat.nombre || ci + 1}`} onClick={async () => {
+            if (cat.notas.some((n) => n.n !== null) && !(await confirmar({ titulo: "Eliminar categoría", mensaje: `Se quitarán ${cat.nombre || "esta categoría"} y sus notas. Puedes deshacerlo.`, aceptar: "Eliminar", peligro: true }))) return;
+            editar("Eliminar categoría", (e) => e.categorias.splice(ci, 1));
+            toast("Categoría eliminada", "info", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
+          }}>
             <Trash2 className="size-3.5" />
           </BotonIcono>
         )}
@@ -233,7 +244,9 @@ function FilaCategoria({ cat, ci, editar, soloLectura, modoActual }: { cat: Cate
 }
 
 // ── Tarjeta del ramo ──
-export function RamoCard({ ctx, periodo, entrada }: { ctx: Ctx; periodo: Periodo; entrada: Entrada }) {
+export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; periodo: Periodo; entrada: Entrada; onRegistrar: (seleccion?: SeleccionNota) => void }) {
+  const [configurando, setConfigurando] = useState(false);
+  const panelId = useId();
   const clave = clavePeriodo(periodo);
   const editar = useEditor(clave, entrada.uid);
   const mutar = useApp((s) => s.mutar);
@@ -263,7 +276,7 @@ export function RamoCard({ ctx, periodo, entrada }: { ctx: Ctx; periodo: Periodo
   // Mensajes de lo que necesitas (sin redundancias).
   const ayudas: React.ReactNode[] = [];
   if (!r.cerrado) {
-    if (r.nf === null) ayudas.push(<span key="v" className="text-fg-3">Agrega categorías con su % y sus notas</span>);
+    if (r.nf === null && !entrada.categorias.some((c) => c.notas.some((n) => n.n !== null))) ayudas.push(<span key="v" className="text-fg-3">Registra tu primera nota para empezar</span>);
     else {
       const maxReq = r.reqMetas.length ? Math.max(...r.reqMetas.map((m) => m.nec)) : null;
       const generalManda = r.reqMetas.length === 0 || r.pendienteNoReq > 0 || (r.necesaria !== null && r.necesaria > (maxReq ?? 0));
@@ -317,15 +330,15 @@ export function RamoCard({ ctx, periodo, entrada }: { ctx: Ctx; periodo: Periodo
   };
 
   return (
-    <article
+    <article aria-label={nombreEntrada(ctx, entrada)}
       className={cx(
-        "card flex flex-col overflow-hidden !rounded-2xl transition-colors",
+        "card min-w-0 flex flex-col overflow-hidden !rounded-2xl transition-colors",
         r.cerrado ? (notaMostrada! >= NOTA_APROB ? "border-ok/30" : "border-danger/30") : asegurado ? "border-ok/30" : reqMal ? "border-danger/30" : "",
       )}
     >
       <header className="flex items-start gap-3 border-b border-line p-4">
         <div className="min-w-0 flex-1">
-          {personalizable ? (
+          {personalizable && configurando ? (
             <div className="flex flex-wrap gap-1.5">
               <CampoTexto
                 className="input w-28 !px-2 !py-1 font-mono !text-[12px]"
@@ -380,19 +393,7 @@ export function RamoCard({ ctx, periodo, entrada }: { ctx: Ctx; periodo: Periodo
             {chip}
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          {!r.cerrado && entrada.categorias.length > 0 && (
-            <Segmentado
-              tamano="xs"
-              etiqueta="Cómo calcular el promedio"
-              valor={r.modo}
-              onChange={(m) => editar(null, (e) => (e.modo = m))}
-              opciones={[
-                { valor: "actual", etiqueta: "Actual", title: "Solo lo que ya rendiste, ponderado por el % evaluado" },
-                { valor: "peor", etiqueta: "Peor caso", title: "Lo pendiente cuenta como 1,0: si igual da 4,0, ya aprobaste" },
-              ]}
-            />
-          )}
+        <div className="flex w-20 shrink-0 flex-col items-end gap-1.5 sm:w-28">
           <div className="flex items-baseline gap-1.5">
             <span className={cx("text-[30px] leading-none font-extrabold tracking-tight tabular", claseNota(notaMostrada))}>{fmtNota(notaMostrada)}</span>
             {r.cerrado && (
@@ -424,17 +425,56 @@ export function RamoCard({ ctx, periodo, entrada }: { ctx: Ctx; periodo: Periodo
               </button>
             )}
           </div>
-          <span className="text-[11px] font-medium text-fg-3">
-            {r.cerrado ? "Nota final" : r.modo === "peor" ? "Si sacas 1,0 en lo que falta" : r.pesoEvaluado > 0 && r.pesoEvaluado < 100 ? `Llevas · ${fmtNota(r.pesoEvaluado, r.pesoEvaluado % 1 ? 1 : 0)}% evaluado` : "Llevas"}
+          <span className="max-w-28 text-right text-[11px] font-medium text-fg-3">
+            {r.cerrado ? "Nota final" : r.modo === "peor" ? "Si sacas 1,0 en lo que falta" : r.pesoEvaluado > 0 && r.pesoEvaluado < 100 ? `Promedio · ${fmtNota(r.pesoEvaluado, r.pesoEvaluado % 1 ? 1 : 0)}% evaluado` : "Promedio actual"}
           </span>
         </div>
-        <BotonIcono tamano="sm" etiqueta={entrada.colapsado ? "Mostrar evaluaciones" : "Ocultar evaluaciones"} onClick={() => editar(null, (e) => (e.colapsado = !e.colapsado))} aria-expanded={!entrada.colapsado}>
-          <ChevronDown className={cx("size-4 transition-transform", entrada.colapsado && "-rotate-90")} />
-        </BotonIcono>
+
       </header>
 
-      {!entrada.colapsado && (
+      {!configurando && (
+        <div id={`${panelId}-notas`} className="space-y-3 p-4">
+          {entrada.categorias.length === 0 ? <p className="text-sm leading-relaxed text-fg-2">¿Te entregaron una nota? Regístrala ahora. Puedes definir los porcentajes después.</p> :
+            <div className="space-y-3">
+              {entrada.categorias.map((cat, ci) => <div key={ci}>
+                <p className="mb-1.5 flex flex-wrap justify-between gap-1 text-xs font-semibold text-fg-2">
+                  <span>{cat.nombre || `Categoría ${ci + 1}`}</span>
+                  <span>{cat.peso ? `${cat.peso}% del ramo` : "Porcentaje por definir"}</span>
+                </p>
+                <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
+                  {cat.notas.map((n, ni) => {
+                    const nombre = n.etiqueta || `${cat.nombre || "Evaluación"} ${ni + 1}`;
+                    const contenido = <><span className="min-w-0 flex-1"><span className="block break-words text-[13px] font-medium">{nombre}</span><span className="block text-xs text-fg-2">{n.n === null ? "Pendiente" : n.f === 0 ? "No cuenta" : "Registrada"}{n.fecha ? ` · ${new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short" }).format(new Date(n.fecha + "T12:00:00"))}` : ""}</span></span><span className={cx("text-lg font-bold tabular", claseNota(n.n))}>{n.n === null ? "+" : fmtNota(n.n)}</span></>;
+                    return r.cerrado ? <div key={ni} className="flex items-center gap-2 rounded-xl bg-surface-2 p-3">{contenido}</div> : <button key={ni} type="button" className="flex min-h-16 items-center gap-2 rounded-xl border border-line bg-surface-2 p-3 text-left transition-colors hover:border-accent" aria-label={`${n.n === null ? "Registrar" : "Editar"} nota de ${nombre}${n.n !== null ? `, ${fmtNota(n.n)}` : ""}`} onClick={() => onRegistrar({ ci, ni })}>{contenido}</button>;
+                  })}
+                </div>
+              </div>)}
+            </div>}
+          {entrada.categorias.some((c) => c.peso === 0 && c.notas.some((n) => n.n !== null)) && <p className="text-xs text-warn">Hay notas sin porcentaje: aún no cuentan en tu promedio. Puedes asignarlo en «Configurar ramo».</p>}
+          {entrada.categorias.length > 0 && <div className="space-y-1 text-xs">{ayudas}</div>}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2 border-t border-line p-3">
+        {!r.cerrado && <Boton variante="suave" icono={<Plus className="size-4" />} onClick={() => onRegistrar()}>Registrar nota</Boton>}
+        <Boton variante="fantasma" className="ml-auto" icono={<Settings2 className="size-4" />} aria-expanded={configurando} aria-controls={`${panelId}-config`} onClick={() => setConfigurando((v) => !v)}>{configurando ? "Cerrar ajustes" : r.cerrado ? "Ver opciones" : "Configurar ramo"}</Boton>
+      </div>
+      {configurando && <div id={`${panelId}-config`}>
+      {(
         <div className="flex flex-1 flex-col gap-2 p-4">
+          <p className="text-sm font-semibold">Evaluaciones y porcentajes</p>
+          <p className="mb-2 text-xs text-fg-2">Cada categoría agrupa evaluaciones y aporta un porcentaje de la nota final. Los porcentajes deben sumar 100%. Los cambios se guardan al salir del campo.</p>
+          {!r.cerrado && entrada.categorias.length > 0 && (
+            <Segmentado
+              tamano="xs"
+              etiqueta="Cómo calcular el promedio"
+              valor={r.modo}
+              onChange={(m) => editar(null, (e) => (e.modo = m))}
+              opciones={[
+                { valor: "actual", etiqueta: "Actual", title: "Solo lo que ya rendiste, ponderado por el % evaluado" },
+                { valor: "peor", etiqueta: "Peor caso", title: "Lo pendiente cuenta como 1,0: si igual da 4,0, ya aprobaste" },
+              ]}
+            />
+          )}
           {entrada.categorias.map((c, ci) => (
             <FilaCategoria key={ci} cat={c} ci={ci} editar={editar} soloLectura={r.cerrado} modoActual={r.modo === "actual"} />
           ))}
@@ -474,7 +514,7 @@ export function RamoCard({ ctx, periodo, entrada }: { ctx: Ctx; periodo: Periodo
         {!r.cerrado ? (
           <>
             <Boton tamano="sm" variante="fantasma" icono={<Plus className="size-4" />} onClick={() => editar("Agregar categoría", (e) => e.categorias.push({ nombre: "", peso: 0, notas: [{ n: null, f: 1 }] }))}>
-              Categoría
+              Agregar categoría
             </Boton>
             {entrada.categorias.length > 0 && (
               <>
@@ -528,8 +568,8 @@ export function RamoCard({ ctx, periodo, entrada }: { ctx: Ctx; periodo: Periodo
             >
               {entrada.meta ? `Meta ${fmtNota(entrada.meta)}` : "Meta"}
             </Boton>
-            <Boton tamano="sm" variante="primario" className="ml-auto" icono={<Flag className="size-4" />} onClick={registrarFinal}>
-              Nota final
+            <Boton tamano="sm" variante="secundario" className="ml-auto" icono={<Flag className="size-4" />} onClick={registrarFinal}>
+              Cerrar ramo con nota final
             </Boton>
           </>
         ) : (
@@ -553,6 +593,7 @@ export function RamoCard({ ctx, periodo, entrada }: { ctx: Ctx; periodo: Periodo
           Quitar
         </Boton>
       </footer>
+      </div>}
     </article>
   );
 }

@@ -196,12 +196,11 @@ function TarjetaRamo({
       className={cx(
         "group relative flex min-h-[104px] w-full flex-col gap-1.5 overflow-hidden rounded-xl border p-2.5 pl-3.5 text-left transition-all duration-150",
         estilos[estado],
-        cubierto && "opacity-60",
         rel === "origen" && "ring-2 ring-accent",
         rel === "prereq" && "ring-2 ring-[var(--rel-prereq)]",
         rel === "unlock" && "ring-2 ring-[var(--rel-unlock)]",
         rel === "parcial" && "ring-2 ring-[var(--rel-partial)] ring-offset-1 ring-offset-surface",
-        rel === "atenuado" && "opacity-40",
+        rel === "atenuado" && "border-line",
         critico > 0 && !rel && "ring-2 ring-danger/70",
       )}
     >
@@ -210,7 +209,7 @@ function TarjetaRamo({
         <span className="font-mono text-[10.5px] font-semibold text-fg-3">{siglaRamo(ctx, ramo.id)}</span>
         <span className="ml-auto flex items-center gap-1">
           {critico > 0 && (
-            <span className="grid size-4.5 place-items-center rounded-full bg-danger text-[9.5px] font-bold text-white" title={`Paso ${critico} de la ruta crítica`}>
+            <span className="grid size-4.5 place-items-center rounded-full bg-danger text-[9.5px] font-bold text-white dark:text-bg" title={`Paso ${critico} de la ruta crítica`}>
               {critico}
             </span>
           )}

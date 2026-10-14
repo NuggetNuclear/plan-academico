@@ -55,7 +55,7 @@ export function GraficoPPA({ datos, posicion }: { datos: PuntoPPA[]; posicion: s
         viewBox={`0 0 ${W} ${H}`}
         className="block h-auto max-w-full touch-none overflow-visible select-none"
         role="img"
-        aria-label="Evolución del PPA por semestre"
+        aria-label={`Evolución del PPA por semestre. ${datos.map((p) => `${p.etiqueta}: promedio ${fmtNota(p.ppa, 2)}, acumulado ${fmtNota(p.acumulado, 3)}`).join(". ")}`}
         onPointerMove={onMove}
         onPointerLeave={() => setHover(null)}
       >
@@ -169,7 +169,7 @@ export function Histograma({ notas }: { notas: number[] }) {
   const yBase = H - pad.b;
   return (
     <div ref={caja}>
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="block h-auto max-w-full overflow-visible" role="img" aria-label="Distribución de notas por rango">
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="block h-auto max-w-full overflow-visible" role="img" aria-label={`Distribución de notas por rango. ${rangos.map((r, i) => `${r.et}: ${conteos[i]} notas`).join(". ")}`}>
       <line x1={pad.l} x2={W - pad.r} y1={yBase} y2={yBase} stroke="var(--line-strong)" strokeWidth="1" />
       {/* Separación entre reprobadas y aprobadas */}
       <line x1={pad.l + banda * 3} x2={pad.l + banda * 3} y1={pad.t - 6} y2={yBase} stroke="var(--fg-3)" strokeWidth="1" strokeDasharray="0" opacity="0.6" />
@@ -187,9 +187,6 @@ export function Histograma({ notas }: { notas: number[] }) {
             key={r.et}
             onPointerEnter={() => setHover(i)}
             onPointerLeave={() => setHover(null)}
-            tabIndex={0}
-            onFocus={() => setHover(i)}
-            onBlur={() => setHover(null)}
             aria-label={`${r.et}: ${conteos[i]} notas`}
           >
             <rect x={pad.l + banda * i} y={pad.t - 10} width={banda} height={yBase - pad.t + 10} fill="transparent" />

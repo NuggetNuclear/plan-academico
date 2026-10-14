@@ -1,4 +1,4 @@
-import { Calculator, CalendarPlus, FileDown, FolderOpen, FolderPlus, Search, Sun, Target, Trash2, FileCheck2, Gauge } from "lucide-react";
+import { Calculator, CalendarPlus, FileDown, FolderPlus, Search, Target, Trash2, Gauge, Plus, NotebookPen } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   calcularPPA,
@@ -24,8 +24,9 @@ import { agregarRamoAPeriodo, eliminarPeriodo, obtenerPeriodo, periodoPorClave }
 import { confirmar, toast } from "../store/ui";
 import { CampoNumero } from "../ui/CampoNumero";
 import { CabeceraModal, Modal, PieModal } from "../ui/overlays";
-import { Boton, BotonIcono, CabeceraTarjeta, Tarjeta, cx } from "../ui/primitives";
-import { RamoCard, RamoEjemplo } from "./notas/RamoCard";
+import { Boton, BotonIcono, Tarjeta, cx } from "../ui/primitives";
+import { RegistroNota, type SeleccionNota } from "./notas/RegistroNota";
+import { RamoCard } from "./notas/RamoCard";
 
 function Simulador() {
   const ctx = useCtx();
@@ -139,7 +140,7 @@ function ModalPeriodo({ abierto, onCerrar, onCrear }: { abierto: boolean; onCerr
         }}
       >
         <CabeceraModal icono={<FolderPlus className="size-5" />} sobretitulo="Notas" titulo="¿Qué periodo quieres crear?" />
-        <div className="space-y-2 px-6 pt-4" role="radiogroup">
+        <div className="space-y-2 px-6 pt-4" role="radiogroup" aria-label="Tipo de periodo">
           {(
             [
               ["regular", "Semestre regular", "Un semestre normal de tu carrera."],
@@ -199,17 +200,17 @@ function ModalEscala({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => 
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Puntaje máximo</label>
-              <CampoNumero className="input" valor={max} min={1} onGuardar={setMax} />
+              <label className="label" htmlFor="escala-max">Puntaje máximo</label>
+              <CampoNumero id="escala-max" className="input" valor={max} min={1} onGuardar={setMax} />
             </div>
             <div>
-              <label className="label">Exigencia (%)</label>
-              <CampoNumero className="input" valor={exig} min={1} max={99} onGuardar={setExig} />
+              <label className="label" htmlFor="escala-exig">Exigencia (%)</label>
+              <CampoNumero id="escala-exig" className="input" valor={exig} min={1} max={99} onGuardar={setExig} />
             </div>
           </div>
           <div>
-            <label className="label">Tu puntaje</label>
-            <CampoNumero className="input text-lg font-bold" valor={obtenido} min={0} placeholder="Ej. 42" onGuardar={setObtenido} />
+            <label className="label" htmlFor="escala-puntaje">Tu puntaje</label>
+            <CampoNumero id="escala-puntaje" className="input text-lg font-bold" valor={obtenido} min={0} placeholder="Ej. 42" onGuardar={setObtenido} />
           </div>
           <div className="rounded-2xl bg-accent-soft p-4 text-center">
             <p className="text-[12px] font-semibold text-fg-2">Tu nota</p>
@@ -270,25 +271,33 @@ function BuscadorRamo({ periodo }: { periodo: Periodo }) {
         placeholder={conv ? "Buscar y agregar un ramo convalidado…" : "Buscar y agregar un ramo a este periodo…"}
         value={q}
         role="combobox"
+        aria-label="Buscar y agregar un ramo"
+        aria-autocomplete="list"
+        aria-activedescendant={abierto && resultados[activo] ? `buscador-opcion-${activo}` : undefined}
         aria-expanded={abierto}
-        aria-controls="lista-buscador"
+        aria-controls={abierto && resultados.length > 0 ? "lista-buscador" : undefined}
         onChange={(e) => (setQ(e.target.value), setAbierto(true), setActivo(0))}
         onFocus={() => setAbierto(true)}
         onBlur={() => setTimeout(() => setAbierto(false), 150)}
         onKeyDown={(e) => {
-          if (e.key === "ArrowDown") (e.preventDefault(), setActivo((a) => Math.min(resultados.length - 1, a + 1)));
+          if (e.key === "ArrowDown") (e.preventDefault(), setAbierto(true), setActivo((a) => Math.max(0, Math.min(resultados.length - 1, a + 1))));
           if (e.key === "ArrowUp") (e.preventDefault(), setActivo((a) => Math.max(0, a - 1)));
-          if (e.key === "Enter" && resultados[activo]) (e.preventDefault(), agregar(resultados[activo].id));
+          if (e.key === "Enter" && abierto && resultados[activo]) (e.preventDefault(), agregar(resultados[activo].id));
           if (e.key === "Escape") setAbierto(false);
         }}
       />
       {abierto && resultados.length > 0 && (
         <ul id="lista-buscador" role="listbox" className="animar-entrada absolute inset-x-0 top-full z-20 mt-1.5 max-h-80 overflow-y-auto rounded-2xl border border-line bg-surface p-1.5 shadow-pop">
           {resultados.map((r, i) => (
-            <li key={r.id} role="option" aria-selected={i === activo}>
+            <li key={r.id} role="presentation">
               <button
                 type="button"
-                onMouseDown={(e) => (e.preventDefault(), agregar(r.id))}
+                tabIndex={-1}
+                id={`buscador-opcion-${i}`}
+                role="option"
+                aria-selected={i === activo}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => agregar(r.id)}
                 onMouseEnter={() => setActivo(i)}
                 className={cx("flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13.5px]", i === activo && "bg-surface-2")}
               >
@@ -308,6 +317,9 @@ export function Notas() {
   const ctx = useCtx();
   const mutar = useApp((s) => s.mutar);
   const [sel, setSel] = useState<string | null>(null);
+  const [registro, setRegistro] = useState<SeleccionNota | null>(null);
+  const [buscar, setBuscar] = useState("");
+  const [agregando, setAgregando] = useState(false);
   const [modalPeriodo, setModalPeriodo] = useState(false);
   const [modalEscala, setModalEscala] = useState(false);
   const verano = ctx.cur.malla.periodoVerano ?? "Semestre de verano";
@@ -316,7 +328,8 @@ export function Notas() {
   const claveSel = sel && ordenados.some((p) => clavePeriodo(p) === sel) ? sel : `s${ctx.st.semestreActual}`;
   const periodo = ordenados.find((p) => clavePeriodo(p) === claveSel) ?? ordenados.at(-1);
   const promedio = periodo ? calcularPPA(ctx, [periodo]).ppa : null;
-  const tieneNotas = periodo?.ramos.some((e) => e.notaFinal !== null || e.categorias.some((c) => c.notas.some((n) => n.n !== null)));
+  const ramosVisibles = periodo?.ramos.filter((e) => normalizarTexto(`${nombreEntrada(ctx, e)} ${siglaEntrada(ctx, e)}`).includes(normalizarTexto(buscar.trim()))) ?? [];
+  const pendientes = periodo?.ramos.filter((e) => e.notaFinal === null).reduce((n, e) => n + e.categorias.reduce((s, c) => s + c.notas.filter((x) => x.n === null).length, 0), 0) ?? 0;
 
   const exportarPDF = () => {
     let cuerpo = "";
@@ -338,16 +351,85 @@ export function Notas() {
 
   const exportarICS = () => {
     const evs = evaluacionesConFecha(ctx);
-    if (!evs.length) return toast("Primero agrega fechas a tus evaluaciones (botón ··· de cada nota).", "info");
+    if (!evs.length) return toast("Primero agrega una fecha al registrar o editar una evaluación.", "info");
     descargarArchivo(`evaluaciones-s${ctx.st.semestreActual}.ics`, generarICS(evs, `Evaluaciones · ${ctx.cur.malla.carrera}`), "text/calendar");
     toast(`${plural(evs.length, "evaluación exportada", "evaluaciones exportadas")}. Ábrelo con Google Calendar o tu app de calendario.`);
   };
 
   return (
     <div className="space-y-4">
-      <p className="max-w-3xl text-[13.5px] text-fg-2">
-        Funciona como una planilla: ingresas tus evaluaciones una vez y se calculan solos los promedios por categoría, la nota del ramo, lo que necesitas para aprobar y tu PPA.
-      </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-extrabold tracking-tight">Tus notas, al día</h2>
+          <p className="mt-1 text-sm text-fg-2">Registra una nota o toca una evaluación para actualizarla.</p>
+        </div>
+        <Boton variante="primario" icono={<Plus className="size-5" />} onClick={() => setRegistro({})} disabled={!periodo?.ramos.some((e) => e.notaFinal === null)}>Registrar nota</Boton>
+      </div>
+      <Tarjeta>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-full min-w-0 sm:max-w-xs">
+            <label htmlFor="notas-periodo" className="label">Periodo</label>
+            <select id="notas-periodo" className="input font-semibold" value={periodo ? clavePeriodo(periodo) : ""} onChange={(e) => { setSel(e.target.value); setBuscar(""); setAgregando(false); }}>
+              {ordenados.map((p) => <option key={clavePeriodo(p)} value={clavePeriodo(p)}>{nombrePeriodo(p, verano)}{esPeriodoActual(ctx.st, p) ? " · En curso" : ""}</option>)}
+            </select>
+          </div>
+          <p className="pb-2 text-sm text-fg-2">{plural(periodo?.ramos.length ?? 0, "ramo")} · {plural(pendientes, "evaluación pendiente", "evaluaciones pendientes")}</p>
+        </div>
+
+        {periodo && (
+          <div className="mt-5 space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-0 flex-1 basis-48">
+                <label className="sr-only" htmlFor="filtrar-ramos">Buscar en mis ramos</label>
+                <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-fg-3" />
+                <input id="filtrar-ramos" className="input !pl-9" type="search" placeholder="Buscar en mis ramos" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
+              </div>
+              <Boton icono={<Plus className="size-4" />} variante="secundario" aria-expanded={agregando} aria-controls="agregar-ramo" onClick={() => setAgregando((v) => !v)}>Agregar ramo</Boton>
+              {!esPeriodoActual(ctx.st, periodo) && (
+                <BotonIcono
+                  etiqueta={`Eliminar ${nombrePeriodo(periodo, verano)}`}
+                  className="hover:!text-danger"
+                  onClick={async () => {
+                    const ok = await confirmar({
+                      titulo: `Eliminar ${nombrePeriodo(periodo, verano)}`,
+                      mensaje: periodo.ramos.length ? `Tiene ${plural(periodo.ramos.length, "ramo")} con sus notas. Puedes deshacerlo justo después.` : "Está vacío.",
+                      aceptar: "Eliminar",
+                      peligro: true,
+                    });
+                    if (!ok) return;
+                    mutar(`Eliminar ${nombrePeriodo(periodo, verano)}`, (c) => {
+                      const p = periodoPorClave(c.st, claveSel);
+                      if (p) eliminarPeriodo(c, p);
+                    });
+                    setSel(null);
+                  }}
+                >
+                  <Trash2 className="size-4" />
+                </BotonIcono>
+              )}
+            </div>
+            {agregando && <div id="agregar-ramo" className="rounded-xl border border-line bg-surface-2 p-3">
+              <p className="mb-2 text-sm font-semibold">Busca un ramo de tu malla para agregarlo</p>
+              <BuscadorRamo periodo={periodo} />
+            </div>}
+            {periodo.ramos.length === 0 && <div className="rounded-2xl border border-dashed border-line-strong px-5 py-8 text-center">
+              <NotebookPen aria-hidden="true" className="mx-auto mb-3 size-7 text-accent" />
+              <h3 className="font-bold">Empieza con tu primer ramo</h3>
+              <p className="mx-auto mt-2 max-w-sm text-sm text-fg-2">Usa «Agregar ramo» o marca lo que estás cursando en Mi malla. Después podrás registrar tus notas aquí.</p>
+            </div>}
+            {periodo.ramos.length > 0 && ramosVisibles.length === 0 && <p role="status" className="py-6 text-center text-sm text-fg-2">No hay ramos que coincidan con «{buscar}».</p>}
+            <div className="grid items-start gap-4 xl:grid-cols-2">
+              {ramosVisibles.map((e) => (
+                <RamoCard key={e.uid} ctx={ctx} periodo={periodo} entrada={e} onRegistrar={(seleccion) => setRegistro({ uid: e.uid, ...seleccion })} />
+              ))}
+            </div>
+          </div>
+        )}
+      </Tarjeta>
+
+      <details className="card p-4 sm:p-5">
+        <summary className="font-semibold text-fg-2">Promedios, simulador y herramientas</summary>
+        <div className="mt-4 space-y-4">
       <div className="grid gap-4 lg:grid-cols-3">
         <Tarjeta className="flex flex-col justify-between gap-4">
           <div>
@@ -386,123 +468,15 @@ export function Notas() {
         <Simulador />
       </div>
 
-      <Tarjeta>
-        <CabeceraTarjeta
-          icono={<FolderOpen className="size-[18px]" />}
-          titulo="Periodos"
-          descripcion="El semestre en curso se crea solo con los ramos que marcaste como Cursando."
-          acciones={
-            <>
-              <Boton tamano="sm" variante="fantasma" icono={<Calculator className="size-4" />} onClick={() => setModalEscala(true)}>
-                Escala de notas
-              </Boton>
-              <Boton tamano="sm" variante="fantasma" icono={<CalendarPlus className="size-4" />} onClick={exportarICS}>
-                Calendario
-              </Boton>
-              <Boton tamano="sm" variante="fantasma" icono={<FileDown className="size-4" />} onClick={exportarPDF}>
-                PDF
-              </Boton>
-              <Boton tamano="sm" variante="primario" icono={<FolderPlus className="size-4" />} onClick={() => setModalPeriodo(true)}>
-                Crear periodo
-              </Boton>
-            </>
-          }
-        />
-        <div className="scroll-x -mx-1 mb-4 px-1 pb-1">
-          <div className="flex gap-2" role="tablist" aria-label="Periodos">
-            {ordenados.map((p) => {
-              const k = clavePeriodo(p);
-              const activo = k === clavePeriodo(periodo!);
-              const ppaP = calcularPPA(ctx, [p]).ppa;
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  role="tab"
-                  aria-selected={activo}
-                  onClick={() => setSel(k)}
-                  className={cx(
-                    "flex min-w-[118px] shrink-0 flex-col items-start gap-0.5 rounded-2xl border px-3.5 py-2.5 text-left transition-colors",
-                    activo ? "border-accent bg-accent-soft" : "border-line hover:border-line-strong",
-                  )}
-                >
-                  <span className="flex items-center gap-1.5 text-[13px] font-bold">
-                    {p.tipo === "convalidaciones" ? <FileCheck2 className="size-3.5" /> : p.tipo === "verano" ? <Sun className="size-3.5" /> : null}
-                    {p.tipo === "convalidaciones" ? "Convalidaciones" : p.tipo === "verano" ? `Verano ${p.numero}` : `Semestre ${p.numero}`}
-                  </span>
-                  <span className="text-[11.5px] text-fg-3">
-                    {esPeriodoActual(ctx.st, p) && <span className="mr-1 font-bold text-accent">Actual ·</span>}
-                    {ppaP !== null ? `Prom. ${fmtNota(ppaP, 2)}` : plural(p.ramos.length, "ramo")}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="flex flex-wrap gap-2">
+            <Boton icono={<Calculator className="size-4" />} onClick={() => setModalEscala(true)}>Escala de notas</Boton>
+            <Boton icono={<CalendarPlus className="size-4" />} onClick={exportarICS}>Exportar calendario</Boton>
+            <Boton icono={<FileDown className="size-4" />} onClick={exportarPDF}>Exportar PDF</Boton>
+            <Boton icono={<FolderPlus className="size-4" />} onClick={() => setModalPeriodo(true)}>Crear periodo</Boton>
           </div>
         </div>
-
-        {periodo && (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="min-w-[240px] flex-1">
-                <BuscadorRamo periodo={periodo} />
-              </div>
-              {periodo.ramos.length > 1 && (
-                <Boton
-                  tamano="sm"
-                  variante="fantasma"
-                  onClick={() =>
-                    mutar(null, (c) => {
-                      const p = periodoPorClave(c.st, claveSel);
-                      if (!p) return;
-                      const colapsar = !p.ramos.every((e) => e.colapsado);
-                      p.ramos.forEach((e) => (e.colapsado = colapsar));
-                    })
-                  }
-                >
-                  {periodo.ramos.every((e) => e.colapsado) ? "Expandir todo" : "Colapsar todo"}
-                </Boton>
-              )}
-              {!esPeriodoActual(ctx.st, periodo) && (
-                <BotonIcono
-                  etiqueta={`Eliminar ${nombrePeriodo(periodo, verano)}`}
-                  className="hover:!text-danger"
-                  onClick={async () => {
-                    const ok = await confirmar({
-                      titulo: `Eliminar ${nombrePeriodo(periodo, verano)}`,
-                      mensaje: periodo.ramos.length ? `Tiene ${plural(periodo.ramos.length, "ramo")} con sus notas. Puedes deshacerlo justo después.` : "Está vacío.",
-                      aceptar: "Eliminar",
-                      peligro: true,
-                    });
-                    if (!ok) return;
-                    mutar(`Eliminar ${nombrePeriodo(periodo, verano)}`, (c) => {
-                      const p = periodoPorClave(c.st, claveSel);
-                      if (p) eliminarPeriodo(c, p);
-                    });
-                    setSel(null);
-                  }}
-                >
-                  <Trash2 className="size-4" />
-                </BotonIcono>
-              )}
-            </div>
-            {!tieneNotas && (
-              <p className="text-[13px] text-fg-2">
-                {periodo.ramos.length > 0
-                  ? "Así se ve un ramo con notas (el ejemplo desaparece al ingresar la primera):"
-                  : esPeriodoActual(ctx.st, periodo)
-                    ? "Marca ramos como Cursando en la malla o búscalos arriba. Así se ve un ramo con notas:"
-                    : "Busca arriba los ramos que cursaste en este periodo. Así se ve un ramo con notas:"}
-              </p>
-            )}
-            <div className="grid gap-4 2xl:grid-cols-2">
-              {!tieneNotas && <RamoEjemplo />}
-              {periodo.ramos.map((e) => (
-                <RamoCard key={e.uid} ctx={ctx} periodo={periodo} entrada={e} />
-              ))}
-            </div>
-          </div>
-        )}
-      </Tarjeta>
+      </details>
+      {registro && periodo && <RegistroNota ctx={ctx} periodo={periodo} seleccion={registro} onCerrar={() => setRegistro(null)} />}
 
       <ModalPeriodo
         abierto={modalPeriodo}

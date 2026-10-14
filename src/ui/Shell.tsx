@@ -15,7 +15,7 @@ import {
   Undo2,
   UserRound,
 } from "lucide-react";
-import { useRef, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import { useApp } from "../store/app";
 import { useUI, toast, type Tema, type Vista } from "../store/ui";
 import { Ayuda } from "../views/Ayuda";
@@ -81,6 +81,7 @@ function BotonCuenta({ compacta }: { compacta: boolean }) {
       onClick={() => setCuenta(true)}
       className={cx("flex w-full items-center gap-2.5 rounded-2xl border border-line bg-surface-2 p-2.5 text-left transition-colors hover:border-line-strong", compacta && "justify-center p-2")}
       title="Mi cuenta y mis datos"
+      aria-label={compacta ? "Mi cuenta y mis datos" : undefined}
     >
       <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-accent-soft text-accent">
         {usuario?.foto ? <img src={usuario.foto} alt="" className="size-full object-cover" referrerPolicy="no-referrer" /> : <UserRound className="size-4" />}
@@ -117,7 +118,7 @@ function Lateral() {
           {compacta ? <ChevronsRight className="size-4" /> : <ChevronsLeft className="size-4" />}
         </BotonIcono>
       </div>
-      <nav className="flex flex-1 flex-col gap-1" aria-label="Secciones">
+      <nav className="flex flex-1 flex-col gap-1" aria-label="Navegación lateral">
         {!compacta && <p className="px-3 pb-1 text-[11px] font-bold tracking-wider text-fg-3 uppercase">Tu carrera</p>}
         {NAV.map((it, i) => {
           const activo = vista === it.vista;
@@ -131,6 +132,7 @@ function Lateral() {
                 irA(it.vista);
               }}
               aria-current={activo ? "page" : undefined}
+              aria-label={it.titulo}
               title={compacta ? it.titulo : it.descripcion}
               className={cx(
                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold transition-colors",
@@ -163,7 +165,7 @@ function SelectorTema() {
   ];
   return (
     <>
-      <BotonIcono ref={ref} etiqueta="Cambiar tema" onClick={() => setAbierto((v) => !v)} aria-haspopup="menu" aria-expanded={abierto}>
+      <BotonIcono ref={ref} etiqueta="Cambiar tema" onClick={() => setAbierto((v) => !v)} aria-haspopup="dialog" aria-expanded={abierto}>
         {oscuro ? <Moon className="size-[18px]" /> : <Sun className="size-[18px]" />}
       </BotonIcono>
       <Popover ancla={ref} abierto={abierto} onCerrar={() => setAbierto(false)} ancho={200}>
@@ -198,8 +200,8 @@ function Encabezado() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-        <div className="lg:hidden">
+      <div className="mx-auto flex max-w-[1400px] items-center gap-1 px-3 py-3 sm:gap-3 sm:px-6 lg:px-8">
+        <div className="hidden sm:block lg:hidden">
           <Marca compacta />
         </div>
         <div className="min-w-0 flex-1">
@@ -250,7 +252,7 @@ function NavMovil() {
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
-      aria-label="Secciones"
+      aria-label="Navegación móvil"
     >
       {NAV.map((it) => {
         const Icono = it.icono;
@@ -337,12 +339,23 @@ function Pie() {
 export function Shell() {
   const vista = useUI((s) => s.vista);
   const Vista = VISTAS[vista];
+  const main = useRef<HTMLElement>(null);
+  const anterior = useRef(vista);
+  useEffect(() => {
+    document.title = `${NAV.find((n) => n.vista === vista)?.titulo} · Planner académico`;
+    if (anterior.current !== vista) {
+      main.current?.focus();
+      window.scrollTo(0, 0);
+      anterior.current = vista;
+    }
+  }, [vista]);
   return (
     <div className="flex min-h-dvh">
+      <a href="#contenido" className="skip-link" onClick={(e) => { e.preventDefault(); main.current?.focus(); main.current?.scrollIntoView(); }}>Saltar al contenido</a>
       <Lateral />
       <div className="min-w-0 flex-1">
         <Encabezado />
-        <main key={vista} className="animar-fundido mx-auto max-w-[1400px] px-4 pt-5 sm:px-6 lg:px-8 lg:pt-7">
+        <main ref={main} id="contenido" tabIndex={-1} aria-label={NAV.find((n) => n.vista === vista)?.titulo} key={vista} className="animar-fundido mx-auto max-w-[1400px] px-4 pt-5 sm:px-6 lg:px-8 lg:pt-7">
           <Vista />
         </main>
         <Pie />

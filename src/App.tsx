@@ -71,7 +71,8 @@ export default function App() {
   if (carga === "cargando")
     return (
       <div className="grid min-h-dvh place-items-center">
-        <div className="flex flex-col items-center gap-3 text-fg-2">
+        <div role="status" className="flex flex-col items-center gap-3 text-fg-2">
+          <span className="sr-only">Cargando tu planner académico…</span>
           <span className="grid size-12 place-items-center rounded-2xl bg-accent text-accent-fg shadow-card">
             <GraduationCap className="size-6" />
           </span>

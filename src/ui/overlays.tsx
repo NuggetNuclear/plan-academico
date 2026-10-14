@@ -20,64 +20,41 @@ export function Modal({
   etiqueta: string;
   cerrable?: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!abierto) return;
+  const ref = useRef<HTMLDialogElement>(null);
+  // El callback cambia al editar campos; no debe reiniciar el foco del diálogo.
+  const cerrarRef = useRef(onCerrar);
+  cerrarRef.current = onCerrar;
+  useLayoutEffect(() => {
+    if (!abierto || !ref.current) return;
+    const dialogo = ref.current;
     const previo = document.activeElement as HTMLElement | null;
-    const t = setTimeout(() => {
-      const el = ref.current?.querySelector<HTMLElement>("[data-autofocus], input, select, textarea, button:not([data-cerrar])");
-      el?.focus();
-    }, 30);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && cerrable) {
-        e.stopPropagation();
-        onCerrar();
-      }
-      if (e.key === "Tab" && ref.current) {
-        const focos = [...ref.current.querySelectorAll<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")].filter(
-          (x) => !x.hasAttribute("disabled"),
-        );
-        if (!focos.length) return;
-        const [primero, ultimo] = [focos[0], focos[focos.length - 1]];
-        if (e.shiftKey && document.activeElement === primero) {
-          e.preventDefault();
-          ultimo.focus();
-        } else if (!e.shiftKey && document.activeElement === ultimo) {
-          e.preventDefault();
-          primero.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", onKey, true);
+    const overflow = document.body.style.overflow;
+    dialogo.showModal();
     document.body.style.overflow = "hidden";
+    const inicial = dialogo.querySelector<HTMLElement>("[data-autofocus]") ?? dialogo.querySelector<HTMLElement>("input:not(:disabled):not([hidden]), select:not(:disabled), textarea:not(:disabled), button:not(:disabled):not([data-cerrar])");
+    inicial?.focus();
     return () => {
-      clearTimeout(t);
-      document.removeEventListener("keydown", onKey, true);
-      document.body.style.overflow = "";
-      previo?.focus?.();
+      dialogo.close();
+      document.body.style.overflow = overflow;
+      if (previo?.isConnected) previo.focus();
     };
-  }, [abierto, cerrable, onCerrar]);
+  }, [abierto]);
 
   if (!abierto) return null;
   const anchos = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-xl", xl: "max-w-3xl" };
   return createPortal(
-    <div
-      className="animar-fundido fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-[3px] sm:items-center sm:p-4"
-      onMouseDown={(e) => e.target === e.currentTarget && cerrable && onCerrar()}
+    <dialog
+      ref={ref}
+      aria-label={etiqueta}
+      aria-modal="true"
+      onCancel={(e) => { e.preventDefault(); if (cerrable) cerrarRef.current(); }}
+      onClick={(e) => { if (e.target === e.currentTarget && cerrable) cerrarRef.current(); }}
+      className="fixed inset-0 m-0 flex h-dvh max-h-none w-screen max-w-none items-end justify-center border-0 bg-transparent p-0 text-fg backdrop:bg-black/50 backdrop:backdrop-blur-[3px] sm:items-center sm:p-4"
     >
-      <div
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-label={etiqueta}
-        className={cx(
-          "animar-entrada max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl border border-line bg-surface shadow-pop sm:rounded-3xl",
-          anchos[ancho],
-        )}
-      >
+      <div className={cx("animar-entrada max-h-[92dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl border border-line bg-surface pb-[env(safe-area-inset-bottom)] shadow-pop sm:rounded-3xl", anchos[ancho])}>
         {children}
       </div>
-    </div>,
+    </dialog>,
     document.body,
   );
 }
@@ -151,6 +128,8 @@ export function HostDialogos() {
             </label>
             <input
               id="dialogo-campo"
+              aria-invalid={!!error}
+              aria-describedby={error ? "dialogo-error" : undefined}
               data-autofocus
               className={cx("input", error && "border-danger")}
               value={valor}
@@ -163,7 +142,7 @@ export function HostDialogos() {
               }}
             />
             {error && (
-              <p role="alert" className="mt-1.5 text-[12px] font-medium text-danger">
+              <p id="dialogo-error" role="alert" className="mt-1.5 text-[12px] font-medium text-danger">
                 {error}
               </p>
             )}
@@ -238,6 +217,8 @@ export function Popover({
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const cerrarRef = useRef(onCerrar);
+  cerrarRef.current = onCerrar;
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useLayoutEffect(() => {
@@ -264,29 +245,34 @@ export function Popover({
     const fuera = (e: PointerEvent) => {
       const t = e.target as Node;
       if (ref.current?.contains(t) || ancla.current?.contains(t)) return;
-      onCerrar();
+      cerrarRef.current();
     };
     const tecla = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onCerrar();
+      if (e.key === "Escape" && ref.current?.contains(document.activeElement)) {
+        e.stopPropagation();
+        e.preventDefault();
+        cerrarRef.current();
         ancla.current?.focus();
       }
     };
     document.addEventListener("pointerdown", fuera);
-    document.addEventListener("keydown", tecla);
+    document.addEventListener("keydown", tecla, true);
     const t = setTimeout(() => ref.current?.querySelector<HTMLElement>("button, input, select")?.focus(), 20);
     return () => {
       clearTimeout(t);
       document.removeEventListener("pointerdown", fuera);
-      document.removeEventListener("keydown", tecla);
+      document.removeEventListener("keydown", tecla, true);
     };
-  }, [abierto, onCerrar, ancla]);
+  }, [abierto, ancla]);
 
   if (!abierto) return null;
   return createPortal(
     <div
       ref={ref}
-      style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999, width: ancho }}
+      role="dialog"
+      aria-label="Opciones"
+      onBlur={(e) => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget) && !ancla.current?.contains(e.relatedTarget)) cerrarRef.current(); }}
+      style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999, width: ancho, maxWidth: "calc(100vw - 16px)", maxHeight: "calc(100dvh - 16px)", overflowY: "auto" }}
       className={cx("animar-entrada fixed z-[55] rounded-2xl border border-line bg-surface p-1.5 shadow-pop", className)}
     >
       {children}

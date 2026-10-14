@@ -1,6 +1,6 @@
 import { ArrowRight, BookOpen, Download, FileUp, Moon, Search, Sun, Undo2, UserRound, Wand2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { Modal } from "./overlays";
 import { aprobadosSet, estadoRamo, ETIQUETA_ESTADO, nombreRamo, siglaRamo } from "../core/academic";
 import { normalizarTexto } from "../core/format";
 import { useApp, useCtx } from "../store/app";
@@ -83,9 +83,9 @@ export function PaletaComandos() {
 
   if (!abierta) return null;
   let grupoPrevio = "";
-  return createPortal(
-    <div className="animar-fundido fixed inset-0 z-[70] flex items-start justify-center bg-black/40 p-4 pt-[12vh] backdrop-blur-[3px]" onMouseDown={(e) => e.target === e.currentTarget && setPaleta(false)}>
-      <div role="dialog" aria-modal="true" aria-label="Buscar" className="animar-entrada w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-surface shadow-pop">
+  return (
+    <Modal abierto onCerrar={() => setPaleta(false)} etiqueta="Buscar ramo o acción" ancho="lg">
+      <div>
         <div className="flex items-center gap-3 border-b border-line px-4">
           <Search className="size-4.5 text-fg-3" />
           <input
@@ -93,7 +93,7 @@ export function PaletaComandos() {
             value={q}
             onChange={(e) => (setQ(e.target.value), setActivo(0))}
             onKeyDown={(e) => {
-              if (e.key === "ArrowDown") (e.preventDefault(), setActivo((a) => Math.min(filtrados.length - 1, a + 1)));
+              if (e.key === "ArrowDown") (e.preventDefault(), setActivo((a) => Math.max(0, Math.min(filtrados.length - 1, a + 1))));
               else if (e.key === "ArrowUp") (e.preventDefault(), setActivo((a) => Math.max(0, a - 1)));
               else if (e.key === "Enter") (e.preventDefault(), filtrados[activo]?.accion());
               else if (e.key === "Escape") setPaleta(false);
@@ -101,22 +101,29 @@ export function PaletaComandos() {
             placeholder="Busca un ramo, una sección o una acción…"
             className="h-14 flex-1 bg-transparent text-[15px] outline-none placeholder:text-fg-3"
             role="combobox"
+            aria-label="Buscar ramo, sección o acción"
+            aria-autocomplete="list"
+            aria-activedescendant={filtrados[activo] ? `paleta-opcion-${activo}` : undefined}
             aria-expanded="true"
             aria-controls="paleta-lista"
           />
           <kbd className="rounded-md border border-line bg-surface-2 px-1.5 font-mono text-[10.5px] text-fg-3">Esc</kbd>
         </div>
         <ul ref={lista} id="paleta-lista" role="listbox" className="max-h-[52vh] overflow-y-auto p-2">
-          {filtrados.length === 0 && <li className="px-3 py-8 text-center text-[13.5px] text-fg-3">Sin resultados para «{q}»</li>}
+          {filtrados.length === 0 && <li role="presentation" className="px-3 py-8 text-center text-[13.5px] text-fg-3">Sin resultados para «{q}»</li>}
           {filtrados.map((it, i) => {
             const encabezado = it.grupo !== grupoPrevio ? it.grupo : null;
             grupoPrevio = it.grupo;
             return (
-              <li key={it.id} role="option" aria-selected={i === activo}>
+              <li key={it.id} role="presentation">
                 {encabezado && <p className="px-3 pt-2 pb-1 text-[11px] font-bold tracking-wider text-fg-3 uppercase">{encabezado}</p>}
                 <button
                   type="button"
                   data-idx={i}
+                  id={`paleta-opcion-${i}`}
+                  role="option"
+                  aria-selected={i === activo}
+                  tabIndex={-1}
                   onClick={it.accion}
                   onMouseMove={() => setActivo(i)}
                   className={cx("flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left", i === activo ? "bg-accent-soft text-accent" : "text-fg")}
@@ -133,7 +140,6 @@ export function PaletaComandos() {
           })}
         </ul>
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }
