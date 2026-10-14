@@ -13,6 +13,7 @@ import { Shell } from "./Shell";
 import { Modal } from "./overlays";
 import { PaletaComandos } from "./PaletaComandos";
 import { RegistroNota } from "../views/notas/RegistroNota";
+import { Wizard } from "../views/Wizard";
 
 let root: Root;
 let host: HTMLDivElement;
@@ -84,5 +85,25 @@ describe("accesibilidad de las vistas", () => {
     segundo.focus();
     await act(async () => render());
     expect(document.activeElement).toBe(segundo);
+  });
+  it.each([1, 2, 3])("el asistente de inicio paso %i es accesible", async (paso) => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ json: () => Promise.resolve(mallaJSON) })));
+    useApp.setState({ indice: [{ id: "inf", nombre: "Informática", universidad: "UDP", archivo: "/carreras/inf.json" }] as never });
+    useUI.setState({ wizardAbierto: true });
+    await act(async () => root.render(createElement(Wizard)));
+    for (let i = 1; i < paso; i++) {
+      await act(async () => (document.querySelector('button[type="submit"]') as HTMLButtonElement).click());
+    }
+    await auditar();
+  });
+
+  it("sin ramos pendientes el botón principal de Notas invita a agregar un ramo", async () => {
+    const { st } = useApp.getState();
+    useApp.setState({ st: { ...st, periodos: [{ tipo: "regular", numero: 2, ramos: [] }] } });
+    useUI.setState({ vista: "notas" });
+    await act(async () => root.render(createElement(Shell)));
+    const botones = [...document.querySelectorAll("button")].map((b) => b.textContent);
+    expect(botones).toContain("Agregar tu primer ramo");
+    expect(botones).not.toContain("Registrar nota");
   });
 });

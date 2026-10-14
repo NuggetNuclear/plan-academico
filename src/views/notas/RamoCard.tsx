@@ -445,7 +445,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
                   {cat.notas.map((n, ni) => {
                     const nombre = n.etiqueta || `${cat.nombre || "Evaluación"} ${ni + 1}`;
                     const contenido = <><span className="min-w-0 flex-1"><span className="block break-words text-[13px] font-medium">{nombre}</span><span className="block text-xs text-fg-2">{n.n === null ? "Pendiente" : n.f === 0 ? "No cuenta" : "Registrada"}{n.fecha ? ` · ${new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short" }).format(new Date(n.fecha + "T12:00:00"))}` : ""}</span></span><span className={cx("text-lg font-bold tabular", claseNota(n.n))}>{n.n === null ? "+" : fmtNota(n.n)}</span></>;
-                    return r.cerrado ? <div key={ni} className="flex items-center gap-2 rounded-xl bg-surface-2 p-3">{contenido}</div> : <button key={ni} type="button" className="flex min-h-16 items-center gap-2 rounded-xl border border-line bg-surface-2 p-3 text-left transition-colors hover:border-accent" aria-label={`${n.n === null ? "Registrar" : "Editar"} nota de ${nombre}${n.n !== null ? `, ${fmtNota(n.n)}` : ""}`} onClick={() => onRegistrar({ ci, ni })}>{contenido}</button>;
+                    return r.cerrado ? <div key={ni} className="flex items-center gap-2 rounded-xl bg-surface-2 p-3">{contenido}</div> : <button key={ni} type="button" className="flex min-h-16 items-center gap-2 rounded-xl border border-line bg-surface-2 p-3 text-left transition-colors hover:border-accent" onClick={() => onRegistrar({ ci, ni })}>{contenido}<span className="sr-only">{n.n === null ? ". Toca para registrar la nota" : ". Toca para editar"}</span></button>;
                   })}
                 </div>
               </div>)}
