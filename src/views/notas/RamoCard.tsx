@@ -248,7 +248,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
                 const esExamen = ci === iExamen;
                 const etiquetaPeso = !cat.peso ? "sin %" : escalaPresentacion && !esExamen ? `${fmtPct(cat.peso)}% de la presentación` : `${fmtPct(cat.peso)}%`;
                 return (
-                  <li key={ci} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:flex-nowrap">
+                  <li key={cat.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:flex-nowrap">
                     <div className="min-w-0 basis-full sm:w-32 sm:basis-auto sm:shrink-0">
                       <p className="flex items-center gap-1 truncate text-[13px] font-semibold">
                         {esExamen && <GraduationCap aria-hidden="true" className="size-3.5 shrink-0 text-accent" />}
@@ -272,9 +272,9 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
                           n.n === null && n.fecha && "font-sans text-[11px] font-semibold",
                         );
                         return r.cerrado ? (
-                          <span key={ni} className={clase} title={titulo}>{contenido}</span>
+                          <span key={n.id} className={clase} title={titulo}>{contenido}</span>
                         ) : (
-                          <button key={ni} type="button" className={cx(clase, "hover:border-accent hover:text-accent")} title={titulo} aria-label={`${etiqueta}: ${n.n === null ? "pendiente, registrar nota" : `${fmtNota(n.n)}, editar`}`} onClick={() => onRegistrar({ ci, ni })}>
+                          <button key={n.id} type="button" className={cx(clase, "hover:border-accent hover:text-accent")} title={titulo} aria-label={`${etiqueta}: ${n.n === null ? "pendiente, registrar nota" : `${fmtNota(n.n)}, editar`}`} onClick={() => onRegistrar({ categoria: cat.id, nota: n.id })}>
                             {contenido}
                           </button>
                         );

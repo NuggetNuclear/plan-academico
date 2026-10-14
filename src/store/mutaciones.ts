@@ -10,7 +10,7 @@ import {
   type Ctx,
 } from "../core/academic";
 import { NOTA_APROB } from "../core/format";
-import { nuevoUid, type Entrada, type Periodo, type PlannerState, type TipoPeriodo } from "../core/state";
+import { asignarIds, nuevoUid, type Entrada, type Periodo, type PlannerState, type TipoPeriodo } from "../core/state";
 
 export function obtenerPeriodo(st: PlannerState, tipo: TipoPeriodo, numero: number, crear = false): Periodo | undefined {
   const n = tipo === "convalidaciones" ? 0 : numero;
@@ -64,6 +64,7 @@ const sacarRapido = (st: PlannerState, id: string) => (st.rapidosDesdeCursando =
 /** Mantiene coherentes el semestre actual, lo que estás cursando y sus carpetas de notas. */
 export function sincronizar(ctx: Ctx) {
   const { st } = ctx;
+  asignarIds(st);
   const actual = obtenerPeriodo(st, "regular", st.semestreActual, true)!;
   const eximidos = idsInglesEximidos(ctx);
   const aprobados = aprobadosSet(ctx);

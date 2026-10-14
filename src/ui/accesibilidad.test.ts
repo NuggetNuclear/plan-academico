@@ -69,7 +69,8 @@ describe("accesibilidad de las vistas", () => {
 
   it("el registro rápido etiqueta todos los campos", async () => {
     const { cur, st } = useApp.getState();
-    await act(async () => root.render(createElement(RegistroNota, { ctx: { cur: cur!, st }, periodo: st.periodos[1], seleccion: { uid: "actual", ci: 0, ni: 1 }, onCerrar() {} })));
+    const cat = st.periodos[1].ramos.find((e) => e.uid === "actual")!.categorias[0];
+    await act(async () => root.render(createElement(RegistroNota, { ctx: { cur: cur!, st }, periodo: st.periodos[1], seleccion: { uid: "actual", categoria: cat.id, nota: cat.notas[1].id }, onCerrar() {} })));
     await auditar();
   });
 

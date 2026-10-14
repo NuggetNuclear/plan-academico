@@ -16,7 +16,7 @@ import {
 } from "./academic";
 import { construirCurriculum, evaluarReglaPractica, fechaEgreso, rutaCritica, semestreCalendario } from "./curriculum";
 import { PLANTILLAS, aplicarPlantilla, calcularRamo, inferirEscala, notaDesdePuntaje, plantillaDesdeEntrada, puntajeParaNota, rendimientoRamo, statsCategoria } from "./grades";
-import { generarICS } from "./calendar";
+import { evaluacionesConFecha, generarICS } from "./calendar";
 import { generarPlanes, idsPendientes, moverRamo, puedeMoverRamo } from "./planner";
 import { estadoInicial, nuevoUid, normalizarEstado, type Entrada, type Periodo, type PlannerState } from "./state";
 import type { MallaDef } from "./types";
@@ -495,8 +495,20 @@ describe("persistencia y calendario", () => {
   it("normaliza estados dañados o antiguos", () => {
     const st = normalizarEstado({ semestreActual: "x", periodos: [{ tipo: "regular", numero: 2, ramos: [{ id: "A", categorias: [{ peso: 50, notas: [5] }] }] }] });
     expect(st.semestreActual).toBe(1);
-    expect(st.periodos[0].ramos[0].categorias[0].notas[0]).toEqual({ n: 5, f: 1 });
+    expect(st.periodos[0].ramos[0].categorias[0].notas[0]).toMatchObject({ n: 5, f: 1 });
     expect(st.periodos[0].ramos[0].notaFinal).toBeNull();
+  });
+
+  it("migra ids desde la posición: iguales en cada equipo y con el UID que ya usaba el .ics", () => {
+    const guardado = { semestreActual: 1, periodos: [{ tipo: "regular", numero: 1, ramos: [{ uid: "r", id: "CBM-1000", categorias: [{ nombre: "S", peso: 100, notas: [{ n: null, f: 1, fecha: "2026-04-01" }, { n: null, f: 1, fecha: "2026-05-01" }] }] }] }] };
+    const a = normalizarEstado(structuredClone(guardado));
+    expect(a).toEqual(normalizarEstado(structuredClone(guardado)));
+    expect(a.periodos[0].ramos[0].categorias[0].notas.map((n) => n.id)).toEqual(["r-0-0", "r-0-1"]);
+    // Borrar una evaluación del medio no cambia el UID de las demás en el calendario.
+    const ctx = ctxCon(a);
+    const antes = evaluacionesConFecha(ctx).map((e) => e.uid);
+    ctx.st.periodos[0].ramos[0].categorias[0].notas.splice(0, 1);
+    expect(evaluacionesConFecha(ctx).map((e) => e.uid)).toEqual([antes[1]]);
   });
 
   it("genera un .ics válido", () => {

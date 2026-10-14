@@ -1,6 +1,8 @@
 // ── Progreso de una persona en una carrera (se guarda en localStorage) ──
 
 export interface Nota {
+  /** Identidad estable (no cambia al borrar o reordenar). La asigna asignarIds. */
+  id?: string;
   /** Nota obtenida (1,0 a 7,0) o null si aún no se rinde. */
   n: number | null;
   /** Peso relativo dentro de la categoría (×1 por defecto, 0 = no cuenta). */
@@ -12,6 +14,8 @@ export interface Nota {
 }
 
 export interface Categoria {
+  /** Identidad estable (no cambia al borrar o reordenar). La asigna asignarIds. */
+  id?: string;
   nombre: string;
   /** Porcentaje del ramo (0-100). */
   peso: number;
@@ -171,7 +175,7 @@ export function normalizarEstado(raw: unknown): PlannerState {
   if (!raw || typeof raw !== "object") return base;
   const r = raw as Partial<PlannerState>;
   const periodos = Array.isArray(r.periodos) ? r.periodos : [];
-  return {
+  const st: PlannerState = {
     ...base,
     semestreActual: Math.max(1, Math.trunc(num(r.semestreActual, 1))),
     inglesEximido: Math.max(0, Math.trunc(num(r.inglesEximido, 0))),
@@ -218,6 +222,24 @@ export function normalizarEstado(raw: unknown): PlannerState {
     planFijado: Array.isArray(r.planFijado?.semestres) && r.planFijado.semestres.every((s) => Array.isArray(s?.ids)) ? r.planFijado : null,
     prefs: { ...base.prefs, ...(r.prefs ?? {}) },
   };
+  asignarIds(st, true);
+  return st;
+}
+
+/**
+ * Da id a las categorías y notas que no lo tienen. Al migrar datos guardados se deriva de la
+ * posición: así dos equipos con el mismo progreso obtienen los mismos ids (la sync no ve un
+ * conflicto) y el .ics conserva los UID que ya usaba. Lo nuevo recibe un id aleatorio.
+ */
+export function asignarIds(st: PlannerState, migrar = false) {
+  st.periodos.forEach((p) =>
+    p.ramos.forEach((e) =>
+      e.categorias.forEach((c, ci) => {
+        c.id ??= migrar ? `${e.uid}-${ci}` : nuevoUid();
+        c.notas.forEach((n, ni) => (n.id ??= migrar ? `${e.uid}-${ci}-${ni}` : nuevoUid()));
+      }),
+    ),
+  );
 }
 
 let contadorUid = 0;

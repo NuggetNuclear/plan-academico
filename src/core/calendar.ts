@@ -36,7 +36,7 @@ export function evaluacionesConFecha(ctx: Ctx): Evaluacion[] {
             etiqueta: n.etiqueta || `${c.nombre || "Evaluación"} ${ni + 1}`,
             peso: Math.round(((peso *(n.f > 0 ? n.f : 0)) / fTot) * 10) / 10,
             rendida: n.n !== null,
-            uid: `${e.uid}-${ci}-${ni}`,
+            uid: n.id ?? `${e.uid}-${ci}-${ni}`,
           });
         });
       });

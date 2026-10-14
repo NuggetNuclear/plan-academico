@@ -12,7 +12,14 @@ import { Boton, cx } from "../../ui/primitives";
 import { alertaTrasNota } from "../riesgoCausal";
 import { guardarRegistro, validarRegistro, type Registro } from "./registro";
 
-export interface SeleccionNota { uid?: string; ci?: number; ni?: number }
+export interface SeleccionNota { uid?: string; categoria?: string; nota?: string }
+
+/** destino = "idCategoría:idNota" → posiciones actuales (-1 si ya no existe). */
+function ubicar(e: Entrada | undefined, destino: string): [number, number] {
+  const [cid, nid] = destino.split(":");
+  const ci = e?.categorias.findIndex((c) => c.id === cid) ?? -1;
+  return [ci, ci < 0 ? -1 : e!.categorias[ci].notas.findIndex((n) => n.id === nid)];
+}
 
 /** Puntaje → nota con la escala chilena, para no salir del registro. */
 function DesdePuntaje({ onUsar }: { onUsar: (nota: number) => void }) {
@@ -49,16 +56,16 @@ function DesdePuntaje({ onUsar }: { onUsar: (nota: number) => void }) {
 
 /** La próxima evaluación sin nota: es casi siempre la que vienes a registrar. */
 function primeraPendiente(e: Entrada | undefined): string {
-  for (const [ci, c] of (e?.categorias ?? []).entries()) {
-    const ni = c.notas.findIndex((n) => n.n === null);
-    if (ni >= 0) return `${ci}:${ni}`;
+  for (const c of e?.categorias ?? []) {
+    const n = c.notas.find((n) => n.n === null);
+    if (n) return `${c.id}:${n.id}`;
   }
   return "nueva";
 }
 
 function datosDe(e: Entrada | undefined, destino: string) {
   if (!e || destino === "nueva") return { nombre: "", nota: "", fecha: "", factor: "" };
-  const [ci, ni] = destino.split(":").map(Number);
+  const [ci, ni] = ubicar(e, destino);
   const cat = e.categorias[ci];
   const n = cat?.notas[ni];
   if (!n) return { nombre: "", nota: "", fecha: "", factor: "" };
@@ -71,7 +78,7 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
   const repetidos = new Set(nombres.filter((n, i) => nombres.indexOf(n) !== i));
   const [uid, setUid] = useState(seleccion.uid ?? disponibles[0]?.uid ?? "");
   const entrada = disponibles.find((e) => e.uid === uid);
-  const inicial = seleccion.ci !== undefined && seleccion.ni !== undefined ? `${seleccion.ci}:${seleccion.ni}` : primeraPendiente(entrada);
+  const inicial = seleccion.categoria && seleccion.nota ? `${seleccion.categoria}:${seleccion.nota}` : primeraPendiente(entrada);
   const [destino, setDestino] = useState(inicial);
   const [categoria, setCategoria] = useState("nueva");
   const datos0 = datosDe(entrada, inicial);
@@ -104,15 +111,19 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
   const guardar = (e: React.FormEvent) => {
     e.preventDefault();
     if (!entrada || guardando.current) return;
-    const [ci, ni] = destino.split(":").map(Number);
-    const datos: Registro = { categoria: existente ? ci : categoria === "nueva" ? null : Number(categoria), evaluacion: existente ? ni : null, nombre, nota, fecha, porcentaje, factor: existente ? factor : "" };
-    const err = validarRegistro(entrada, datos);
+    // Las posiciones se resuelven contra el ramo que se modifica: si algo cambió, se ubica por id.
+    const datosPara = (e: Entrada): Registro => {
+      const [ci, ni] = ubicar(e, destino);
+      const cat = categoria === "nueva" ? null : e.categorias.findIndex((c) => c.id === categoria);
+      return { categoria: existente ? ci : cat, evaluacion: existente ? ni : null, nombre, nota, fecha, porcentaje, factor: existente ? factor : "" };
+    };
+    const err = validarRegistro(entrada, datosPara(entrada));
     if (err) return mostrarError(err);
     guardando.current = true;
     let fallo: string | null = null;
     useApp.getState().mutar(`Nota de ${nombreEntrada(ctx, entrada)}`, (actual) => {
       const ramo = periodoPorClave(actual.st, clavePeriodo(periodo))?.ramos.find((r) => r.uid === uid);
-      fallo = ramo ? guardarRegistro(ramo, datos) : "Este ramo ya no está en el periodo.";
+      fallo = ramo ? guardarRegistro(ramo, datosPara(ramo)) : "Este ramo ya no está en el periodo.";
     });
     if (fallo) { guardando.current = false; return mostrarError(fallo); }
     const { cur, st } = useApp.getState();
@@ -122,15 +133,15 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
   };
   const eliminar = () => {
     if (!entrada || !existente) return;
-    const [ci, ni] = destino.split(":").map(Number);
     useApp.getState().mutar(`Eliminar ${nombre.trim() || "evaluación"}`, (actual) => {
       const ramo = periodoPorClave(actual.st, clavePeriodo(periodo))?.ramos.find((r) => r.uid === uid);
-      ramo?.categorias[ci]?.notas.splice(ni, 1);
+      const [ci, ni] = ubicar(ramo, destino);
+      if (ni >= 0) ramo!.categorias[ci].notas.splice(ni, 1);
     });
     toast(`${nombre.trim() || "Evaluación"} eliminada`, "info", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
     onCerrar();
   };
-  const catActual = existente ? entrada?.categorias[Number(destino.split(":")[0])] : null;
+  const catActual = existente ? entrada?.categorias[ubicar(entrada, destino)[0]] : null;
 
   return (
     <Modal abierto onCerrar={onCerrar} etiqueta="Registrar nota" ancho="md">
@@ -148,8 +159,8 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
           {!!entrada?.categorias.length && <div>
             <label htmlFor="registro-evaluacion" className="label">Evaluación</label>
             <select id="registro-evaluacion" className="input" value={destino} onChange={(e) => elegir(e.target.value)}>
-              {entrada.categorias.map((c, ci) => <optgroup key={ci} label={c.nombre || `Categoría ${ci + 1}`}>
-                {c.notas.map((n, ni) => <option key={ni} value={`${ci}:${ni}`}>{n.etiqueta || `${c.nombre || "Evaluación"} ${ni + 1}`} · {n.n === null ? "Pendiente" : fmtNota(n.n)}</option>)}
+              {entrada.categorias.map((c, ci) => <optgroup key={c.id} label={c.nombre || `Categoría ${ci + 1}`}>
+                {c.notas.map((n, ni) => <option key={n.id} value={`${c.id}:${n.id}`}>{n.etiqueta || `${c.nombre || "Evaluación"} ${ni + 1}`} · {n.n === null ? "Pendiente" : fmtNota(n.n)}</option>)}
               </optgroup>)}
               <option value="nueva">Otra evaluación (nueva)</option>
             </select>
@@ -158,7 +169,7 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
             <label htmlFor="registro-categoria" className="label">¿Dónde cuenta esta evaluación?</label>
             <select id="registro-categoria" className="input" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
               <option value="nueva">Tiene su propio porcentaje</option>
-              {entrada.categorias.map((c, ci) => <option key={ci} value={ci}>{c.nombre || `Categoría ${ci + 1}`} ({c.peso}%)</option>)}
+              {entrada.categorias.map((c, ci) => <option key={c.id} value={c.id}>{c.nombre || `Categoría ${ci + 1}`} ({c.peso}%)</option>)}
             </select>
             {categoria !== "nueva" && <p className="mt-1 text-xs text-fg-2">Se suma a esa categoría y reparte su porcentaje con las demás.</p>}
           </div>}

@@ -2,7 +2,7 @@
 // Solo se activa si defines las variables VITE_FIREBASE_* (ver README). Sin ellas,
 // la app funciona igual guardando todo en el navegador.
 import { create } from "zustand";
-import type { PlannerState } from "../core/state";
+import { normalizarEstado, type PlannerState } from "../core/state";
 import { CARRERA_ID, leerTodosLosEstados, useApp } from "../store/app";
 import { toast } from "../store/ui";
 
@@ -91,8 +91,10 @@ async function leerNube(uid: string) {
   const snap = await m.getDoc(m.doc(db, COLECCION, uid));
   if (!snap.exists()) return null;
   const d = snap.data();
+  // Se normaliza igual que lo local: mismos ids migrados, y la nube también es una entrada no confiable.
+  const crudos = JSON.parse(d.estados || "{}") as Record<string, unknown>;
   return {
-    estados: JSON.parse(d.estados || "{}") as Record<string, PlannerState>,
+    estados: Object.fromEntries(Object.entries(crudos).map(([k, v]) => [k, normalizarEstado(v)])),
     carreraActual: (d.carreraActual as string) ?? null,
     actualizado: Number(d.actualizado) || 0,
   };
