@@ -20,7 +20,15 @@ interface OpcionesDialogo {
   cancelar?: string;
   peligro?: boolean;
   /** Si se define, el diálogo pide un texto. */
-  campo?: { etiqueta: string; valor?: string; placeholder?: string; inputMode?: "decimal" | "numeric" | "text"; validar?: (v: string) => string | null };
+  campo?: {
+    etiqueta: string;
+    valor?: string;
+    placeholder?: string;
+    inputMode?: "decimal" | "numeric" | "text";
+    tipo?: "text" | "password";
+    autoComplete?: string;
+    validar?: (v: string) => string | null;
+  };
 }
 
 interface DialogoActivo {

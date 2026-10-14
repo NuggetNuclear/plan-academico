@@ -248,7 +248,7 @@ export function Ayuda() {
             <strong>Notas</strong> es un planner académico hecho por y para estudiantes de <strong>{ctx.cur.malla.carrera}</strong> ({ctx.cur.malla.siglaUniversidad ?? ctx.cur.malla.universidad}): malla interactiva, notas con ponderaciones, simulador de PPA, planificación de semestres y estadísticas. La malla, las prácticas y las causales siguen las reglas de esa carrera.
           </p>
           <p>
-            <strong>Tus datos son tuyos:</strong> todo se guarda en tu navegador. Si activas la sincronización con Google, se guarda una copia en tu cuenta. Exporta un respaldo de vez en cuando desde Mi cuenta.
+            <strong>Tus datos son tuyos:</strong> todo se guarda en tu navegador. Si activas la sincronización con Google, se guarda una copia cifrada con una contraseña que solo tú conoces. Exporta un respaldo de vez en cuando desde Mi cuenta.
           </p>
           <p>
             Es un proyecto independiente, no oficial de la universidad. El código está en{" "}

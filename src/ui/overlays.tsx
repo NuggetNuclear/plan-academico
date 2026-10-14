@@ -135,7 +135,8 @@ export function HostDialogos() {
               value={valor}
               placeholder={opciones.campo.placeholder}
               inputMode={opciones.campo.inputMode}
-              autoComplete="off"
+              type={opciones.campo.tipo ?? "text"}
+              autoComplete={opciones.campo.autoComplete ?? "off"}
               onChange={(e) => {
                 setValor(e.target.value);
                 setError(null);

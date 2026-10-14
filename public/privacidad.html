@@ -27,7 +27,7 @@
         <li>No hay cuentas obligatorias, analítica ni publicidad.</li>
       </ul>
       <h2>Sincronización con Google (opcional)</h2>
-      <p>Si el sitio tiene la sincronización configurada y decides iniciar sesión, se guarda una copia de tu progreso en un documento privado de Firestore asociado a tu cuenta. Solo se usan tu nombre, correo y foto para mostrar tu sesión; no se accede a tu calendario, contactos ni Drive. Puedes cerrar sesión o eliminar tu cuenta y sus datos desde «Mi cuenta».</p>
+      <p>Si el sitio tiene la sincronización configurada y decides iniciar sesión, se guarda una copia de tu progreso en un documento privado de Firestore asociado a tu cuenta. Esa copia se cifra en tu dispositivo antes de subirla (AES-256-GCM, con una clave derivada de una contraseña que solo tú conoces): ni Firebase ni quien administra este sitio pueden leerla. La contraseña no se puede recuperar; si la olvidas, se pierde la copia en la nube, pero no lo guardado en tus dispositivos. Solo se usan tu nombre, correo y foto para mostrar tu sesión; no se accede a tu calendario, contactos ni Drive. Puedes cerrar sesión o eliminar tu cuenta y sus datos desde «Mi cuenta».</p>
       <h2>Exportar y borrar</h2>
       <p>Desde «Mi cuenta» puedes descargar un respaldo en JSON y borrar todos los datos de este dispositivo en cualquier momento.</p>
       <h2>Exactitud</h2>

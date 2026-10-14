@@ -1,9 +1,9 @@
-import { Download, FileUp, GitCompareArrows, Info, LogOut, RefreshCw, Trash2, Upload, UserRound } from "lucide-react";
+import { Download, FileUp, GitCompareArrows, Info, KeyRound, LockKeyhole, LogOut, RefreshCw, ShieldCheck, Trash2, Upload, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { CARRERA_ID, useApp, leerTodosLosEstados, borrarEstadosLocales } from "../store/app";
 import { crearRespaldo, descargarArchivo, leerRespaldo } from "../store/respaldo";
 import { confirmar, toast, useUI } from "../store/ui";
-import { cerrarSesion, eliminarCuenta, entrarConGoogle, estadoSync, iniciarSync, resolverConflicto, sincronizarAhora, syncDisponible, useSync } from "../sync/useSync";
+import { cambiarContrasena, cerrarSesion, eliminarCuenta, entrarConGoogle, estadoSync, iniciarSync, resolverConflicto, sincronizarAhora, syncDisponible, useSync } from "../sync/useSync";
 import { CabeceraModal, Modal, PieModal } from "../ui/overlays";
 import { Boton, cx } from "../ui/primitives";
 
@@ -119,9 +119,17 @@ export function Cuenta() {
                   </p>
                   <p className="text-[12px] text-fg-2">Última sincronización: {fmtFecha(sync.ultima)}</p>
                 </div>
-                <Boton tamano="sm" icono={<RefreshCw className="size-4" />} onClick={() => sincronizarAhora()}>
-                  Sincronizar ahora
+                <Boton tamano="sm" icono={sync.estado === "bloqueado" ? <LockKeyhole className="size-4" /> : <RefreshCw className="size-4" />} onClick={() => sincronizarAhora()}>
+                  {sync.estado === "bloqueado" ? "Desbloquear" : "Sincronizar ahora"}
                 </Boton>
+                <div className="flex basis-full flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
+                  <p className="flex items-center gap-1.5 text-[12px] text-fg-2">
+                    <ShieldCheck className="size-4 shrink-0 text-ok" /> Cifrado de extremo a extremo: solo tú puedes leer tu copia en la nube.
+                  </p>
+                  <Boton tamano="sm" variante="fantasma" icono={<KeyRound className="size-4" />} onClick={() => cambiarContrasena()}>
+                    {sync.estado === "bloqueado" ? "Olvidé mi contraseña" : "Cambiar contraseña"}
+                  </Boton>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">

@@ -112,11 +112,13 @@ El formulario de **Ayuda › Dudas y sugerencias** ya está construido y validad
 ## Sincronización con Google (opcional)
 
 1. Crea un proyecto en [Firebase](https://console.firebase.google.com), activa **Authentication › Google** y **Firestore**.
-2. Publica las reglas de `firestore.rules` (cada persona solo accede a `usuarios/{su uid}`).
+2. Publica las reglas de `firestore.rules` (cada persona solo accede a `usuarios/{su uid}` y solo se acepta el documento cifrado).
 3. Copia `.env.example` a `.env.local` con la configuración de tu app web, o defínelas como *Variables* del repositorio para el workflow.
 4. Agrega tu dominio de GitHub Pages en **Authentication › Settings › Authorized domains**.
 
 Sin esas variables, el botón de Google aparece desactivado y todo sigue funcionando en el navegador.
+
+La copia en la nube va cifrada de extremo a extremo (`src/sync/cifrado.ts`): PBKDF2-SHA-256 con 600.000 iteraciones a partir de una contraseña que elige cada persona, AES-256-GCM con IV aleatorio por escritura, el uid como dato autenticado y relleno a bloques de 4 KB. La clave se recuerda en IndexedDB como `CryptoKey` no extraíble y se borra al cerrar sesión. Firestore solo ve `{ v, iter, sal, iv, datos }`.
 
 ## Aviso
 
