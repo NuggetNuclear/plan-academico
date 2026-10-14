@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useApp, useCtx } from "../../store/app";
 import { confirmar, toast, useUI } from "../../store/ui";
 import { estadoInicial } from "../../core/state";
+import { CampoNumero } from "../../ui/CampoNumero";
 import { Boton, Campo, Interruptor, cx } from "../../ui/primitives";
 
 export function TusDatos() {
@@ -32,17 +33,16 @@ export function TusDatos() {
         <div className="animar-entrada space-y-5 border-t border-line px-5 py-5 sm:px-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <Campo etiqueta="Semestre actual" htmlFor="td-sem" ayuda="El que estás cursando ahora, sin contar congelaciones.">
-              <input
+              <CampoNumero
                 id="td-sem"
-                type="number"
                 min={1}
                 max={20}
+                decimales={0}
+                vacioPermitido={false}
+                aria-label="Semestre actual"
                 className="input"
-                value={st.semestreActual}
-                onChange={(e) => {
-                  const n = Math.max(1, Math.min(20, Math.trunc(Number(e.target.value) || 1)));
-                  mutar("Cambiar semestre actual", ({ st }) => (st.semestreActual = n));
-                }}
+                valor={st.semestreActual}
+                onGuardar={(n) => mutar("Cambiar semestre actual", ({ st }) => (st.semestreActual = n!))}
               />
             </Campo>
             {niveles.length > 0 && (
@@ -87,24 +87,26 @@ export function TusDatos() {
                 {st.congelaciones.map((c, i) => (
                   <div key={i} className="flex flex-wrap items-center gap-2 text-[13px]">
                     <span className="text-fg-2">Desde el semestre</span>
-                    <input
-                      type="number"
+                    <CampoNumero
                       min={1}
                       max={20}
+                      decimales={0}
+                      vacioPermitido={false}
                       className="input w-20"
-                      value={c.desde}
+                      valor={c.desde}
                       aria-label="Semestre que quedó pendiente"
-                      onChange={(e) => mutar("Editar congelación", ({ st }) => (st.congelaciones[i].desde = Math.max(1, Math.trunc(Number(e.target.value) || 1))))}
+                      onGuardar={(n) => mutar("Editar congelación", ({ st }) => (st.congelaciones[i].desde = n!))}
                     />
                     <span className="text-fg-2">durante</span>
-                    <input
-                      type="number"
+                    <CampoNumero
                       min={1}
                       max={20}
+                      decimales={0}
+                      vacioPermitido={false}
                       className="input w-20"
-                      value={c.duracion}
+                      valor={c.duracion}
                       aria-label="Semestres congelados"
-                      onChange={(e) => mutar("Editar congelación", ({ st }) => (st.congelaciones[i].duracion = Math.max(1, Math.trunc(Number(e.target.value) || 1))))}
+                      onGuardar={(n) => mutar("Editar congelación", ({ st }) => (st.congelaciones[i].duracion = n!))}
                     />
                     <span className="text-fg-2">semestre(s)</span>
                     <button

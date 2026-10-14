@@ -1,7 +1,7 @@
 // Lee el reporte «Avance curricular» de la UDP a partir de las líneas de texto del PDF.
 import { ErrorImportacion, estadoDesdeTexto, type EstadoUDP } from "./udp";
 
-export interface RamoAvance {
+interface RamoAvance {
   codigo: string;
   nombre: string;
   estado: EstadoUDP;

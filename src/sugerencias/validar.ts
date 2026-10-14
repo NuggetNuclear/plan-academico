@@ -9,7 +9,7 @@ export const TIPOS: { valor: TipoSugerencia; etiqueta: string }[] = [
   { valor: "duda", etiqueta: "Duda" },
 ];
 
-export const MIN_MENSAJE = 10;
+const MIN_MENSAJE = 10;
 export const MAX_MENSAJE = 2000;
 export const MAX_CORREO = 120;
 export const MAX_ADJUNTO = 2 * 1024 * 1024; // 2 MB
@@ -41,13 +41,13 @@ export async function validarAdjunto(archivo: File): Promise<string | null> {
   return null;
 }
 
-export interface DatosSugerencia {
+interface DatosSugerencia {
   tipo: TipoSugerencia;
   mensaje: string;
   correo: string;
 }
 
-export type ErroresSugerencia = Partial<Record<"mensaje" | "correo", string>>;
+type ErroresSugerencia = Partial<Record<"mensaje" | "correo", string>>;
 
 const CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

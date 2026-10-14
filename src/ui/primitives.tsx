@@ -18,7 +18,7 @@ const TAMANOS: Record<Tamano, string> = {
   md: "min-h-11 px-4 py-2 text-sm gap-2 rounded-xl",
 };
 
-export interface BotonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface BotonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variante?: Variante;
   tamano?: Tamano;
   icono?: ReactNode;

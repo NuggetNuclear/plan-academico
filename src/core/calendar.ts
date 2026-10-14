@@ -1,7 +1,7 @@
 import { nombreEntrada, siglaEntrada, type Ctx } from "./academic";
 import { calcularRamo, pesoEnRamo } from "./grades";
 
-export interface Evaluacion {
+interface Evaluacion {
   fecha: string; // AAAA-MM-DD
   ramo: string;
   sigla: string;
@@ -12,7 +12,7 @@ export interface Evaluacion {
   uid: string;
 }
 
-/** Evaluaciones con fecha registradas en el semestre actual. */
+/** Evaluaciones con fecha de los ramos aún abiertos (semestre en curso y verano). */
 export function evaluacionesConFecha(ctx: Ctx): Evaluacion[] {
   const out: Evaluacion[] = [];
   ctx.st.periodos.forEach((p) => {

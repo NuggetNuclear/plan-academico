@@ -5,7 +5,7 @@ import { Aviso, Boton, BotonIcono, Campo, Segmentado } from "../../ui/primitives
 
 // Mientras no haya un destino configurado el formulario no se muestra: solo el enlace a los issues de GitHub.
 // El plan para conectarlo está en docs/plan-formulario-sugerencias.md.
-export const sugerenciasDisponible = !!import.meta.env.VITE_SUGERENCIAS_URL;
+const sugerenciasDisponible = !!import.meta.env.VITE_SUGERENCIAS_URL;
 const URL_ISSUES = "https://github.com/NuggetNuclear/plan-academico/issues/new";
 
 export function Sugerencias() {

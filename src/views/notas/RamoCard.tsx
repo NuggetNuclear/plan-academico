@@ -1,7 +1,7 @@
 import { Asterisk, ChevronDown, CircleCheck, CircleX, ClipboardList, Flag, GraduationCap, MoreHorizontal, Plus, RotateCcw, Target, Trash2, TrendingDown } from "lucide-react";
 import { useRef, useState } from "react";
 import { clavePeriodo, creditosEntrada, esPeriodoActual, nombreEntrada, siglaEntrada, situacionSemestreUDP, type Ctx } from "../../core/academic";
-import { NOTA_APROB, fmtNota, leerNumero, numeroConComa } from "../../core/format";
+import { NOTA_APROB, fmtNota, fmtPct, leerNumero, numeroConComa } from "../../core/format";
 import { calcularRamo, configExamen, indiceExamen, ramoAsegurado, statsCategoria, type Condicion, type InfoExamen } from "../../core/grades";
 import type { ConfigExamen, Entrada, Periodo } from "../../core/state";
 import { useApp } from "../../store/app";
@@ -28,7 +28,6 @@ function useEditor(clave: string, uid: string): Editor {
 
 const claseNota = (n: number | null) => (n === null ? "text-fg-3" : n >= NOTA_APROB ? "text-ok" : "text-danger");
 
-const pct = (n: number) => fmtNota(n, n % 1 ? 1 : 0);
 
 type Tono = "ok" | "warn" | "danger" | "acento" | "neutro";
 interface Ayuda { k: string; tono: Tono; icono: React.ReactNode; texto: string }
@@ -51,7 +50,7 @@ function ayudasExamen(ex: InfoExamen, cfg: ConfigExamen): Ayuda[] {
   else if (ex.estado === "no-eximido") {
     const falla = ex.condicionesEximir.find((c) => c.estado === "falla");
     const motivo = ex.motivo === "asistencia" ? `tu asistencia está bajo ${cfg.asistenciaMin}%` : ex.motivo === "requisito" ? "tienes un requisito bajo 4,0" : `no cumples ${falla?.texto ?? "lo exigido"}`;
-    out.push({ k: "ex", tono: "warn", icono: ic, texto: `Sin eximición: ${motivo}${ex.habilitacion !== "no-habilitado" ? `. Vas a examen (${pct(ex.peso)}%)` : ""}` });
+    out.push({ k: "ex", tono: "warn", icono: ic, texto: `Sin eximición: ${motivo}${ex.habilitacion !== "no-habilitado" ? `. Vas a examen (${fmtPct(ex.peso)}%)` : ""}` });
   }
   if (ex.habilitacion === "no-habilitado") {
     const falla = ex.condicionesExamen.find((c) => c.estado === "falla");
@@ -109,7 +108,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
     if (r.restante > 0 && r.necesaria !== null && generalManda && ex?.habilitacion !== "no-habilitado") {
       if (r.necesaria <= 1 && !r.reqMetas.length) ayudas.push({ k: "a", tono: "ok", icono: <CircleCheck className="size-3.5" />, texto: "4,0 asegurado aunque saques 1,0" });
       else if (r.necesaria > 7) ayudas.push({ k: "a", tono: "danger", icono: <CircleX className="size-3.5" />, texto: "Ya no alcanza el 4,0" });
-      else ayudas.push({ k: "a", tono: r.necesaria <= 4 ? "ok" : "warn", icono: <Target className="size-3.5" />, texto: `Para aprobar necesitas ${fmtNota(r.necesaria, 2)} ${ex?.necesariaExamen != null ? "en el examen" : `en lo que queda (${pct(r.restante)}%)`}` });
+      else ayudas.push({ k: "a", tono: r.necesaria <= 4 ? "ok" : "warn", icono: <Target className="size-3.5" />, texto: `Para aprobar necesitas ${fmtNota(r.necesaria, 2)} ${ex?.necesariaExamen != null ? "en el examen" : `en lo que queda (${fmtPct(r.restante)}%)`}` });
     }
     if (ex) ayudas.push(...ayudasExamen(ex, cfgExamen));
     r.reqMetas.forEach((m) => ayudas.push({ k: "r" + m.nombre, tono: "warn", icono: <Asterisk className="size-3.5" />, texto: `${m.nombre} debe aprobarse: ≥ ${fmtNota(m.nec, 2)} en lo que queda` }));
@@ -226,7 +225,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
             <span className={cx("text-[32px] leading-none font-extrabold tracking-tight tabular", claseNota(notaMostrada))}>{fmtNota(notaMostrada)}</span>
           </div>
           <span className="mt-1 max-w-32 text-right text-[11px] font-medium text-fg-3">
-            {r.cerrado ? "Nota final" : !hayNotas ? "Sin notas aún" : ex?.estado === "eximido" ? "Nota de presentación" : r.modo === "peor" ? "Peor caso" : r.pesoEvaluado > 0 && r.pesoEvaluado < 100 ? `Promedio · ${pct(r.pesoEvaluado)}% evaluado` : "Promedio"}
+            {r.cerrado ? "Nota final" : !hayNotas ? "Sin notas aún" : ex?.estado === "eximido" ? "Nota de presentación" : r.modo === "peor" ? "Peor caso" : r.pesoEvaluado > 0 && r.pesoEvaluado < 100 ? `Promedio · ${fmtPct(r.pesoEvaluado)}% evaluado` : "Promedio"}
           </span>
         </div>
       </header>
@@ -247,7 +246,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
                 const st = statsCategoria(cat);
                 const prom = r.modo === "actual" ? st.promRendido : st.prom;
                 const esExamen = ci === iExamen;
-                const etiquetaPeso = !cat.peso ? "sin %" : escalaPresentacion && !esExamen ? `${pct(cat.peso)}% de la presentación` : `${pct(cat.peso)}%`;
+                const etiquetaPeso = !cat.peso ? "sin %" : escalaPresentacion && !esExamen ? `${fmtPct(cat.peso)}% de la presentación` : `${fmtPct(cat.peso)}%`;
                 return (
                   <li key={ci} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:flex-nowrap">
                     <div className="min-w-0 basis-full sm:w-32 sm:basis-auto sm:shrink-0">

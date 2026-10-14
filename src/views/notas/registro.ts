@@ -1,4 +1,5 @@
 import { leerNumero } from "../../core/format";
+import { hoyISO } from "../../core/calendar";
 import { pesoAsignado } from "../../core/grades";
 import type { Entrada } from "../../core/state";
 
@@ -30,7 +31,8 @@ export function validarRegistro(entrada: Entrada, datos: Registro): string | nul
     const f = leerNumero(datos.factor);
     if (!Number.isFinite(f) || f < 0 || f > 100) return "El peso dentro de la categoría debe estar entre 0 y 100.";
   }
-  if (datos.fecha && (!/^\d{4}-\d{2}-\d{2}$/.test(datos.fecha) || Number.isNaN(Date.parse(`${datos.fecha}T12:00:00`)))) return "Revisa la fecha de la evaluación.";
+  // Ida y vuelta: Date desborda 2026-02-31 a marzo sin avisar.
+  if (datos.fecha && hoyISO(new Date(`${datos.fecha}T12:00:00`)) !== datos.fecha) return "Revisa la fecha de la evaluación.";
   return null;
 }
 

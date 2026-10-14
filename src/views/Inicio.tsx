@@ -43,15 +43,15 @@ import {
   type SituacionSemestreUDP,
 } from "../core/academic";
 import { diasHasta, evaluacionesConFecha, hoyISO } from "../core/calendar";
-import { evaluarReglaPractica } from "../core/curriculum";
-import { fmtNota, plural } from "../core/format";
+import { evaluarReglaPractica, fechaEgreso } from "../core/curriculum";
+import { fmtNota, fmtPct, plural } from "../core/format";
 import { calcularRamo } from "../core/grades";
 import { useApp, useCtx } from "../store/app";
 import { avanzarSemestre } from "../store/mutaciones";
 import { confirmar, toast, useUI } from "../store/ui";
 import { Anillo, NotaChip, Sparkline } from "../ui/comun";
 import { Aviso, Boton, CabeceraTarjeta, Insignia, Tarjeta, cx } from "../ui/primitives";
-import { fechaEgreso, semestresRestantes, usePlanes } from "./plan/usePlanes";
+import { semestresRestantes, usePlanes } from "./plan/usePlanes";
 import { letrasCausal, motivoCausal, textoRendimiento } from "./riesgoCausal";
 
 function AvisoCierreSemestre() {
@@ -225,7 +225,7 @@ function Resumen() {
               {restante.n} <span className="text-[15px] font-semibold text-fg-3">{restante.n === 1 ? "semestre" : "semestres"}</span>
             </p>
             <p className="mt-2 text-[12.5px] text-fg-2">
-              Egreso estimado: <strong className="text-fg">{fechaEgreso(ctx.st.semestreActual, restante.ultimo)}</strong>
+              Egreso estimado: <strong className="text-fg">{fechaEgreso(ctx.st.semestreActual, restante.ultimo, ctx.st.congelaciones)}</strong>
               <br />
               <span className="text-fg-3">Según tu plan {restante.fuente === "guardado" ? "guardado" : "recomendado"}.</span>
             </p>
@@ -582,7 +582,7 @@ function ProximasEvaluaciones() {
                     {e.ramo} · {fmt.format(new Date(y, m - 1, dia))}
                   </p>
                 </div>
-                {e.peso > 0 && <Insignia>{fmtNota(e.peso, e.peso % 1 ? 1 : 0)}%</Insignia>}
+                {e.peso > 0 && <Insignia>{fmtPct(e.peso)}%</Insignia>}
               </li>
             );
           })}

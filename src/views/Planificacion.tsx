@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { nombreRamo, ramosSemestreActual, resumenCreditos, siglaRamo } from "../core/academic";
-import { nombrePeriodoCalendario, rutaCritica } from "../core/curriculum";
+import { fechaEgreso, nombrePeriodoCalendario, rutaCritica } from "../core/curriculum";
 import { plural } from "../core/format";
 import {
   creditosSobrecupo,
@@ -46,7 +46,7 @@ import { confirmar, toast, useUI } from "../store/ui";
 import { colorTipo } from "../ui/comun";
 import { OpcionMenu, Popover } from "../ui/overlays";
 import { Aviso, Boton, BotonIcono, Insignia, Tarjeta, cx } from "../ui/primitives";
-import { fechaEgreso, usePlanes } from "./plan/usePlanes";
+import { usePlanes } from "./plan/usePlanes";
 
 function Paso({ n, titulo, children, descripcion }: { n: number; titulo: string; descripcion?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -289,7 +289,7 @@ function TarjetaPlan({ plan, idx, recomendado, onCambiar, editado, onRestaurar }
           <Insignia icono={<CalendarRange className="size-3" />}>{plural(plan.semestresRestantes, "semestre")}</Insignia>
           <Insignia>~{plan.creditosPorSemestre} cr/sem</Insignia>
           <Insignia>máx {plan.creditosMaximos} cr</Insignia>
-          {ultimo && <Insignia tono="ok" icono={<Flag className="size-3" />}>{fechaEgreso(ctx.st.semestreActual, ultimo)}</Insignia>}
+          {ultimo && <Insignia tono="ok" icono={<Flag className="size-3" />}>{fechaEgreso(ctx.st.semestreActual, ultimo, ctx.st.congelaciones)}</Insignia>}
         </div>
         <div className="flex items-center gap-1.5">
           {editado && onRestaurar && (

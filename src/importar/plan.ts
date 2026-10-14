@@ -9,7 +9,7 @@ import type { AvanceCurricular } from "./avance";
 import type { RegistroTrabajo } from "./trabajo";
 import { casillaFija, claveCodigo, grupoLibre, mapaMalla, tituloCaso, type GrupoLibre, type MapaMalla } from "./udp";
 
-export interface EntradaPlan {
+interface EntradaPlan {
   id: string;
   nota: number | null;
   sigla?: string;
@@ -17,7 +17,7 @@ export interface EntradaPlan {
   creditos?: number;
 }
 
-export interface PeriodoPlan {
+interface PeriodoPlan {
   tipo: TipoPeriodo;
   numero: number;
   /** «2023 · 2.º semestre» */
@@ -359,7 +359,7 @@ export function aplicarPlan(ctx: Ctx, plan: PlanImportacion) {
 
 // ── Vista previa ──
 
-export interface ResumenImportacion {
+interface ResumenImportacion {
   ramosAprobados: number;
   ramosMalla: number;
   cursando: number;

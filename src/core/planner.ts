@@ -1,6 +1,6 @@
 import { aprobadosSet, ramosSemestreActual, type Ctx } from "./academic";
-import { cumpleRequisitos, evaluarReglaPractica, type Curriculum } from "./curriculum";
-import type { ModoPractica, PlanGuardado, TipoSemestrePlan } from "./state";
+import { cumpleRequisitos, evaluarReglaPractica, profundidades, type Curriculum } from "./curriculum";
+import type { PlanGuardado, TipoSemestrePlan } from "./state";
 import type { Ramo } from "./types";
 
 export interface SemestrePlan {
@@ -11,7 +11,7 @@ export interface SemestrePlan {
   creditos: number;
 }
 
-export interface Intercambio {
+interface Intercambio {
   ramo1: string;
   sem1: number;
   ramo2: string;
@@ -36,13 +36,9 @@ type Curva = "pareja" | "creciente" | "decreciente";
 const esFlexible = (r: Ramo) => r.tipo === "CFG" || r.tipo === "TIN";
 const esIngles = (cur: Curriculum, r: Ramo) => (cur.malla.nivelesIngles ?? []).includes(r.id);
 
-export function modoPractica(ctx: Ctx): ModoPractica {
-  return ctx.st.modoPractica;
-}
-
 export const esPracticaSobrecupo = (ctx: Ctx, r: Ramo) => !!r.reglaPractica && ctx.st.modoPractica === "sobrecupo";
 
-export function creditosCarga(ctx: Ctx, lista: Ramo[]): number {
+function creditosCarga(ctx: Ctx, lista: Ramo[]): number {
   return lista.reduce((s, r) => s + (esPracticaSobrecupo(ctx, r) ? 0 : r.creditos), 0);
 }
 
@@ -52,20 +48,6 @@ export function creditosSobrecupo(ctx: Ctx, lista: Ramo[]): number {
 
 export function maxCreditos(ctx: Ctx): number {
   return Math.min(ctx.st.maxCreditos ?? ctx.cur.maxCreditosSemestre, ctx.cur.maxCreditosSemestre);
-}
-
-function profundidades(cur: Curriculum, pendientes: Set<string>): Record<string, number> {
-  const memo: Record<string, number> = {};
-  const prof = (id: string): number => {
-    if (memo[id] !== undefined) return memo[id];
-    memo[id] = 1;
-    let max = 0;
-    (cur.desbloquea[id] ?? []).forEach((h) => pendientes.has(h) && (max = Math.max(max, prof(h))));
-    return (memo[id] = 1 + max);
-  };
-  const res: Record<string, number> = {};
-  pendientes.forEach((id) => (res[id] = prof(id)));
-  return res;
 }
 
 /** Lo que se cursa en paralelo: una práctica arrastra el ramo adeudado. */
@@ -88,7 +70,7 @@ export function idsPendientes(ctx: Ctx): Set<string> {
  * El objetivo es el mínimo de semestres posible: el mayor entre lo que exigen
  * los créditos, el tope de ramos y la cadena de prerrequisitos más larga.
  */
-export function generarPlan(ctx: Ctx, maxCred: number, maxRamos: number, estrategia: Estrategia, flex: Flex, curva: Curva = "pareja"): SemestrePlan[] {
+function generarPlan(ctx: Ctx, maxCred: number, maxRamos: number, estrategia: Estrategia, flex: Flex, curva: Curva = "pareja"): SemestrePlan[] {
   const { cur, st } = ctx;
   const map = cur.map;
   const semestres: SemestrePlan[] = [];
@@ -284,7 +266,7 @@ const CONFIGS: { est: Estrategia; flex: Flex; curva: Curva; menosRamos?: boolean
   { est: "desbloqueo", flex: "flex_last", curva: "pareja", menosRamos: true, etiqueta: "Menos ramos por semestre", descripcion: "Un ramo menos por semestre cuando es posible." },
 ];
 
-export function resumirPlan(ctx: Ctx, plan: Omit<Plan, "semestresRestantes" | "creditosPorSemestre" | "creditosMaximos" | "intercambios">): Plan {
+function resumirPlan(ctx: Ctx, plan: Omit<Plan, "semestresRestantes" | "creditosPorSemestre" | "creditosMaximos" | "intercambios">): Plan {
   const semestres = plan.semestres.filter((s) => s.ramos.length > 0);
   semestres.forEach((s) => {
     s.creditos = s.tipo === "verano" ? s.ramos.reduce((t, r) => t + r.creditos, 0) : creditosCarga(ctx, s.ramos);
@@ -339,7 +321,7 @@ export function generarPlanes(ctx: Ctx): Plan[] {
 }
 
 /** Equivalentes si casi todos los ramos caen en el mismo semestre (≤2 ramos u 8% de diferencia). */
-export function planesEquivalentes(a: Plan, b: Plan): boolean {
+function planesEquivalentes(a: Plan, b: Plan): boolean {
   const fa = a.semestres.filter((s) => s.tipo === "futuro");
   const fb = b.semestres.filter((s) => s.tipo === "futuro");
   if (fa.length !== fb.length) return false;
@@ -364,7 +346,7 @@ function baseCompletados(ctx: Ctx): Set<string> {
 }
 
 /** Cada práctica sigue cumpliendo su regla después de mover o intercambiar ramos. */
-export function planRespetaPracticas(ctx: Ctx, semestres: SemestrePlan[]): boolean {
+function planRespetaPracticas(ctx: Ctx, semestres: SemestrePlan[]): boolean {
   const base = baseCompletados(ctx);
   const periodos = semestres.filter((s) => s.tipo === "futuro" || s.tipo === "verano").sort((a, b) => ordenSem(a) - ordenSem(b));
   for (const p of periodos) {
@@ -429,7 +411,7 @@ export function intercambiar(ctx: Ctx, plan: Plan, sw: Intercambio): Plan {
 }
 
 /** Intercambios de dos ramos entre semestres que respetan requisitos, créditos y oferta. */
-export function calcularIntercambios(ctx: Ctx, plan: Plan): Intercambio[] {
+function calcularIntercambios(ctx: Ctx, plan: Plan): Intercambio[] {
   const futuros = plan.semestres.filter((s) => s.tipo === "futuro");
   if (futuros.length < 2) return [];
   const semDe: Record<string, number> = {};

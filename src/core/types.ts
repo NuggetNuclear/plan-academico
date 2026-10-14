@@ -1,6 +1,6 @@
 // ── Definición de mallas (lo que viene en public/carreras/*.json) ──
 
-export interface ReglaPractica {
+interface ReglaPractica {
   /** Debe estar aprobado todo hasta este semestre (incluido inglés). */
   hastaSemestre: number;
   /** Ramos que se pueden deber y cursar en paralelo. */

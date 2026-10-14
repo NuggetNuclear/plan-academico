@@ -1,7 +1,7 @@
 // Exportar e importar respaldos de la app.
 import { normalizarEstado, type PlannerState } from "../core/state";
 
-export const FORMATO = "notas-planner";
+const FORMATO = "notas-planner";
 export const VERSION = 1;
 const MAX_BYTES = 3 * 1024 * 1024;
 
@@ -28,7 +28,7 @@ export function descargarArchivo(nombre: string, contenido: string, tipo = "appl
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export interface Importado {
+interface Importado {
   estados: Record<string, PlannerState>;
   carreraActual: string | null;
   exportado: string | null;

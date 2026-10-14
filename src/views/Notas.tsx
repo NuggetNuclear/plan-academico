@@ -276,7 +276,7 @@ function BuscadorRamo({ periodo }: { periodo: Periodo }) {
         aria-controls={abierto && resultados.length > 0 ? "lista-buscador" : undefined}
         onChange={(e) => (setQ(e.target.value), setAbierto(true), setActivo(0))}
         onFocus={() => setAbierto(true)}
-        onBlur={() => setTimeout(() => setAbierto(false), 150)}
+        onBlur={() => setAbierto(false)}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") (e.preventDefault(), setAbierto(true), setActivo((a) => Math.max(0, Math.min(resultados.length - 1, a + 1))));
           if (e.key === "ArrowUp") (e.preventDefault(), setActivo((a) => Math.max(0, a - 1)));

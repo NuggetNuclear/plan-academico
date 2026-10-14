@@ -85,7 +85,7 @@ export function cumpleRequisitos(ramo: Ramo, completados: Set<string>, mismoSeme
   return ev.ok && ev.deuda.every((id) => mismoSemestre.has(id));
 }
 
-export interface EvaluacionPractica {
+interface EvaluacionPractica {
   ok: boolean;
   faltan: string[];
   deuda: string[];
@@ -113,8 +113,31 @@ export function semestreCalendario(semestreAcademico: number, congelaciones: Con
   return s + congelaciones.filter((c) => c.desde <= s).reduce((t, c) => t + c.duracion, 0);
 }
 
+/** Convierte un semestre académico futuro en semestre calendario aproximado (marzo y agosto); las congelaciones lo atrasan. */
+export function fechaEgreso(semestreActual: number, ultimoSemestre: number, congelaciones: Congelacion[], hoy = new Date()): string {
+  const mitad = hoy.getMonth() >= 6 ? 2 : 1; // julio en adelante: segundo semestre
+  const indiceHoy = hoy.getFullYear() * 2 + (mitad - 1);
+  const indice = indiceHoy + semestreCalendario(ultimoSemestre, congelaciones) - semestreCalendario(semestreActual, congelaciones);
+  const anio = Math.floor(indice / 2);
+  return `${indice % 2 === 0 ? "1.er" : "2.º"} semestre ${anio}`;
+}
+
 export function nombrePeriodoCalendario(semestreAcademico: number, congelaciones: Congelacion[]): string {
   return semestreCalendario(semestreAcademico, congelaciones) % 2 === 1 ? "1.er semestre del año" : "2.º semestre del año";
+}
+
+/** Largo de la cadena de prerrequisitos pendientes que parte en cada ramo (1 = no desbloquea nada pendiente). */
+export function profundidades(cur: Curriculum, pendientes: Set<string>): Record<string, number> {
+  const memo: Record<string, number> = {};
+  const prof = (id: string): number => {
+    if (memo[id] !== undefined) return memo[id];
+    memo[id] = 1;
+    let max = 0;
+    (cur.desbloquea[id] ?? []).forEach((h) => pendientes.has(h) && (max = Math.max(max, prof(h))));
+    return (memo[id] = 1 + max);
+  };
+  pendientes.forEach(prof);
+  return memo;
 }
 
 /**
@@ -122,18 +145,8 @@ export function nombrePeriodoCalendario(semestreAcademico: number, congelaciones
  * los ramos pendientes. Su largo es el mínimo de semestres que te quedan.
  */
 export function rutaCritica(cur: Curriculum, pendientes: Set<string>): string[] {
-  const memo = new Map<string, number>();
-  const prof = (id: string): number => {
-    const m = memo.get(id);
-    if (m !== undefined) return m;
-    memo.set(id, 1);
-    let max = 0;
-    (cur.desbloquea[id] ?? []).forEach((h) => {
-      if (pendientes.has(h)) max = Math.max(max, prof(h));
-    });
-    memo.set(id, 1 + max);
-    return 1 + max;
-  };
+  const p = profundidades(cur, pendientes);
+  const prof = (id: string) => p[id] ?? 1;
   let inicio: string | null = null;
   // La cadena parte de un ramo cuyos prerrequisitos pendientes ya no existen.
   pendientes.forEach((id) => {

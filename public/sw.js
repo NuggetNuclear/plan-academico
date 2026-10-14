@@ -4,7 +4,17 @@ const BASE = ["./", "./index.html", "./carreras/inf.json", "./icon.svg", "./mani
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(BASE)).catch(() => {}));
+  e.waitUntil(
+    caches
+      .open(CACHE)
+      .then(async (c) => {
+        await c.addAll(BASE);
+        // Los bundles con hash de Vite: en la primera visita se bajaron antes de que existiera el SW.
+        const html = await (await c.match("./index.html")).text();
+        await c.addAll([...html.matchAll(/(?:src|href)="(\.\/assets\/[^"]+)"/g)].map((m) => m[1]));
+      })
+      .catch(() => {}),
+  );
 });
 
 self.addEventListener("activate", (e) => {

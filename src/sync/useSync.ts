@@ -19,7 +19,7 @@ const config = {
 
 export const syncDisponible = !!(config.apiKey && config.projectId);
 
-export type EstadoSync = "local" | "conectando" | "sincronizando" | "sincronizado" | "sin-conexion" | "error";
+type EstadoSync = "local" | "conectando" | "sincronizando" | "sincronizado" | "sin-conexion" | "error";
 
 export interface Conflicto {
   nube: { estados: Record<string, PlannerState>; carreraActual: string | null; actualizado: number };
@@ -68,6 +68,8 @@ export function estadoSync(s: SyncStore): { texto: string; tono: "ok" | "warn" |
 let fb: { auth: any; db: any; m: any } | null = null;
 let temporizador: ReturnType<typeof setTimeout> | null = null;
 let aplicandoNube = false;
+// Nada se sube hasta comparar con la nube: si no, el progreso de otro equipo se pisa.
+let reconciliado = false;
 
 const importar = (ruta: string) => import(/* @vite-ignore */ `${SDK}/${ruta}`);
 
@@ -97,8 +99,8 @@ async function leerNube(uid: string) {
 }
 
 async function subir() {
-  const u = useSync.getState().usuario;
-  if (!u) return;
+  const { usuario: u, conflicto } = useSync.getState();
+  if (!u || conflicto || !reconciliado) return;
   const { db, m } = await cargarFirebase();
   useSync.setState({ estado: "sincronizando" });
   try {
@@ -116,12 +118,17 @@ async function subir() {
 }
 
 async function reconciliar(u: Usuario) {
+  reconciliado = false;
   useSync.setState({ estado: "conectando" });
   try {
     const nube = await leerNube(u.uid);
     const local = leerTodosLosEstados();
-    if (!nube || !tieneProgreso(nube.estados)) return subir();
+    if (!nube || !tieneProgreso(nube.estados)) {
+      reconciliado = true;
+      return subir();
+    }
     if (!tieneProgreso(local) || firma(local) === firma(nube.estados)) {
+      reconciliado = true;
       aplicandoNube = true;
       useApp.getState().reemplazarTodo(nube.estados);
       aplicandoNube = false;
@@ -138,6 +145,7 @@ export async function resolverConflicto(eleccion: "nube" | "local") {
   const c = useSync.getState().conflicto;
   if (!c) return;
   useSync.setState({ conflicto: null });
+  reconciliado = true;
   if (eleccion === "nube") {
     aplicandoNube = true;
     useApp.getState().reemplazarTodo(c.nube.estados);
@@ -158,7 +166,8 @@ export async function iniciarSync() {
     const { auth, m } = await cargarFirebase();
     m.onAuthStateChanged(auth, (user: any) => {
       if (!user) {
-        useSync.setState({ usuario: null, estado: "local" });
+        reconciliado = false;
+        useSync.setState({ usuario: null, estado: "local", conflicto: null });
         return;
       }
       const u: Usuario = { uid: user.uid, nombre: user.displayName ?? "Tu cuenta", correo: user.email ?? "", foto: user.photoURL ?? null };
@@ -170,8 +179,11 @@ export async function iniciarSync() {
       if (temporizador) clearTimeout(temporizador);
       temporizador = setTimeout(subir, ESPERA_SUBIDA_MS);
     });
-    window.addEventListener("online", () => useSync.getState().usuario && subir());
+    window.addEventListener("online", sincronizarAhora);
   } catch {
+    // Sin conexión al abrir: se reintenta cuando vuelva la red.
+    iniciado = false;
+    window.addEventListener("online", iniciarSync, { once: true });
     useSync.setState({ estado: "error" });
   }
 }
@@ -192,16 +204,23 @@ export async function cerrarSesion() {
   toast("Sesión cerrada. Tu progreso sigue en este dispositivo.", "info");
 }
 
-export const sincronizarAhora = () => subir();
+export function sincronizarAhora() {
+  const u = useSync.getState().usuario;
+  if (u) return reconciliado ? subir() : reconciliar(u);
+}
 
 export async function eliminarCuenta() {
   const u = useSync.getState().usuario;
   if (!u || !fb) return;
+  const { auth, db, m } = fb;
   try {
-    await fb.m.deleteDoc(fb.m.doc(fb.db, COLECCION, u.uid));
-    await fb.auth.currentUser?.delete();
+    // Firebase exige un inicio de sesión reciente para borrar la cuenta: se pide antes de tocar los datos.
+    await m.reauthenticateWithPopup(auth.currentUser, new m.GoogleAuthProvider());
+    reconciliado = false;
+    await m.deleteDoc(m.doc(db, COLECCION, u.uid));
+    await auth.currentUser.delete();
     toast("Se eliminaron tu cuenta y los datos guardados en la nube.");
-  } catch {
-    toast("Por seguridad, vuelve a iniciar sesión e inténtalo de nuevo.", "error");
+  } catch (e: any) {
+    if (e?.code !== "auth/popup-closed-by-user") toast("No se pudo eliminar la cuenta. Inténtalo de nuevo.", "error");
   }
 }

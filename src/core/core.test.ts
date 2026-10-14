@@ -13,7 +13,7 @@ import {
   resumenCreditos,
   type Ctx,
 } from "./academic";
-import { construirCurriculum, evaluarReglaPractica, rutaCritica, semestreCalendario } from "./curriculum";
+import { construirCurriculum, evaluarReglaPractica, fechaEgreso, rutaCritica, semestreCalendario } from "./curriculum";
 import { PLANTILLAS, aplicarPlantilla, calcularRamo, inferirEscala, notaDesdePuntaje, plantillaDesdeEntrada, puntajeParaNota, rendimientoRamo, statsCategoria } from "./grades";
 import { generarICS } from "./calendar";
 import { generarPlanes, idsPendientes, moverRamo, puedeMoverRamo } from "./planner";
@@ -257,6 +257,13 @@ describe("malla", () => {
     expect(semestreCalendario(2, [{ desde: 3, duracion: 1 }])).toBe(2);
   });
 
+  it("una congelación futura atrasa el egreso; una pasada no", () => {
+    const marzo = new Date(2026, 2, 1);
+    expect(fechaEgreso(3, 5, [], marzo)).toBe("1.er semestre 2027");
+    expect(fechaEgreso(3, 5, [{ desde: 2, duracion: 1 }], marzo)).toBe("1.er semestre 2027");
+    expect(fechaEgreso(3, 5, [{ desde: 4, duracion: 1 }], marzo)).toBe("2.º semestre 2027");
+  });
+
 });
 
 describe("PPA y créditos", () => {
@@ -411,6 +418,12 @@ describe("causales de eliminación UDP (art. 38)", () => {
   it("migra las excepciones antiguas de la causal c a permanencias", () => {
     expect(normalizarEstado({ excepcionesCausalC: [3, 1, 3], permanenciasUDP: [5] }).permanenciasUDP).toEqual([1, 3, 5]);
   });
+
+  it("descarta un plan guardado o marcas corruptas de un respaldo", () => {
+    expect(normalizarEstado({ planFijado: { etiqueta: "x" } }).planFijado).toBeNull();
+    expect(normalizarEstado({ planFijado: { etiqueta: "x", semestres: [{ numero: 2 }] } }).planFijado).toBeNull();
+    expect(normalizarEstado({ marcas: ["CIT-1000"] }).marcas).toEqual({});
+  });
 });
 
 describe("planificación", () => {
@@ -429,6 +442,14 @@ describe("planificación", () => {
     expect(visto.size).toBe(idsPendientes(ctx).size);
     // 11 semestres en la malla oficial: el plan no debería necesitar más.
     expect(plan.semestresRestantes).toBeLessThanOrEqual(11);
+  });
+
+  it("un ramo reprobado este semestre no hace que el plan reuse el semestre en curso", () => {
+    const id = inf.ramos.find((r) => r.semestre === 1)!.id;
+    const ctx = ctxCon({ periodos: [{ tipo: "regular", numero: 1, ramos: [entrada(id, 2.5)] }] });
+    const semestres = generarPlanes(ctx)[0].semestres;
+    expect(semestres[0]).toMatchObject({ numero: 1, tipo: "cursando" });
+    expect(semestres.filter((s) => s.tipo === "futuro")[0].numero).toBe(2);
   });
 
   it("valida mover un ramo entre semestres", () => {

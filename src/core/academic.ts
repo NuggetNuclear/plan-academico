@@ -94,14 +94,14 @@ export function tieneConvalidacion(ctx: Ctx, id: string): boolean {
 
 // ── Estado de cada ramo ──
 
-export interface RegistroIntento {
+interface RegistroIntento {
   entrada: Entrada;
   periodo: Periodo;
   nota: number;
 }
 
 /** Aprobación más reciente registrada en Notas. */
-export function aprobacionEnNotas(ctx: Ctx, id: string): RegistroIntento | null {
+function aprobacionEnNotas(ctx: Ctx, id: string): RegistroIntento | null {
   let mejor: RegistroIntento | null = null;
   ctx.st.periodos.forEach((p) =>
     p.ramos.forEach((e) => {
@@ -112,30 +112,12 @@ export function aprobacionEnNotas(ctx: Ctx, id: string): RegistroIntento | null 
   return mejor;
 }
 
-/** Último intento cerrado (aprobado o reprobado), sin contar convalidaciones. */
-export function ultimoIntento(ctx: Ctx, id: string): RegistroIntento | null {
-  let ultimo: RegistroIntento | null = null;
-  ctx.st.periodos.forEach((p) => {
-    if (p.tipo === "convalidaciones") return;
-    p.ramos.forEach((e) => {
-      const nota = e.id === id ? notaEntrada(ctx, e) : null;
-      if (nota === null) return;
-      if (!ultimo || ordenPeriodo(p) >= ordenPeriodo(ultimo.periodo)) ultimo = { entrada: e, periodo: p, nota };
-    });
-  });
-  return ultimo;
-}
-
 /** Todos los ramos que cuentan como aprobados para requisitos. */
 export function aprobadosSet(ctx: Ctx): Set<string> {
   const set = new Set<string>(Object.keys(ctx.st.marcas));
   idsInglesEximidos(ctx).forEach((id) => set.add(id));
   ctx.st.periodos.forEach((p) => p.ramos.forEach((e) => entradaAprobada(ctx, e) && set.add(e.id)));
   return set;
-}
-
-export function estaAprobado(ctx: Ctx, id: string, aprobados = aprobadosSet(ctx)): boolean {
-  return aprobados.has(id);
 }
 
 export function estadoRamo(ctx: Ctx, id: string, aprobados = aprobadosSet(ctx)): EstadoRamo {
@@ -160,7 +142,7 @@ export function prerrequisitosPendientes(ctx: Ctx, ramo: Ramo, aprobados = aprob
 /** Ramos del semestre en curso: los que estás cursando y los ya cerrados este semestre. */
 export function ramosSemestreActual(ctx: Ctx): Ramo[] {
   const actual = ctx.st.periodos.find((p) => esPeriodoActual(ctx.st, p));
-  const cerradosAqui = new Set(actual?.ramos.filter((e) => entradaAprobada(ctx, e)).map((e) => e.id) ?? []);
+  const cerradosAqui = new Set(actual?.ramos.filter((e) => notaEntrada(ctx, e) !== null).map((e) => e.id) ?? []);
   Object.entries(ctx.st.marcas).forEach(([id, sem]) => sem === ctx.st.semestreActual && cerradosAqui.add(id));
   return ctx.cur.ramos.filter((r) => ctx.st.cursando.includes(r.id) || cerradosAqui.has(r.id));
 }
@@ -201,9 +183,9 @@ export function notaRamo(ctx: Ctx, id: string): number | null {
 
 // ── Créditos ──
 
-export type ResultadoIntento = "aprobado" | "reprobado" | "cursando";
+type ResultadoIntento = "aprobado" | "reprobado" | "cursando";
 
-export interface Intento {
+interface Intento {
   id: string;
   creditos: number;
   resultado: ResultadoIntento;
@@ -213,7 +195,7 @@ export interface Intento {
  * Cada inscripción registrada: intentos cerrados en Notas, ramos cursando ahora y
  * aprobaciones marcadas en la malla sin nota (cuentan una vez).
  */
-export function intentosInscritos(ctx: Ctx): Intento[] {
+function intentosInscritos(ctx: Ctx): Intento[] {
   const out: Intento[] = [];
   const idsActivos = new Set(ctx.cur.ramos.map((r) => r.id));
   const aprobadosConNota = new Set<string>();
@@ -250,7 +232,7 @@ export function intentosInscritos(ctx: Ctx): Intento[] {
   return out;
 }
 
-export interface ResumenCreditos {
+interface ResumenCreditos {
   inscritos: number;
   aprobados: number;
   reprobados: number;
@@ -290,7 +272,7 @@ function creditosAvance(ctx: Ctx, intentos: Intento[]): number {
   return total;
 }
 
-export function creditosTotalesPlan(ctx: Ctx): number {
+function creditosTotalesPlan(ctx: Ctx): number {
   const eximidos = idsInglesEximidos(ctx);
   return ctx.cur.ramos.filter((r) => !eximidos.has(r.id)).reduce((s, r) => s + r.creditos, 0);
 }
@@ -313,7 +295,7 @@ export function calcularPPA(ctx: Ctx, periodos: Periodo[] = ctx.st.periodos): { 
   return { ppa: cred > 0 ? suma / cred : null, creditos: cred };
 }
 
-export interface RendimientoArea {
+interface RendimientoArea {
   area: string;
   /** Promedio ponderado por créditos de las notas finales del área (cada intento cuenta). */
   prom: number;
@@ -388,7 +370,7 @@ export function evolucionPPA(ctx: Ctx): PuntoPPA[] {
   return out;
 }
 
-export interface ResumenPeriodo {
+interface ResumenPeriodo {
   numero: number;
   sumaPonderada: number;
   credTotal: number;
@@ -439,10 +421,10 @@ export function resumenPeriodos(ctx: Ctx, { incluirVerano = false } = {}): Resum
 
 // ── Historial de intentos y reglamentos ──
 
-export const claveHistorial = (e: Entrada) => e.siglaReal?.trim().toUpperCase() || e.id;
+const claveHistorial = (e: Entrada) => e.siglaReal?.trim().toUpperCase() || e.id;
 
 /** Notas finales de cada ramo por intento (un intento por periodo). */
-export function historialIntentos(ctx: Ctx): Record<string, number[]> {
+function historialIntentos(ctx: Ctx): Record<string, number[]> {
   const h: Record<string, number[]> = {};
   periodosOrdenados(ctx.st).forEach((p) => {
     if (p.tipo === "convalidaciones") return;
@@ -467,7 +449,7 @@ export function nombreHistorial(ctx: Ctx, clave: string): string {
   return clave;
 }
 
-export interface Alerta {
+interface Alerta {
   tipo: string;
   descripcion: string;
   nivel: "critica" | "advertencia";
@@ -476,7 +458,7 @@ export interface Alerta {
 // UDP · Reglamento del Estudiante de Pregrado, art. 38 a 40 (causales de eliminación)
 export type CausalUDP = "a" | "b" | "c";
 
-export interface PeriodoUDP {
+interface PeriodoUDP {
   numero: number;
   cursadas: number;
   reprobadas: number;
@@ -503,7 +485,7 @@ export function periodosUDP(ctx: Ctx): PeriodoUDP[] {
   return [...por.values()].filter((p) => p.cursadas > 0).sort((a, b) => a.numero - b.numero);
 }
 
-export interface EvaluacionCausalC {
+interface EvaluacionCausalC {
   semestre: number;
   considerados: number[];
   cursadas: number;
@@ -576,7 +558,7 @@ export function listaNombres(ctx: Ctx, claves: string[]): string {
   return nombres.length <= 3 ? nombres.join(", ") : `${nombres.slice(0, 3).join(", ")} y ${nombres.length - 3} más`;
 }
 
-export interface IncidenteUDP {
+interface IncidenteUDP {
   /** Semestre tras el cual se cumplió la causal. */
   semestre: number;
   causales: { causal: CausalUDP; descripcion: string }[];
@@ -638,7 +620,7 @@ export interface RiesgoRamoUDP {
   rendimiento: RendimientoRamo;
 }
 
-export interface MargenCausalC {
+interface MargenCausalC {
   semestres: [number, number];
   /** Asignaturas del año académico, contando las que cursas ahora. */
   cursadas: number;
@@ -752,10 +734,4 @@ export function semestreListoParaAvanzar(ctx: Ctx): boolean {
   const p = ctx.st.periodos.find((x) => esPeriodoActual(ctx.st, x));
   if (!p || p.ramos.length === 0) return false;
   return p.ramos.every((e) => notaFinalEfectiva(e) !== null || esEximido(ctx, e.id));
-}
-
-/** Ramos que se pueden inscribir ahora (para el resumen de la malla). */
-export function ramosDisponibles(ctx: Ctx): Ramo[] {
-  const apr = aprobadosSet(ctx);
-  return ctx.cur.ramos.filter((r) => estadoRamo(ctx, r.id, apr) === "disponible");
 }

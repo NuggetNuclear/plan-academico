@@ -3,16 +3,16 @@ import { create } from "zustand";
 export type Vista = "inicio" | "malla" | "notas" | "planificacion" | "estadisticas" | "ayuda";
 export const VISTAS: Vista[] = ["inicio", "malla", "notas", "planificacion", "estadisticas", "ayuda"];
 
-export type TipoToast = "ok" | "error" | "info";
+type TipoToast = "ok" | "error" | "info";
 
-export interface Toast {
+interface Toast {
   id: number;
   mensaje: string;
   tipo: TipoToast;
   accion?: { etiqueta: string; fn: () => void };
 }
 
-export interface OpcionesDialogo {
+interface OpcionesDialogo {
   titulo: string;
   mensaje?: string;
   etiqueta?: string;
@@ -55,20 +55,22 @@ interface UIStore {
   _abrirDialogo: (d: DialogoActivo | null) => void;
 }
 
-const leer = (k: string) => {
+export function leerLocal(clave: string): string | null {
   try {
-    return localStorage.getItem(k);
+    return localStorage.getItem(clave);
   } catch {
     return null;
   }
-};
-const escribir = (k: string, v: string) => {
+}
+
+export function escribirLocal(clave: string, valor: string | null) {
   try {
-    localStorage.setItem(k, v);
+    if (valor === null) localStorage.removeItem(clave);
+    else localStorage.setItem(clave, valor);
   } catch {
-    /* sin almacenamiento disponible */
+    /* modo privado o almacenamiento lleno: la app sigue funcionando en memoria */
   }
-};
+}
 
 export function vistaDesdeHash(): Vista {
   const h = location.hash.replace("#", "").split("/")[0] as Vista;
@@ -85,8 +87,8 @@ export const useUI = create<UIStore>((set, get) => ({
   cuentaAbierta: false,
   wizardAbierto: false,
   importarAbierto: false,
-  tema: (leer("notas.v1.tema") as Tema) || "sistema",
-  lateralCompacta: leer("notas.v1.lateral") === "compacta",
+  tema: (leerLocal("notas.v1.tema") as Tema) || "sistema",
+  lateralCompacta: leerLocal("notas.v1.lateral") === "compacta",
   foco: null,
 
   irA(v, foco) {
@@ -107,11 +109,11 @@ export const useUI = create<UIStore>((set, get) => ({
   setWizard: (v) => set({ wizardAbierto: v }),
   setImportar: (v) => set({ importarAbierto: v }),
   setTema(t) {
-    escribir("notas.v1.tema", t);
+    escribirLocal("notas.v1.tema", t);
     set({ tema: t });
   },
   setLateralCompacta(v) {
-    escribir("notas.v1.lateral", v ? "compacta" : "normal");
+    escribirLocal("notas.v1.lateral", v ? "compacta" : "normal");
     set({ lateralCompacta: v });
   },
   limpiarFoco: () => set({ foco: null }),

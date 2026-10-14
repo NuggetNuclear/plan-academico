@@ -6,6 +6,7 @@ import type { Plan } from "../core/planner";
 import { estadoInicial, normalizarEstado, type PlannerState } from "../core/state";
 import type { MallaDef } from "../core/types";
 import { sincronizar } from "./mutaciones";
+import { escribirLocal, leerLocal } from "./ui";
 
 /** La app es solo para Ingeniería Civil en Informática y Telecomunicaciones (UDP). */
 export const CARRERA_ID = "inf";
@@ -15,24 +16,7 @@ const claveEstado = (carrera: string) => `notas.v1.estado.${carrera}`;
 const CLAVES_ANTIGUAS = ["notas.v1.carrera", claveEstado("ds")];
 const MAX_DESHACER = 40;
 
-function leerLocal(clave: string): string | null {
-  try {
-    return localStorage.getItem(clave);
-  } catch {
-    return null;
-  }
-}
-
-function escribirLocal(clave: string, valor: string | null) {
-  try {
-    if (valor === null) localStorage.removeItem(clave);
-    else localStorage.setItem(clave, valor);
-  } catch {
-    /* modo privado o almacenamiento lleno: la app sigue funcionando en memoria */
-  }
-}
-
-export function leerEstadoGuardado(): PlannerState | null {
+function leerEstadoGuardado(): PlannerState | null {
   const raw = leerLocal(claveEstado(CARRERA_ID));
   if (!raw) return null;
   try {
@@ -48,7 +32,7 @@ export function leerTodosLosEstados(): Record<string, PlannerState> {
   return st ? { [CARRERA_ID]: st } : {};
 }
 
-export function guardarEstadoLocal(st: PlannerState) {
+function guardarEstadoLocal(st: PlannerState) {
   escribirLocal(claveEstado(CARRERA_ID), JSON.stringify(st));
   window.dispatchEvent(new CustomEvent("notas:guardado"));
 }
@@ -63,7 +47,7 @@ async function cargarMalla(): Promise<MallaDef> {
   return (await res.json()) as MallaDef;
 }
 
-export interface PlanesEditados {
+interface PlanesEditados {
   firma: string;
   planes: Plan[];
 }

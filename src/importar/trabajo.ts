@@ -2,7 +2,7 @@
 import { leerNumero, normalizarTexto } from "../core/format";
 import { claveCodigo, ErrorImportacion, estadoDesdeTexto, type EstadoUDP } from "./udp";
 
-export type PeriodoAnio = "1" | "2" | "E";
+type PeriodoAnio = "1" | "2" | "E";
 
 export interface RegistroTrabajo {
   fila: number;
@@ -58,7 +58,7 @@ async function inflar(datos: Uint8Array, maximo: number): Promise<Uint8Array> {
   return out;
 }
 
-export function abrirZip(buffer: ArrayBuffer) {
+function abrirZip(buffer: ArrayBuffer) {
   const bytes = new Uint8Array(buffer);
   const vista = new DataView(buffer);
   const invalido = () => new ErrorImportacion("El archivo no es un Excel (.xlsx) válido.");
@@ -119,13 +119,13 @@ function textos(xml: string): string {
   return [...limpio.matchAll(/<t\b[^>]*?(?:\/>|>([\s\S]*?)<\/t>)/g)].map((m) => desescapar(m[1] ?? "")).join("");
 }
 
-export function textosCompartidos(xml: string): string[] {
+function textosCompartidos(xml: string): string[] {
   return [...xml.matchAll(/<si\b[^>]*?(?:\/>|>([\s\S]*?)<\/si>)/g)].map((m) => textos(m[1] ?? ""));
 }
 
 const columnaANumero = (letras: string) => [...letras].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0) - 1;
 
-export function filasDeHoja(xml: string, compartidos: string[]): string[][] {
+function filasDeHoja(xml: string, compartidos: string[]): string[][] {
   const filas: string[][] = [];
   for (const fila of xml.matchAll(/<row\b[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g)) {
     const celdas: string[] = [];

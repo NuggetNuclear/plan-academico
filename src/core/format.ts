@@ -13,6 +13,9 @@ export function fmtNota(n: number | null | undefined, dec = 1): string {
   return n.toFixed(dec).replace(".", ",");
 }
 
+/** Porcentaje sin decimales si es entero: "30" o "12,5". */
+export const fmtPct = (n: number) => fmtNota(n, n % 1 ? 1 : 0);
+
 export function numeroConComa(n: number | null | undefined | ""): string {
   return n === null || n === undefined || n === "" ? "" : String(n).replace(".", ",");
 }

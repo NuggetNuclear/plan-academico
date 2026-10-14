@@ -78,4 +78,10 @@ describe("registro rápido de notas", () => {
     expect(calcularRamo(ramo).nfActual).toBeCloseTo(6);
     expect(guardarRegistro(ramo, registro({ categoria: 0, evaluacion: 1, factor: "-1" }))).not.toBeNull();
   });
+
+  it("rechaza días que no existen en vez de pasarlos al mes siguiente", () => {
+    expect(guardarRegistro(entrada(), registro({ fecha: "2026-02-31" }))).not.toBeNull();
+    expect(guardarRegistro(entrada(), registro({ fecha: "2026-2-3" }))).not.toBeNull();
+    expect(guardarRegistro(entrada(), registro({ fecha: "2028-02-29" }))).toBeNull();
+  });
 });

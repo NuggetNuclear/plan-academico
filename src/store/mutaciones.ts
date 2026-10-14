@@ -29,7 +29,7 @@ export function nuevaEntrada(id: string): Entrada {
   return { uid: nuevoUid(), id, categorias: [], notaFinal: null };
 }
 
-export function asegurarEntrada(p: Periodo, id: string): Entrada {
+function asegurarEntrada(p: Periodo, id: string): Entrada {
   let e = p.ramos.find((x) => x.id === id);
   if (!e) {
     e = nuevaEntrada(id);
@@ -39,7 +39,7 @@ export function asegurarEntrada(p: Periodo, id: string): Entrada {
 }
 
 /** Entradas creadas automáticamente y nunca editadas (se pueden mover o quitar sin perder nada). */
-export function esEntradaVacia(e: Entrada): boolean {
+function esEntradaVacia(e: Entrada): boolean {
   return e.notaFinal === null && e.categorias.length === 0 && !e.siglaReal?.trim() && !e.nombreReal?.trim();
 }
 
@@ -51,7 +51,7 @@ export function quitarEntradasVacias(st: PlannerState, id: string, { incluirActu
   });
 }
 
-export function quitarConvalidacion(st: PlannerState, id: string) {
+function quitarConvalidacion(st: PlannerState, id: string) {
   const conv = obtenerPeriodo(st, "convalidaciones", 0);
   if (!conv) return;
   conv.ramos = conv.ramos.filter((e) => e.id !== id);

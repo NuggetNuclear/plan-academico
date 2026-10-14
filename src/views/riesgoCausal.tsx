@@ -1,10 +1,9 @@
 import { CircleCheck, ShieldAlert, TriangleAlert } from "lucide-react";
 import { listaNombres, nombreEntrada, situacionSemestreUDP, type CausalUDP, type Ctx, type RiesgoRamoUDP, type SituacionSemestreUDP } from "../core/academic";
-import { fmtNota } from "../core/format";
+import { fmtNota, fmtPct } from "../core/format";
 import type { Entrada } from "../core/state";
 import { Aviso } from "../ui/primitives";
 
-const pct = (n: number) => fmtNota(n, n % 1 ? 1 : 0);
 
 export const letrasCausal = (causales: CausalUDP[]) => (causales.length === 1 ? `causal ${causales[0]}` : `causales ${causales.join(" y ")}`);
 
@@ -21,10 +20,10 @@ export function textoRendimiento({ calculo: c, rendimiento }: Pick<RiesgoRamoUDP
       return { tono: "danger", texto: c.reqFallidos.length ?`Reprobaste el requisito ${c.reqFallidos.join(", ")}: ya no alcanzas el 4,0.` : "Con tus notas actuales ya no alcanzas el 4,0, ni con 7,0 en lo que queda." };
     case "aprobando":
     case "reprobando": {
-      const vas = `Vas con ${fmtNota(c.nfActual)} (${pct(c.pesoEvaluado)}% evaluado)`;
+      const vas = `Vas con ${fmtNota(c.nfActual)} (${fmtPct(c.pesoEvaluado)}% evaluado)`;
       if (c.necesaria === null || c.restante <= 0) return { tono: rendimiento === "aprobando" ? "ok" : "danger", texto: `${vas}.` };
-      if (rendimiento === "aprobando") return { tono: c.necesaria > 4 ? "warn" : "ok", texto: `${vas}. Para no bajar del 4,0 necesitas al menos ${fmtNota(c.necesaria, 2)} en el ${pct(c.restante)}% restante${requisitos}.` };
-      return { tono: "danger", texto: `${vas}: estás reprobando. Necesitas promediar ${fmtNota(c.necesaria, 2)} en el ${pct(c.restante)}% restante${requisitos}.` };
+      if (rendimiento === "aprobando") return { tono: c.necesaria > 4 ? "warn" : "ok", texto: `${vas}. Para no bajar del 4,0 necesitas al menos ${fmtNota(c.necesaria, 2)} en el ${fmtPct(c.restante)}% restante${requisitos}.` };
+      return { tono: "danger", texto: `${vas}: estás reprobando. Necesitas promediar ${fmtNota(c.necesaria, 2)} en el ${fmtPct(c.restante)}% restante${requisitos}.` };
     }
   }
 }

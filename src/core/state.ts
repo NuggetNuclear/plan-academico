@@ -100,7 +100,7 @@ export interface PlanGuardado {
   semestres: { numero: number; tipo: TipoSemestrePlan; ids: string[] }[];
 }
 
-export interface Preferencias {
+interface Preferencias {
   marcadoRapido: boolean;
   mostrarNotas: boolean;
   checklistOculto: boolean;
@@ -179,7 +179,7 @@ export function normalizarEstado(raw: unknown): PlannerState {
     congelaciones: (Array.isArray(r.congelaciones) ? r.congelaciones : [])
       .map((c) => ({ desde: Math.trunc(num(c?.desde, 0)), duracion: Math.trunc(num(c?.duracion, 0)) }))
       .filter((c) => c.desde >= 1 && c.duracion >= 1),
-    marcas: r.marcas && typeof r.marcas === "object" ? r.marcas : {},
+    marcas: r.marcas && typeof r.marcas === "object" && !Array.isArray(r.marcas) ? r.marcas : {},
     rapidosDesdeCursando: Array.isArray(r.rapidosDesdeCursando) ? r.rapidosDesdeCursando : [],
     cursando: Array.isArray(r.cursando) ? [...new Set(r.cursando)] : [],
     periodos: periodos
@@ -214,7 +214,8 @@ export function normalizarEstado(raw: unknown): PlannerState {
     modoPractica: (["carga", "sobrecupo", "verano", "quitar"] as const).includes(r.modoPractica as never)
       ? (r.modoPractica as PlannerState["modoPractica"])
       : "carga",
-    planFijado: r.planFijado ?? null,
+    // Sin ErrorBoundary: un plan corrupto en un respaldo rompería Inicio y Planificación en cada carga.
+    planFijado: Array.isArray(r.planFijado?.semestres) && r.planFijado.semestres.every((s) => Array.isArray(s?.ids)) ? r.planFijado : null,
     prefs: { ...base.prefs, ...(r.prefs ?? {}) },
   };
 }

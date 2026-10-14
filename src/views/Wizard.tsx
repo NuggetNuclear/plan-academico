@@ -2,18 +2,12 @@ import { CalendarDays, Check, FileUp, Grid3x3, Zap, ListChecks } from "lucide-re
 import { useEffect, useState } from "react";
 import { useApp } from "../store/app";
 import { marcarSemestres } from "../store/mutaciones";
-import { toast, useUI } from "../store/ui";
+import { escribirLocal, leerLocal, toast, useUI } from "../store/ui";
 import { CabeceraModal, Modal } from "../ui/overlays";
 import { Boton, cx } from "../ui/primitives";
 
 const CLAVE_SALTADO = "notas.v1.wizardSaltado";
-export const wizardSaltado = () => {
-  try {
-    return localStorage.getItem(CLAVE_SALTADO) === "1";
-  } catch {
-    return false;
-  }
-};
+export const wizardSaltado = () => leerLocal(CLAVE_SALTADO) === "1";
 
 function Opcion({ activo, onClick, titulo, descripcion, icono }: { activo: boolean; onClick: () => void; titulo: string; descripcion: string; icono?: React.ReactNode }) {
   return (
@@ -57,11 +51,7 @@ export function Wizard() {
 
   // Si la persona cierra el asistente sin terminar, no se vuelve a abrir solo.
   const cerrar = () => {
-    try {
-      localStorage.setItem(CLAVE_SALTADO, "1");
-    } catch {
-      /* sin almacenamiento */
-    }
+    escribirLocal(CLAVE_SALTADO, "1");
     setWizard(false);
   };
 

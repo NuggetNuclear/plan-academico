@@ -38,12 +38,3 @@ export function semestresRestantes(planes: Plan[], guardado: Plan | null): { n: 
   const futuros = plan.semestres.filter((s) => s.tipo === "futuro" || s.tipo === "overflow");
   return { n: futuros.length, ultimo: futuros.at(-1)?.numero ?? null, fuente: guardado ? "guardado" : "recomendado" };
 }
-
-/** Convierte un semestre académico futuro en semestre calendario aproximado (marzo y agosto). */
-export function fechaEgreso(semestreActual: number, ultimoSemestre: number, hoy = new Date()): string {
-  const mitad = hoy.getMonth() >= 6 ? 2 : 1; // julio en adelante: segundo semestre
-  const indiceHoy = hoy.getFullYear() * 2 + (mitad - 1);
-  const indice = indiceHoy + (ultimoSemestre - semestreActual);
-  const anio = Math.floor(indice / 2);
-  return `${indice % 2 === 0 ? "1.er" : "2.º"} semestre ${anio}`;
-}

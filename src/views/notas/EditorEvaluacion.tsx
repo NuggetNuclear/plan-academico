@@ -2,7 +2,7 @@ import { Check, ChevronDown, ClipboardList, Copy, GraduationCap, LayoutTemplate,
 import { useId, useMemo, useRef, useState } from "react";
 import { clavePeriodo, nombreEntrada, siglaRamo, ramoCatalogo, type Ctx } from "../../core/academic";
 import { esPersonalizable } from "../../core/curriculum";
-import { fmtNota, normalizarTexto, plural } from "../../core/format";
+import { fmtPct, normalizarTexto, plural } from "../../core/format";
 import { CATEGORIAS_SUGERIDAS, PLANTILLAS, aplicarPlantilla, configExamen, inferirEscala, plantillaDesdeEntrada, type Plantilla } from "../../core/grades";
 import type { Categoria, ConfigExamen, Entrada, Periodo } from "../../core/state";
 import { useApp } from "../../store/app";
@@ -17,7 +17,6 @@ interface Borrador {
   examen: ConfigExamen;
 }
 
-const pct = (n: number) => fmtNota(n, n % 1 ? 1 : 0);
 const notasRegistradas = (cats: Categoria[]) => cats.reduce((s, c) => s + c.notas.filter((n) => n.n !== null).length, 0);
 
 /** Aplica una plantilla conservando las notas de las categorías que se llaman igual. */
@@ -51,7 +50,7 @@ function plantillasPropias(ctx: Ctx, uid: string): Plantilla[] {
 }
 
 const resumenPlantilla = (p: Plantilla) =>
-  p.descripcion ?? p.categorias.map((c) => `${c.nombre} ${pct(c.peso)}%`).join(" · ");
+  p.descripcion ?? p.categorias.map((c) => `${c.nombre} ${fmtPct(c.peso)}%`).join(" · ");
 
 function SelectorPlantilla({ propias, onElegir }: { propias: Plantilla[]; onElegir: (p: Plantilla) => void }) {
   const grupo = (titulo: string, icono: React.ReactNode, lista: Plantilla[]) =>
@@ -180,11 +179,11 @@ export function EditorEvaluacion({ ctx, periodo, entrada, onCerrar }: { ctx: Ctx
     if (!presentacion.length) return null;
     if (!exCat || pesoEx <= 0) {
       if (Math.abs(suma - 100) < 0.05) return { ok: true, texto: "Suman 100%. ¡Perfecto!" };
-      return { ok: false, texto: suma > 100 ? `Suman ${pct(suma)}%: te pasaste por ${pct(suma - 100)}%.` : `Suman ${pct(suma)}%: falta asignar ${pct(100 - suma)}%.` };
+      return { ok: false, texto: suma > 100 ? `Suman ${fmtPct(suma)}%: te pasaste por ${fmtPct(suma - 100)}%.` : `Suman ${fmtPct(suma)}%: falta asignar ${fmtPct(100 - suma)}%.` };
     }
-    if (escala === "presentacion") return { ok: true, texto: `Suman 100% de tu nota de presentación, que vale ${pct(100 - pesoEx)}% del ramo.` };
-    if (escala === "ramo") return { ok: true, texto: `Suman ${pct(suma)}% del ramo; con el examen (${pct(pesoEx)}%) completan 100%.` };
-    return { ok: false, texto: `Suman ${pct(suma)}%. Deben sumar 100% (si son % de la nota de presentación) o ${pct(100 - pesoEx)}% (si son % del ramo).` };
+    if (escala === "presentacion") return { ok: true, texto: `Suman 100% de tu nota de presentación, que vale ${fmtPct(100 - pesoEx)}% del ramo.` };
+    if (escala === "ramo") return { ok: true, texto: `Suman ${fmtPct(suma)}% del ramo; con el examen (${fmtPct(pesoEx)}%) completan 100%.` };
+    return { ok: false, texto: `Suman ${fmtPct(suma)}%. Deben sumar 100% (si son % de la nota de presentación) o ${fmtPct(100 - pesoEx)}% (si son % del ramo).` };
   })();
 
   const elegirPlantilla = (p: Plantilla) => {
@@ -340,7 +339,7 @@ export function EditorEvaluacion({ ctx, periodo, entrada, onCerrar }: { ctx: Ctx
                         <CampoNumero id={`${id}-pex`} className="input !py-2 pr-7 font-semibold" valor={exCat.peso || null} min={1} max={99} decimales={1} placeholder="30" vacioPermitido={false} onGuardar={(v) => cambiar((b) => void (b.categorias[iEx].peso = v ?? 30))} />
                         <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-[13px] text-fg-3">%</span>
                       </div>
-                      <p className="mt-1 text-xs text-fg-3">de la nota final. Tu presentación vale el {pct(100 - (exCat.peso || 0))}% restante.</p>
+                      <p className="mt-1 text-xs text-fg-3">de la nota final. Tu presentación vale el {fmtPct(100 - (exCat.peso || 0))}% restante.</p>
                     </div>
                     <div>
                       <label className="label" htmlFor={`${id}-exime`}>Te eximes con presentación ≥</label>

@@ -1,7 +1,7 @@
 import { NOTA_APROB, clamp, fmtNota } from "./format";
 import type { Categoria, ConfigExamen, Entrada, EscalaPresentacion, MinimosCategoria, ModoPromedio } from "./state";
 
-export interface StatsCategoria {
+interface StatsCategoria {
   /** Promedio con lo pendiente como 1,0 (null si no hay casillas). */
   prom: number | null;
   /** Promedio solo de lo rendido (null si no hay notas). */
@@ -31,7 +31,7 @@ export function statsCategoria(cat: Categoria): StatsCategoria {
   };
 }
 
-export interface MetaRequisito {
+interface MetaRequisito {
   nombre: string;
   /** Promedio que necesita en lo que queda de la categoría. */
   nec: number;
@@ -44,10 +44,10 @@ export interface MetaRequisito {
  * - "posible": aún puedes eximirte (ver condicionesEximir).
  * - "no-eximido": ya no te eximes (ver motivo); vas a examen.
  */
-export type EstadoEximicion = "sin-eximicion" | "eximido" | "asegurada" | "posible" | "no-eximido";
+type EstadoEximicion = "sin-eximicion" | "eximido" | "asegurada" | "posible" | "no-eximido";
 
 /** "cumple" incluye lo que ya está asegurado aunque saques 1,0 en lo que queda. */
-export type EstadoCondicion = "cumple" | "pendiente" | "falla";
+type EstadoCondicion = "cumple" | "pendiente" | "falla";
 
 /** Algo que se exige para eximirse o para tener derecho a examen. */
 export interface Condicion {
@@ -63,7 +63,7 @@ export interface Condicion {
  * Derecho a examen según los mínimos (null si no hay mínimos o si te eximes).
  * Sin derecho a examen, el ramo se reprueba.
  */
-export type HabilitacionExamen = "habilitado" | "pendiente" | "no-habilitado";
+type HabilitacionExamen = "habilitado" | "pendiente" | "no-habilitado";
 
 export interface InfoExamen {
   /** % de la nota final que vale el examen. */
@@ -122,7 +122,7 @@ export interface CalculoRamo {
   examen: InfoExamen | null;
 }
 
-export const modoPromedio = (e: Entrada): ModoPromedio => (e.modo === "peor" ? "peor" : "actual");
+const modoPromedio = (e: Entrada): ModoPromedio => (e.modo === "peor" ? "peor" : "actual");
 
 export function notaFinalEfectiva(e: Pick<Entrada, "notaFinal" | "decimas">): number | null {
   if (e.notaFinal === null || e.notaFinal === undefined || Number.isNaN(e.notaFinal)) return null;
