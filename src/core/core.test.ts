@@ -79,6 +79,77 @@ describe("notas de un ramo", () => {
   });
 });
 
+describe("examen y eximición", () => {
+  const examen = (n: number | null) => ({ nombre: "Examen", peso: 30, examen: true, notas: [{ n, f: 1 }] });
+  const conEximicion = { escala: "presentacion" as const, eximicion: 5, asistenciaMin: null, asistencia: null };
+
+  it("con % sobre la presentación, la presentación vale 70% y el examen 30%", () => {
+    const r = calcularRamo(entrada("X", null, {
+      examen: { ...conEximicion, eximicion: null },
+      categorias: [
+        { nombre: "Solemnes", peso: 60, notas: [{ n: 4, f: 1 }] },
+        { nombre: "Controles", peso: 40, notas: [{ n: 5, f: 1 }] },
+        examen(3),
+      ],
+    }));
+    // NP = 0,6·4 + 0,4·5 = 4,4; NF = 0,7·4,4 + 0,3·3 = 3,98
+    expect(r.examen?.np).toBeCloseTo(4.4, 5);
+    expect(r.nfActual).toBeCloseTo(3.98, 5);
+    expect(r.examen?.pesoPresentacionEsperado).toBe(100);
+  });
+
+  it("con % crudos del ramo (suman 70%) normaliza la presentación", () => {
+    const r = calcularRamo(entrada("X", null, {
+      categorias: [
+        { nombre: "Solemnes", peso: 42, notas: [{ n: 4, f: 1 }] },
+        { nombre: "Controles", peso: 28, notas: [{ n: 5, f: 1 }] },
+        examen(null),
+      ],
+    }));
+    expect(r.examen?.np).toBeCloseTo(4.4, 5);
+    expect(r.examen?.presentacionCompleta).toBe(true);
+    // 0,7·4,4 = 3,08; faltan 0,87 en el 30% → 2,9
+    expect(r.examen?.necesariaExamen).toBeCloseTo(2.9, 5);
+  });
+
+  it("se exime con presentación ≥ 5,0 (redondeada) y la nota final es la presentación", () => {
+    const r = calcularRamo(entrada("X", null, {
+      examen: conEximicion,
+      categorias: [{ nombre: "Solemnes", peso: 100, notas: [{ n: 4.9, f: 1 }, { n: 5, f: 1 }] }, examen(null)],
+    }));
+    expect(r.examen?.estado).toBe("eximido");
+    expect(r.nfActual).toBeCloseTo(4.95, 5);
+    expect(r.nfPeor).toBeCloseTo(4.95, 5);
+    expect(r.restante).toBe(0);
+    expect(r.necesaria).toBeNull();
+  });
+
+  it("sin la asistencia exigida no se exime y el examen cuenta", () => {
+    const r = calcularRamo(entrada("X", null, {
+      examen: { ...conEximicion, asistenciaMin: 75, asistencia: 60 },
+      categorias: [{ nombre: "Solemnes", peso: 100, notas: [{ n: 6, f: 1 }] }, examen(2)],
+    }));
+    expect(r.examen?.estado).toBe("no-eximido");
+    expect(r.examen?.motivo).toBe("asistencia");
+    expect(r.nfActual).toBeCloseTo(0.7 * 6 + 0.3 * 2, 5);
+  });
+
+  it("dice cuánto falta para eximirse y cuándo la eximición está asegurada", () => {
+    const posible = calcularRamo(entrada("X", null, {
+      examen: conEximicion,
+      categorias: [{ nombre: "Solemnes", peso: 100, notas: [{ n: 5, f: 1 }, { n: null, f: 1 }] }, examen(null)],
+    }));
+    expect(posible.examen?.estado).toBe("posible");
+    expect(posible.examen?.necesariaEximir).toBeCloseTo(4.9, 5); // (4,95·2 − 5)
+    const asegurada = calcularRamo(entrada("X", null, {
+      examen: { ...conEximicion, eximicion: 4 },
+      categorias: [{ nombre: "Solemnes", peso: 100, notas: [{ n: 7, f: 3 }, { n: null, f: 1 }] }, examen(null)],
+    }));
+    expect(asegurada.examen?.estado).toBe("asegurada");
+    expect(asegurada.nfPeor).toBeCloseTo(5.5, 5);
+  });
+});
+
 describe("escala de notas", () => {
   const esc = { puntajeMax: 60, exigencia: 0.6 };
   it("convierte puntaje a nota con 60% de exigencia", () => {

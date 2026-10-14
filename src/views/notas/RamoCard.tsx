@@ -5,6 +5,7 @@ import {
   CircleCheck,
   CircleX,
   Flag,
+  GraduationCap,
   LayoutTemplate,
   MoreHorizontal,
   Plus,
@@ -18,8 +19,8 @@ import { useId, useRef, useState } from "react";
 import { creditosEntrada, esPeriodoActual, nombreEntrada, nombreRamo, ramoCatalogo, siglaEntrada, siglaRamo, situacionSemestreUDP, type Ctx } from "../../core/academic";
 import { esPersonalizable } from "../../core/curriculum";
 import { NOTA_APROB, fmtNota, leerNumero, numeroConComa } from "../../core/format";
-import { calcularRamo, notaDesdePuntaje, PLANTILLAS, ramoAsegurado, statsCategoria } from "../../core/grades";
-import type { Categoria, Entrada, Nota, Periodo } from "../../core/state";
+import { aplicarPlantilla, calcularRamo, configExamen, indiceExamen, notaDesdePuntaje, PLANTILLAS, ramoAsegurado, statsCategoria, type InfoExamen } from "../../core/grades";
+import type { Categoria, ConfigExamen, Entrada, Nota, Periodo } from "../../core/state";
 import { useApp } from "../../store/app";
 import { cerrarEntrada, periodoPorClave, quitarEntrada, reabrirEntrada } from "../../store/mutaciones";
 import { clavePeriodo } from "../../core/academic";
@@ -157,7 +158,7 @@ function CasillaNota({ nota, etiqueta, onEditar, onBorrar, soloLectura, modoActu
 }
 
 // ── Fila de una categoría ──
-function FilaCategoria({ cat, ci, editar, soloLectura, modoActual }: { cat: Categoria; ci: number; editar: Editor; soloLectura: boolean; modoActual: boolean }) {
+function FilaCategoria({ cat, ci, editar, soloLectura, modoActual, dePresentacion }: { cat: Categoria; ci: number; editar: Editor; soloLectura: boolean; modoActual: boolean; dePresentacion: boolean }) {
   const st = statsCategoria(cat);
   const prom = modoActual ? st.promRendido : st.prom;
   const editarCat = (et: string | null, fn: (c: Categoria) => void) => editar(et, (e) => fn(e.categorias[ci]));
@@ -180,7 +181,8 @@ function FilaCategoria({ cat, ci, editar, soloLectura, modoActual }: { cat: Cate
             decimales={1}
             disabled={soloLectura}
             placeholder="0"
-            aria-label="Porcentaje de la categoría"
+            aria-label={dePresentacion ? "Porcentaje de la nota de presentación" : "Porcentaje de la categoría"}
+            title={dePresentacion ? "% de la nota de presentación" : "% del ramo"}
             onGuardar={(v) => editarCat("Cambiar porcentaje", (c) => (c.peso = v ?? 0))}
             className="w-10 bg-transparent px-1 py-1 text-right text-[13px] font-semibold outline-none"
           />
@@ -227,6 +229,28 @@ function FilaCategoria({ cat, ci, editar, soloLectura, modoActual }: { cat: Cate
         >
           <Asterisk className="size-3.5" />
         </button>
+        <button
+          type="button"
+          disabled={soloLectura}
+          onClick={() =>
+            editar(cat.examen ? "Quitar examen" : "Marcar examen", (e) =>
+              e.categorias.forEach((c, i) => {
+                if (i === ci && !cat.examen) c.examen = true;
+                else delete c.examen;
+              }),
+            )
+          }
+          title={cat.examen ? "Es el examen: lo demás forma la nota de presentación (clic para quitar)" : "Marcar como examen (nota de presentación y eximición)"}
+          aria-label={`${cat.nombre || "Esta categoría"} es el examen`}
+          aria-pressed={!!cat.examen}
+          className={cx(
+            "grid size-7 place-items-center rounded-lg transition-colors",
+            cat.examen ? "bg-accent-soft text-accent" : "text-fg-3 hover:bg-surface-3",
+            soloLectura && !cat.examen && "invisible",
+          )}
+        >
+          <GraduationCap className="size-3.5" />
+        </button>
         <span className={cx("w-11 text-right font-mono text-[13px] font-bold tabular", claseNota(prom))} title={modoActual ? "Promedio de lo rendido" : "Promedio con 1,0 en lo pendiente"}>
           {fmtNota(prom, 2)}
         </span>
@@ -242,6 +266,86 @@ function FilaCategoria({ cat, ci, editar, soloLectura, modoActual }: { cat: Cate
       </div>
     </div>
   );
+}
+
+const pct = (n: number) => fmtNota(n, n % 1 ? 1 : 0);
+
+// ── Nota de presentación, examen y eximición ──
+function PanelExamen({ entrada, info, editar }: { entrada: Entrada; info: InfoExamen; editar: Editor }) {
+  const id = useId();
+  const cfg = configExamen(entrada);
+  const pres = 100 - info.peso;
+  const editarCfg = (etiqueta: string, cambio: Partial<ConfigExamen>) => editar(etiqueta, (e) => (e.examen = { ...configExamen(e), ...cambio }));
+  return (
+    <div className="space-y-3 rounded-xl border border-accent-line bg-accent-soft/40 p-3">
+      <p className="flex items-center gap-1.5 text-[13px] font-semibold">
+        <GraduationCap className="size-4 text-accent" /> Nota de presentación y examen
+      </p>
+      <div className="space-y-1.5">
+        <p className="text-xs font-semibold text-fg-2">Los % de las demás categorías son…</p>
+        <Segmentado
+          tamano="xs"
+          etiqueta="Los porcentajes de las demás categorías son"
+          valor={cfg.escala}
+          onChange={(escala) => editarCfg("Escala de la presentación", { escala })}
+          opciones={[
+            { valor: "presentacion", etiqueta: "De la presentación", title: `Suman 100% y esa nota vale ${pct(pres)}% del ramo` },
+            { valor: "ramo", etiqueta: "Del ramo", title: `Suman ${pct(pres)}%, junto al ${pct(info.peso)}% del examen` },
+          ]}
+        />
+        <p className="text-xs text-fg-2">
+          {cfg.escala === "presentacion"
+            ? `Suman 100% y dan tu nota de presentación, que vale ${pct(pres)}% del ramo (el examen, ${pct(info.peso)}%).`
+            : `Suman ${pct(pres)}% del ramo; tu nota de presentación es ese aporte dividido por ${fmtNota(pres / 100, 2)}.`}
+        </p>
+      </div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-2">
+        <div>
+          <label className="label" htmlFor={`${id}-exime`}>Te eximes con</label>
+          <CampoNumero id={`${id}-exime`} aria-label="Nota de presentación para eximirse" className="input !py-1.5" valor={cfg.eximicion} min={1} max={7} decimales={1} minDecimales={1} placeholder="No exime" onGuardar={(v) => editarCfg("Nota de eximición", { eximicion: v })} />
+        </div>
+        <div>
+          <label className="label" htmlFor={`${id}-asis-min`}>Asistencia exigida</label>
+          <CampoNumero id={`${id}-asis-min`} aria-label="Asistencia exigida para eximirse (%)" className="input !py-1.5" valor={cfg.asistenciaMin} min={0} max={100} decimales={0} placeholder="No exige" disabled={cfg.eximicion === null} onGuardar={(v) => editarCfg("Asistencia exigida", { asistenciaMin: v })} />
+        </div>
+        <div>
+          <label className="label" htmlFor={`${id}-asis`}>Tu asistencia</label>
+          <CampoNumero id={`${id}-asis`} aria-label="Tu asistencia (%)" className="input !py-1.5" valor={cfg.asistencia} min={0} max={100} decimales={0} placeholder="%" disabled={cfg.eximicion === null || cfg.asistenciaMin === null} onGuardar={(v) => editarCfg("Tu asistencia", { asistencia: v })} />
+        </div>
+      </div>
+      <p className="text-xs text-fg-2">
+        {cfg.eximicion === null
+          ? "Si el ramo exime, escribe la nota de presentación con la que te eximes (ej. 5,0). Déjalo vacío si siempre se rinde examen."
+          : `Con presentación ${fmtNota(cfg.eximicion)} o más${cfg.asistenciaMin !== null ? ` y ${cfg.asistenciaMin}% de asistencia` : ""}, no rindes examen y tu nota final es la de presentación.`}
+      </p>
+    </div>
+  );
+}
+
+/** Mensajes sobre la nota de presentación y la eximición. */
+function ayudasExamen(ex: InfoExamen, cfg: ConfigExamen): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  if (ex.np !== null)
+    out.push(
+      <span key="np" className="flex items-center gap-1 font-semibold text-fg-2">
+        <GraduationCap className="size-3.5" />
+        Nota de presentación {fmtNota(ex.np, 2)}{ex.presentacionCompleta ? "" : " con lo rendido"}
+      </span>,
+    );
+  const asistencia = ex.asistenciaPendiente ? ` si cumples ${cfg.asistenciaMin}% de asistencia` : "";
+  const umbral = fmtNota(ex.eximicion);
+  if (ex.estado === "eximido") out.push(<span key="ex" className="flex items-center gap-1 font-semibold text-ok"><CircleCheck className="size-3.5" />Eximido del examen{asistencia}: tu nota final es la de presentación</span>);
+  else if (ex.estado === "asegurada") out.push(<span key="ex" className="flex items-center gap-1 font-semibold text-ok"><CircleCheck className="size-3.5" />Eximición asegurada aunque saques 1,0 antes del examen{asistencia}</span>);
+  else if (ex.estado === "posible" && ex.necesariaEximir !== null)
+    out.push(<span key="ex" className="flex items-center gap-1 font-semibold text-accent"><GraduationCap className="size-3.5" />Para eximirte ({umbral}): necesitas {fmtNota(ex.necesariaEximir, 2)} en lo que queda antes del examen{asistencia}</span>);
+  else if (ex.estado === "no-eximido")
+    out.push(
+      <span key="ex" className="flex items-center gap-1 font-semibold text-warn">
+        <GraduationCap className="size-3.5" />
+        {ex.motivo === "asistencia" ? `Sin eximición: tu asistencia está bajo ${cfg.asistenciaMin}%` : ex.motivo === "requisito" ? "Sin eximición: tienes un requisito bajo 4,0" : `Sin eximición: la presentación no alcanza ${umbral}`}. Vas a examen ({pct(ex.peso)}%)
+      </span>,
+    );
+  return out;
 }
 
 // ── Tarjeta del ramo ──
@@ -263,6 +367,11 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
   const reqMal = r.reqFallidos.length > 0;
   const notaMostrada = r.nf !== null ? Math.min(7, r.nf + (r.cerrado ? r.decimas : 0)) : null;
   const personalizable = esPersonalizable(ramo) && !r.cerrado;
+  const ex = r.examen;
+  const cfgExamen = configExamen(entrada);
+  const iExamen = indiceExamen(entrada);
+  const escalaPresentacion = iExamen >= 0 && cfgExamen.escala === "presentacion";
+  const eximido = ex?.estado === "eximido" || ex?.estado === "asegurada";
 
   const chip = r.cerrado ? (
     <Insignia tono={notaMostrada! >= NOTA_APROB ? "ok" : "danger"}>{conv ? "Convalidado" : notaMostrada! >= NOTA_APROB ? "Aprobado" : "Reprobado"}</Insignia>
@@ -288,10 +397,11 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
           ayudas.push(
             <span key="a" className={cx("flex items-center gap-1 font-semibold", r.necesaria <= 4 ? "text-ok" : "text-warn")}>
               <Target className="size-3.5" />
-              Necesitas {fmtNota(r.necesaria, 2)} en el {fmtNota(r.restante, r.restante % 1 ? 1 : 0)}% restante
+              Necesitas {fmtNota(r.necesaria, 2)} {ex?.necesariaExamen != null ? "en el examen" : `en el ${pct(r.restante)}% restante`}
             </span>,
           );
       }
+      if (ex) ayudas.push(...ayudasExamen(ex, cfgExamen));
       r.reqMetas.forEach((m) => ayudas.push(<span key={m.nombre} className="flex items-center gap-1 font-semibold text-warn"><Asterisk className="size-3.5" />{m.nombre}: ≥ {fmtNota(m.nec, 2)} en lo que queda</span>));
       r.reqFallidos.forEach((n) => ayudas.push(<span key={"f" + n} className="flex items-center gap-1 font-semibold text-danger"><Asterisk className="size-3.5" />{n}: bajo 4,0</span>));
       if (r.necesariaMeta !== null && entrada.meta)
@@ -394,6 +504,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
               <Insignia>{creditosEntrada(ctx, entrada)} cr</Insignia>
             )}
             {chip}
+            {!r.cerrado && eximido && <Insignia tono="ok" icono={<GraduationCap className="size-3" />}>Eximido</Insignia>}
           </div>
         </div>
         <div className="flex w-20 shrink-0 flex-col items-end gap-1.5 sm:w-28">
@@ -429,7 +540,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
             )}
           </div>
           <span className="max-w-28 text-right text-[11px] font-medium text-fg-3">
-            {r.cerrado ? "Nota final" : r.modo === "peor" ? "Si sacas 1,0 en lo que falta" : r.pesoEvaluado > 0 && r.pesoEvaluado < 100 ? `Promedio · ${fmtNota(r.pesoEvaluado, r.pesoEvaluado % 1 ? 1 : 0)}% evaluado` : "Promedio actual"}
+            {r.cerrado ? "Nota final" : ex?.estado === "eximido" ? "Nota de presentación" : r.modo === "peor" ? "Si sacas 1,0 en lo que falta" : r.pesoEvaluado > 0 && r.pesoEvaluado < 100 ? `Promedio · ${fmtNota(r.pesoEvaluado, r.pesoEvaluado % 1 ? 1 : 0)}% evaluado` : "Promedio actual"}
           </span>
         </div>
 
@@ -443,12 +554,12 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
               {entrada.categorias.map((cat, ci) => <div key={ci}>
                 <p className="mb-1.5 flex flex-wrap justify-between gap-1 text-xs font-semibold text-fg-2">
                   <span>{cat.nombre || `Categoría ${ci + 1}`}</span>
-                  <span>{cat.peso ? `${cat.peso}% del ramo` : "Porcentaje por definir"}</span>
+                  <span>{!cat.peso ? "Porcentaje por definir" : ci === iExamen ? `Examen · ${cat.peso}% del ramo` : escalaPresentacion ? `${cat.peso}% de la presentación` : `${cat.peso}% del ramo`}</span>
                 </p>
                 <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
                   {cat.notas.map((n, ni) => {
                     const nombre = n.etiqueta || `${cat.nombre || "Evaluación"} ${ni + 1}`;
-                    const contenido = <><span className="min-w-0 flex-1"><span className="block break-words text-[13px] font-medium">{nombre}</span><span className="block text-xs text-fg-2">{n.n === null ? "Pendiente" : n.f === 0 ? "No cuenta" : "Registrada"}{n.fecha ? ` · ${new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short" }).format(new Date(n.fecha + "T12:00:00"))}` : ""}</span></span><span className={cx("text-lg font-bold tabular", claseNota(n.n))}>{n.n === null ? "+" : fmtNota(n.n)}</span></>;
+                    const contenido = <><span className="min-w-0 flex-1"><span className="block break-words text-[13px] font-medium">{nombre}</span><span className="block text-xs text-fg-2">{ci === iExamen && eximido ? "No lo rindes: eximido" : n.n === null ? "Pendiente" : n.f === 0 ? "No cuenta" : "Registrada"}{n.fecha ? ` · ${new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short" }).format(new Date(n.fecha + "T12:00:00"))}` : ""}</span></span><span className={cx("text-lg font-bold tabular", claseNota(n.n))}>{n.n === null ? "+" : fmtNota(n.n)}</span></>;
                     return r.cerrado ? <div key={ni} className="flex items-center gap-2 rounded-xl bg-surface-2 p-3">{contenido}</div> : <button key={ni} type="button" className="flex min-h-16 items-center gap-2 rounded-xl border border-line bg-surface-2 p-3 text-left transition-colors hover:border-accent" onClick={() => onRegistrar({ ci, ni })}>{contenido}<span className="sr-only">{n.n === null ? ". Toca para registrar la nota" : ". Toca para editar"}</span></button>;
                   })}
                 </div>
@@ -466,7 +577,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
       {(
         <div className="flex flex-1 flex-col gap-2 p-4">
           <p className="text-sm font-semibold">Evaluaciones y porcentajes</p>
-          <p className="mb-2 text-xs text-fg-2">Cada categoría agrupa evaluaciones y aporta un porcentaje de la nota final. Los porcentajes deben sumar 100%. Los cambios se guardan al salir del campo.</p>
+          <p className="mb-2 text-xs text-fg-2">Cada categoría agrupa evaluaciones y aporta un porcentaje de la nota final. Los porcentajes deben sumar 100%. Si hay examen, márcalo con el birrete para calcular tu nota de presentación y la eximición. Los cambios se guardan al salir del campo.</p>
           {!r.cerrado && entrada.categorias.length > 0 && (
             <Segmentado
               tamano="xs"
@@ -480,8 +591,9 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
             />
           )}
           {entrada.categorias.map((c, ci) => (
-            <FilaCategoria key={ci} cat={c} ci={ci} editar={editar} soloLectura={r.cerrado} modoActual={r.modo === "actual"} />
+            <FilaCategoria key={ci} cat={c} ci={ci} editar={editar} soloLectura={r.cerrado} modoActual={r.modo === "actual"} dePresentacion={escalaPresentacion && ci !== iExamen} />
           ))}
+          {!r.cerrado && ex && <PanelExamen entrada={entrada} info={ex} editar={editar} />}
           {!r.cerrado && entrada.categorias.length === 0 && (
             <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line-strong px-4 py-5 text-center">
               <p className="text-[13px] text-fg-2">¿Cómo se evalúa este ramo? Parte de una plantilla o agrega categorías a mano.</p>
@@ -493,7 +605,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
                     variante="suave"
                     onClick={() =>
                       editar(`Plantilla ${p.nombre}`, (e) => {
-                        e.categorias = p.categorias.map((c) => ({ nombre: c.nombre, peso: c.peso, req: c.req, notas: Array.from({ length: c.casillas }, () => ({ n: null, f: 1 })) }));
+                        aplicarPlantilla(e, p);
                       })
                     }
                   >
@@ -504,7 +616,11 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
             </div>
           )}
           <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[12px]">
-            {!r.cerrado && entrada.categorias.length > 0 && (
+            {!r.cerrado && ex ? (
+              <span className={cx("font-semibold", ex.pesoPresentacion > ex.pesoPresentacionEsperado + 0.05 ? "text-danger" : Math.abs(ex.pesoPresentacion - ex.pesoPresentacionEsperado) < 0.05 ? "text-fg-3" : "text-warn")}>
+                Presentación {pct(ex.pesoPresentacion)}% de {pct(ex.pesoPresentacionEsperado)}% · Examen {pct(ex.peso)}%
+              </span>
+            ) : !r.cerrado && entrada.categorias.length > 0 && (
               <span className={cx("font-semibold", r.avisoPorcentaje ? "text-danger" : Math.abs(r.pesoTotal - 100) < 0.05 ? "text-fg-3" : "text-warn")}>
                 Ponderación {fmtNota(r.pesoTotal, r.pesoTotal % 1 ? 1 : 0)}%{r.avisoPorcentaje ? " · supera el 100%" : r.pesoTotal < 99.95 ? " · falta definir" : ""}
               </span>
@@ -535,7 +651,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
                         setPlantillas(false);
                         if (!(await confirmar({ titulo: `Usar «${p.nombre}»`, mensaje: "Se reemplazarán las categorías y notas actuales de este ramo.", aceptar: "Reemplazar", peligro: true }))) return;
                         editar(`Plantilla ${p.nombre}`, (e) => {
-                          e.categorias = p.categorias.map((c) => ({ nombre: c.nombre, peso: c.peso, req: c.req, notas: Array.from({ length: c.casillas }, () => ({ n: null, f: 1 })) }));
+                          aplicarPlantilla(e, p);
                         });
                       }}
                     >

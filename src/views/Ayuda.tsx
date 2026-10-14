@@ -222,6 +222,7 @@ export function Ayuda() {
               <li><strong>Peor caso:</strong> todo lo pendiente cuenta como 1,0. Si igual da 4,0, ya aprobaste.</li>
               <li><strong>Lo que necesitas:</strong> (3,95 − lo asegurado) ÷ % que falta. Si las categorías aún no suman 100%, lo no definido también cuenta como pendiente.</li>
               <li><strong>Requisito (✱):</strong> la categoría debe promediar 4,0 por sí sola, aunque el promedio general apruebe.</li>
+              <li><strong>Examen (birrete):</strong> lo demás forma tu nota de presentación. Sus % pueden ser de la presentación (suman 100% y esa nota vale, por ejemplo, 70% del ramo) o del ramo (suman 70% y se normalizan). Si el ramo exime y tu presentación alcanza la nota de eximición (ej. 5,0, redondeada a una décima) con la asistencia exigida, tu nota final es la de presentación y no rindes examen.</li>
               <li>Se aprueba con <strong>3,95</strong>, que se redondea a 4,0.</li>
             </ul>
           </div>

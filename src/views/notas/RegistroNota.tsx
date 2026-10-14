@@ -2,6 +2,7 @@ import { Check, NotebookPen } from "lucide-react";
 import { useRef, useState } from "react";
 import { clavePeriodo, nombreEntrada, nombrePeriodo, type Ctx } from "../../core/academic";
 import { fmtNota, leerNumero, numeroConComa } from "../../core/format";
+import { configExamen, indiceExamen } from "../../core/grades";
 import type { Periodo } from "../../core/state";
 import { useApp } from "../../store/app";
 import { periodoPorClave } from "../../store/mutaciones";
@@ -104,7 +105,7 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
             <p id="registro-ayuda" className="mt-2 text-xs text-fg-2">De 1,0 a 7,0. Acepta coma o punto.</p>
           </div>
           {nuevaCategoria && <div>
-            <label htmlFor="registro-peso" className="label">Porcentaje de la nota final (opcional)</label>
+            <label htmlFor="registro-peso" className="label">Porcentaje de la nota {entrada && indiceExamen(entrada) >= 0 && configExamen(entrada).escala === "presentacion" ? "de presentación" : "final"} (opcional)</label>
             <input id="registro-peso" className="input" inputMode="decimal" placeholder="Ej. 30" value={porcentaje} onChange={(e) => setPorcentaje(e.target.value)} aria-describedby="registro-peso-ayuda" />
             <p id="registro-peso-ayuda" className="mt-1 text-xs text-fg-2">¿No lo sabes? Déjalo vacío. La nota queda registrada y contará en el promedio cuando asignes su porcentaje en «Configurar ramo».</p>
           </div>}

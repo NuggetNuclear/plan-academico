@@ -17,7 +17,26 @@ export interface Categoria {
   peso: number;
   /** Requisito aprobatorio: debe promediar 4,0 por sí sola. */
   req?: boolean;
+  /** Es el examen: las demás categorías forman la nota de presentación. */
+  examen?: boolean;
   notas: Nota[];
+}
+
+/**
+ * Cómo se escriben los % de las categorías previas al examen:
+ * "presentacion" = suman 100% de la nota de presentación (ej. 40% + 60%, y esa nota vale 70% del ramo);
+ * "ramo" = son % del ramo y suman lo que no vale el examen (ej. 28% + 42% = 70%).
+ */
+export type EscalaPresentacion = "presentacion" | "ramo";
+
+export interface ConfigExamen {
+  escala: EscalaPresentacion;
+  /** Nota de presentación con la que te eximes del examen (null = el ramo no exime). */
+  eximicion: number | null;
+  /** % de asistencia exigido para eximirse (null = no se exige). */
+  asistenciaMin: number | null;
+  /** Tu % de asistencia (null = aún no lo sabes). */
+  asistencia: number | null;
 }
 
 export type ModoPromedio = "actual" | "peor";
@@ -36,6 +55,8 @@ export interface Entrada {
   nombreReal?: string;
   /** Nota que te gustaría sacar en el ramo (calcula lo que necesitas). */
   meta?: number | null;
+  /** Nota de presentación y eximición (solo cuenta si una categoría está marcada como examen). */
+  examen?: ConfigExamen;
 }
 
 export type TipoPeriodo = "regular" | "verano" | "convalidaciones";

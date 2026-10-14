@@ -1,4 +1,5 @@
 import { leerNumero } from "../../core/format";
+import { pesoAsignado } from "../../core/grades";
 import type { Entrada } from "../../core/state";
 
 export interface Registro {
@@ -20,7 +21,7 @@ export function validarRegistro(entrada: Entrada, datos: Registro): string | nul
   if (datos.categoria === null && datos.porcentaje.trim()) {
     const peso = leerNumero(datos.porcentaje);
     if (!Number.isFinite(peso) || peso <= 0 || peso > 100) return "El porcentaje debe ser mayor que 0 y como máximo 100.";
-    const total = entrada.categorias.reduce((s, c) => s + c.peso, 0);
+    const total = pesoAsignado(entrada);
     if (total + peso > 100.05) return `Ya tienes ${total}% asignado. Queda ${Math.max(0, 100 - total)}% disponible.`;
   }
   if (datos.fecha && (!/^\d{4}-\d{2}-\d{2}$/.test(datos.fecha) || Number.isNaN(Date.parse(`${datos.fecha}T12:00:00`)))) return "Revisa la fecha de la evaluación.";

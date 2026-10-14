@@ -51,6 +51,17 @@ describe("registro rápido de notas", () => {
     expect(calcularRamo(ramo).nfActual).toBe(5);
   });
 
+  it("con % sobre la presentación, el examen no cuenta para el total disponible", () => {
+    const ramo = entrada();
+    ramo.examen = { escala: "presentacion", eximicion: 5, asistenciaMin: null, asistencia: null };
+    ramo.categorias = [
+      { nombre: "Solemnes", peso: 60, notas: [{ n: 5, f: 1 }] },
+      { nombre: "Examen", peso: 30, examen: true, notas: [{ n: null, f: 1 }] },
+    ];
+    expect(guardarRegistro(ramo, registro({ porcentaje: "40" }))).toBeNull();
+    expect(guardarRegistro(ramo, registro({ porcentaje: "1" }))).not.toBeNull();
+  });
+
   it("no modifica ramos cerrados ni evaluaciones eliminadas", () => {
     const ramo = entrada();
     expect(guardarRegistro(ramo, registro({ categoria: 0, evaluacion: 0 }))).not.toBeNull();

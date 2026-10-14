@@ -8,7 +8,7 @@ Malla interactiva, notas con ponderaciones, simulador de PPA, planificación de 
 
 - **Inicio:** avance de la carrera (créditos válidos), PPA acumulado con tendencia, semestres que faltan, situación académica (causales de eliminación UDP art. 38 a 40: cuánto te falta para cada una, qué ramos en curso te dejarían en causal y cuánto necesitas para aprobarlos, y registro de permanencias aceptadas; o alertas y revisión de permanencia UC), ramos del semestre, avisos (prácticas, ramos anuales) y lista de próximos pasos.
 - **Mi malla:** estados aprobado / cursando / puedo tomar / bloqueado, menú por ramo (aprobado con semestre o convalidado, cursando, desmarcar), marcado rápido, marcar semestres completos, resaltado de prerrequisitos y de lo que desbloquea, búsqueda y filtros, notas en la malla, inglés eximido, congelaciones (desplazan la oferta de ramos anuales), rutas académicas y grupos de OFG alternativos.
-- **Notas:** periodos regulares, de verano/TAV y convalidaciones; categorías con %, notas con peso relativo (×), categorías con requisito de 4,0, modo *actual* o *peor caso*, nota necesaria, nota final con décimas, reabrir, ventana/banner por semestre, simulador de PPA y exportación a PDF.
+- **Notas:** periodos regulares, de verano/TAV y convalidaciones; categorías con %, notas con peso relativo (×), categorías con requisito de 4,0, examen con nota de presentación y eximición (nota y asistencia), modo *actual* o *peor caso*, nota necesaria, nota final con décimas, reabrir, ventana/banner por semestre, simulador de PPA y exportación a PDF.
 - **Planificación:** seis estrategias que se filtran por las que terminan en el mínimo de semestres, ramos críticos primero, tope de créditos, correquisitos, ramos anuales, reglas de práctica (dentro de la carga, sobrecupo, verano o fuera del plan), arrastrar y soltar con validación, ajustes sugeridos (intercambios), guardar el plan y PDF.
 - **Estadísticas:** PPA, créditos inscritos/aprobados/reprobados/de avance, evolución del PPA (gráfico o tabla), aprobación de créditos por semestre, rendimiento por tipo de ramo y distribución de notas por ramo o por evaluación.
 - **Asistente de inicio, modo oscuro, exportar/importar, sincronización opcional con Google.**
@@ -38,6 +38,7 @@ Toda la lógica vive en `src/core/` y está cubierta por tests:
 - El planificador es voraz: calcula el mínimo de semestres (créditos, tope de ramos y profundidad de la cadena de prerrequisitos) y llena cada semestre poniendo primero los ramos críticos.
 - **Nota necesaria:** se calcula como `(3,95 − lo asegurado) ÷ fracción pendiente`, y las categorías que aún no suman 100% cuentan como pendientes. Hay un test que lo cubre.
 - En el peor caso, las categorías sin casillas también cuentan como 1,0.
+- **Examen y eximición:** si una categoría es el examen, las demás forman la nota de presentación (NP). Sus % pueden escribirse sobre la presentación (suman 100%) o sobre el ramo (suman 100% − examen, y se normalizan). Con NP ≥ nota de eximición (redondeada a una décima) y la asistencia exigida, la nota final es NP; si no, NF = NP × (1 − %examen) + examen × %examen.
 
 ## Stack
 

@@ -1,4 +1,5 @@
 import { nombreEntrada, siglaEntrada, type Ctx } from "./academic";
+import { calcularRamo, pesoEnRamo } from "./grades";
 
 export interface Evaluacion {
   fecha: string; // AAAA-MM-DD
@@ -18,7 +19,12 @@ export function evaluacionesConFecha(ctx: Ctx): Evaluacion[] {
     if (p.tipo === "convalidaciones") return;
     p.ramos.forEach((e) => {
       if (e.notaFinal !== null) return;
+      // Si ya te eximiste, el examen no aparece como próxima evaluación.
+      const eximicion = calcularRamo(e).examen?.estado;
+      const eximido = eximicion === "eximido" || eximicion === "asegurada";
       e.categorias.forEach((c, ci) => {
+        if (c.examen && eximido) return;
+        const peso = pesoEnRamo(e, c);
         const fTot = c.notas.reduce((s, n) => s + (n.f > 0 ? n.f : 0), 0) || 1;
         c.notas.forEach((n, ni) => {
           if (!n.fecha) return;
@@ -28,7 +34,7 @@ export function evaluacionesConFecha(ctx: Ctx): Evaluacion[] {
             sigla: siglaEntrada(ctx, e),
             categoria: c.nombre || "Evaluación",
             etiqueta: n.etiqueta || `${c.nombre || "Evaluación"} ${ni + 1}`,
-            peso: Math.round(((c.peso * (n.f > 0 ? n.f : 0)) / fTot) * 10) / 10,
+            peso: Math.round(((peso *(n.f > 0 ? n.f : 0)) / fTot) * 10) / 10,
             rendida: n.n !== null,
             uid: `${e.uid}-${ci}-${ni}`,
           });
