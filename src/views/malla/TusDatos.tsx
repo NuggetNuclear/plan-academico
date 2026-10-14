@@ -29,7 +29,7 @@ export function TusDatos() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-bold">Tus datos</span>
-          <span className="block truncate text-[13px] text-fg-2">
+          <span className="block break-words text-[13px] text-fg-2">
             Semestre {st.semestreActual} · {st.inglesEximido ? `${st.inglesEximido} nivel(es) de inglés eximidos` : "sin inglés eximido"}
             {st.congelaciones.length > 0 && ` · ${st.congelaciones.length} congelación(es)`}
             {cur.ruta && ` · ${cur.ruta.nombre}`}

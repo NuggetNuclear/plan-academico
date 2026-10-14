@@ -335,9 +335,9 @@ function TarjetaPlan({ plan, idx, recomendado, onCambiar, editado, onRestaurar }
                     className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-2 text-left text-[12px] transition-colors hover:border-accent hover:bg-accent-soft"
                   >
                     <span className="rounded bg-surface-3 px-1.5 font-bold tabular">S{sw.sem1}</span>
-                    <span className="min-w-0 flex-1 truncate font-semibold">{nombreRamo(ctx, sw.ramo1)}</span>
+                    <span className="min-w-0 flex-1 break-words font-semibold">{nombreRamo(ctx, sw.ramo1)}</span>
                     <ArrowLeftRight className="size-3.5 shrink-0 text-fg-3" />
-                    <span className="min-w-0 flex-1 truncate text-right font-semibold">{nombreRamo(ctx, sw.ramo2)}</span>
+                    <span className="min-w-0 flex-1 break-words text-right font-semibold">{nombreRamo(ctx, sw.ramo2)}</span>
                     <span className="rounded bg-surface-3 px-1.5 font-bold tabular">S{sw.sem2}</span>
                   </button>
                 ))}
