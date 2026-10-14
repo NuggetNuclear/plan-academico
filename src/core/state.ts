@@ -98,8 +98,8 @@ export interface PlannerState {
   periodos: Periodo[];
   /** Nombre y sigla reales de cursos flexibles (OPR, electivos con alternativas). */
   alias: Record<string, { sigla?: string; nombre?: string }>;
-  /** Semestres tras los cuales la UDP aceptó la permanencia por la causal c. */
-  excepcionesCausalC: number[];
+  /** Semestres tras los cuales la UDP aceptó tu permanencia estando en causal de eliminación. */
+  permanenciasUDP: number[];
   modoPractica: ModoPractica;
   planFijado: PlanGuardado | null;
   prefs: Preferencias;
@@ -119,7 +119,7 @@ export function estadoInicial(): PlannerState {
     cursando: [],
     periodos: [],
     alias: {},
-    excepcionesCausalC: [],
+    permanenciasUDP: [],
     modoPractica: "carga",
     planFijado: null,
     prefs: {
@@ -175,7 +175,14 @@ export function normalizarEstado(raw: unknown): PlannerState {
         })),
       })),
     alias: r.alias && typeof r.alias === "object" ? r.alias : {},
-    excepcionesCausalC: Array.isArray(r.excepcionesCausalC) ? r.excepcionesCausalC.filter(Number.isInteger) : [],
+    // Antes solo se registraba la causal c (excepcionesCausalC).
+    permanenciasUDP: [
+      ...new Set(
+        [r.permanenciasUDP, (r as { excepcionesCausalC?: unknown }).excepcionesCausalC]
+          .flatMap((v) => (Array.isArray(v) ? v : []))
+          .filter((x): x is number => Number.isInteger(x) && x >= 1),
+      ),
+    ].sort((a, b) => a - b),
     modoPractica: (["carga", "sobrecupo", "verano", "quitar"] as const).includes(r.modoPractica as never)
       ? (r.modoPractica as PlannerState["modoPractica"])
       : "carga",

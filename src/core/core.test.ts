@@ -4,6 +4,9 @@ import {
   aprobadosSet,
   calcularPPA,
   causalesEliminacionUDP,
+  evaluacionesCausalC,
+  incidentesUDP,
+  situacionSemestreUDP,
   estadoRamo,
   evolucionPPA,
   resumenCreditos,
@@ -13,7 +16,7 @@ import { construirCurriculum, evaluarReglaPractica, rutaCritica, semestreCalenda
 import { calcularRamo, notaDesdePuntaje, puntajeParaNota, statsCategoria } from "./grades";
 import { generarICS } from "./calendar";
 import { generarPlanes, idsPendientes, moverRamo, puedeMoverRamo } from "./planner";
-import { estadoInicial, nuevoUid, normalizarEstado, type Entrada, type PlannerState } from "./state";
+import { estadoInicial, nuevoUid, normalizarEstado, type Entrada, type Periodo, type PlannerState } from "./state";
 import type { MallaDef } from "./types";
 
 const inf = JSON.parse(readFileSync("public/carreras/inf.json", "utf8")) as MallaDef;
@@ -186,7 +189,94 @@ describe("causales de eliminación UDP (art. 38)", () => {
       { tipo: "regular" as const, numero: 2, ramos: [entrada("CBM-1000", 3), entrada("CBM-1001", 6)] },
     ];
     expect(causalesEliminacionUDP(ctxCon({ periodos })).map((c) => c.tipo)).toContain("c");
-    expect(causalesEliminacionUDP(ctxCon({ periodos, excepcionesCausalC: [1] })).map((c) => c.tipo)).not.toContain("c");
+    expect(causalesEliminacionUDP(ctxCon({ periodos, permanenciasUDP: [2] })).map((c) => c.tipo)).not.toContain("c");
+  });
+
+  it("la causal c no se evalúa con el semestre en curso a medio cerrar", () => {
+    const periodos: Periodo[] = [
+      { tipo: "regular", numero: 1, ramos: [entrada("CBM-1000", 2), entrada("CBM-1001", 2), entrada("CBQ-1000", 5), entrada("CIT-1000", 5)] },
+      { tipo: "regular", numero: 2, ramos: [entrada("CBM-1002", 3), entrada("CIT-1010", null), entrada("CBF-1000", null)] },
+    ];
+    expect(causalesEliminacionUDP(ctxCon({ periodos, semestreActual: 2 }))).toEqual([]);
+    const cerrado = periodos.map((p) => (p.numero === 2 ? { ...p, ramos: [entrada("CBM-1002", 3), entrada("CIT-1010", 5), entrada("CBF-1000", 5)] } : p));
+    expect(causalesEliminacionUDP(ctxCon({ periodos: cerrado, semestreActual: 2 }))).toEqual([]);
+    const malo = periodos.map((p) => (p.numero === 2 ? { ...p, ramos: [entrada("CBM-1002", 3), entrada("CIT-1010", 3), entrada("CBF-1000", 5)] } : p));
+    expect(causalesEliminacionUDP(ctxCon({ periodos: malo, semestreActual: 2 })).map((c) => c.tipo)).toEqual(["c"]);
+  });
+
+  it("la permanencia por la c exime solo el semestre siguiente efectivamente cursado", () => {
+    const mal = (n: number) => ({ tipo: "regular" as const, numero: n, ramos: [entrada("CBM-1000", 2), entrada("CBM-1001", 2), entrada("CBQ-1000", 5)] });
+    const ctx = ctxCon({ periodos: [mal(1), mal(2), mal(3), mal(4)], permanenciasUDP: [2] });
+    const ev = evaluacionesCausalC(ctx);
+    expect(ev.map((e) => [e.semestre, e.exenta])).toEqual([[2, false], [3, true], [4, false]]);
+  });
+
+  // Historial real: Optimización y Señales reprobadas dos veces, Sistemas Distribuidos una.
+  const historialRiesgo = (): Periodo[] => [
+    { tipo: "regular", numero: 5, ramos: [entrada("CII-2750", 3.4), entrada("CIT-2107", 4.3), entrada("CBF-1002", 4.4), entrada("CIT-2009", 4.6), entrada("CIT-2108", 5.1)] },
+    { tipo: "regular", numero: 6, ramos: [entrada("CII-2750", 2.9), entrada("CIT-2110", 3.7), entrada("CIT-2010", 5.2), entrada("CIT-2205", 6.6), entrada("CIT-2109", 5.1)] },
+    { tipo: "regular", numero: 7, ramos: [entrada("CII-2750", 4.2), entrada("CIT-2110", 2.8), entrada("CIT-2011", 2.5), entrada("CIT-2012", 5.8), entrada("CII-2100", 4.1)] },
+    {
+      tipo: "regular",
+      numero: 8,
+      ramos: [
+        entrada("CIT-2110", null, { categorias: [{ nombre: "Solemnes", peso: 100, notas: [{ n: 3.2, f: 1 }, { n: null, f: 1 }] }] }),
+        entrada("CIT-2011", null),
+        entrada("CIT-2013", null),
+      ],
+    },
+  ];
+
+  it("advierte antes de caer: qué ramo en curso te deja en causal a o b", () => {
+    const ctx = ctxCon({ periodos: historialRiesgo(), semestreActual: 8, cursando: ["CIT-2110", "CIT-2011", "CIT-2013"] });
+    expect(causalesEliminacionUDP(ctx)).toEqual([]);
+    const s = situacionSemestreUDP(ctx);
+    expect(s.dosVeces.sort()).toEqual(["CII-2750", "CIT-2110"]);
+    // Empate a dos: muestra la que aún no apruebas.
+    expect(s.masReprobada).toEqual({ clave: "CIT-2110", veces: 2 });
+    const porRamo = Object.fromEntries(s.ramos.map((r) => [r.clave, r.causales]));
+    expect(porRamo).toEqual({ "CIT-2110": ["b"], "CIT-2011": ["a"], "CIT-2013": [] });
+    const senales = s.ramos.find((r) => r.clave === "CIT-2110")!;
+    expect(senales.rendimiento).toBe("reprobando");
+    expect(senales.calculo.necesaria).toBeCloseTo(4.7, 6);
+    // S7 + S8: 5 + 3 asignaturas, 2 reprobadas → puedes reprobar 2 más sin pasar del 50%.
+    expect(s.margenC).toMatchObject({ semestres: [7, 8], cursadas: 8, reprobadas: 2, permitidas: 2, enCurso: 3, proyectadas: 1, exento: false });
+  });
+
+  it("reprobar varios ramos por segunda vez a la vez también suma la causal a", () => {
+    const periodos: Periodo[] = [
+      { tipo: "regular", numero: 1, ramos: [entrada("CBM-1000", 2), entrada("CBM-1001", 2), entrada("CBQ-1000", 6), entrada("CIT-1000", 6)] },
+      { tipo: "regular", numero: 2, ramos: [entrada("CBM-1000", null), entrada("CBM-1001", null), entrada("FIC-1000", null)] },
+    ];
+    const s = situacionSemestreUDP(ctxCon({ periodos, semestreActual: 2 }));
+    expect(s.ramos.every((r) => r.causales.length === 0)).toBe(true);
+    expect(s.combinadaA).toBeNull();
+    const conUna = ctxCon({ periodos: [{ ...periodos[0], ramos: [...periodos[0].ramos, entrada("CBM-1003", 2)] }, { ...periodos[1], ramos: [...periodos[1].ramos, entrada("CBM-1003", null)] }], semestreActual: 2 });
+    expect(situacionSemestreUDP(conUna).combinadaA).toEqual({ necesarias: 3, claves: ["CBM-1000", "CBM-1001", "CBM-1003"] });
+  });
+
+  it("tras una permanencia aceptada, volver a reprobar te deja de nuevo en causal", () => {
+    const periodos: Periodo[] = [
+      { tipo: "regular", numero: 1, ramos: [entrada("CBM-1000", 2), entrada("CBM-1001", 2), entrada("CBQ-1000", 2), entrada("CIT-1000", 3), entrada("FIC-1000", 6), entrada("CBM-1003", 6), entrada("CBF-1000", 6)] },
+      { tipo: "regular", numero: 2, ramos: [entrada("CBM-1000", 3), entrada("CBM-1001", 3), entrada("CBQ-1000", 3), entrada("CBM-1002", 6), entrada("CIT-1010", 6), entrada("CBM-1005", 6), entrada("CBM-1006", 6)] },
+    ];
+    const sin = ctxCon({ periodos });
+    expect(incidentesUDP(sin)).toMatchObject([{ semestre: 2, causales: [{ causal: "a" }], aceptado: false }]);
+
+    const aceptada = ctxCon({ periodos, permanenciasUDP: [2] });
+    expect(causalesEliminacionUDP(aceptada)).toEqual([]);
+    // Con la a ya cumplida, cualquier segunda reprobación vuelve a gatillarla.
+    const s = situacionSemestreUDP(ctxCon({ periodos: [...periodos, { tipo: "regular", numero: 3, ramos: [entrada("CIT-1000", null), entrada("CBM-1000", null)] }], permanenciasUDP: [2], semestreActual: 3 }));
+    expect(s.reincidencia).toBe(true);
+    expect(Object.fromEntries(s.ramos.map((r) => [r.clave, r.causales]))).toEqual({ "CIT-1000": ["a"], "CBM-1000": ["b"] });
+
+    const reincide = ctxCon({ periodos: [...periodos, { tipo: "regular", numero: 3, ramos: [entrada("CIT-1000", 3.1)] }], permanenciasUDP: [2] });
+    expect(causalesEliminacionUDP(reincide).map((c) => c.tipo)).toEqual(["a"]);
+    expect(incidentesUDP(reincide).map((i) => [i.semestre, i.aceptado])).toEqual([[2, true], [3, false]]);
+  });
+
+  it("migra las excepciones antiguas de la causal c a permanencias", () => {
+    expect(normalizarEstado({ excepcionesCausalC: [3, 1, 3], permanenciasUDP: [5] }).permanenciasUDP).toEqual([1, 3, 5]);
   });
 });
 

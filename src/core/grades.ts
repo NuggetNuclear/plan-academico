@@ -148,6 +148,17 @@ export function ramoAsegurado(c: CalculoRamo): boolean {
   return c.nfPeor !== null && c.nfPeor >= NOTA_APROB && c.reqFallidos.length === 0 && c.reqMetas.length === 0;
 }
 
+/** Cómo vas en un ramo abierto: "perdido" = ya no alcanzas el 4,0 ni con 7,0 en lo que queda. */
+export type RendimientoRamo = "sin-notas" | "asegurado" | "aprobando" | "reprobando" | "perdido";
+
+export function rendimientoRamo(c: CalculoRamo): RendimientoRamo {
+  if (ramoAsegurado(c)) return "asegurado";
+  if (c.reqFallidos.length || (c.necesaria !== null && c.necesaria > 7)) return "perdido";
+  if (c.nfActual === null) return "sin-notas";
+  if (c.nfActual >= NOTA_APROB) return "aprobando";
+  return c.restante > 0 ? "reprobando" : "perdido";
+}
+
 // ── Escala de notas chilena: puntaje → nota ──
 
 export interface Escala {

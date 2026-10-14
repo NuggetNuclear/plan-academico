@@ -10,6 +10,7 @@ import {
   Flag,
   Info,
   Minus,
+  ShieldAlert,
   ShieldCheck,
   Trash2,
   TrendingDown,
@@ -28,7 +29,10 @@ import {
   evaluacionesCausalC,
   evolucionPPA,
   idsInglesEximidos,
+  incidentesUDP,
+  listaNombres,
   nombreEntrada,
+  nombreHistorial,
   nombreRamo,
   periodosUDP,
   ramosSemestreActual,
@@ -37,7 +41,9 @@ import {
   semestreListoParaAvanzar,
   semestreProtegido,
   siglaEntrada,
+  situacionSemestreUDP,
   type Alerta,
+  type SituacionSemestreUDP,
 } from "../core/academic";
 import { diasHasta, evaluacionesConFecha, hoyISO } from "../core/calendar";
 import { evaluarReglaPractica } from "../core/curriculum";
@@ -49,6 +55,7 @@ import { confirmar, toast, useUI } from "../store/ui";
 import { Anillo, NotaChip, Sparkline } from "../ui/comun";
 import { Aviso, Boton, CabeceraTarjeta, Insignia, Tarjeta, cx } from "../ui/primitives";
 import { fechaEgreso, semestresRestantes, usePlanes } from "./plan/usePlanes";
+import { letrasCausal, motivoCausal, textoRendimiento } from "./riesgoCausal";
 
 function AvisoCierreSemestre() {
   const ctx = useCtx();
@@ -256,35 +263,98 @@ function ListaAlertas({ alertas, vacio }: { alertas: Alerta[]; vacio: string }) 
   );
 }
 
-function ExcepcionesCausalC() {
+type TonoRiesgo = "neutro" | "info" | "ok" | "warn" | "danger";
+const CLASE_TONO: Record<TonoRiesgo, string> = {
+  neutro: "border-line",
+  info: "border-info/25 bg-info-soft",
+  ok: "border-ok/25 bg-ok-soft",
+  warn: "border-warn/25 bg-warn-soft",
+  danger: "border-danger/25 bg-danger-soft",
+};
+
+function Contador({ causal, valor, detalle, tono }: { causal: string; valor: React.ReactNode; detalle: React.ReactNode; tono: TonoRiesgo }) {
+  return (
+    <div className={cx("rounded-xl border px-3 py-2.5", CLASE_TONO[tono])}>
+      <p className="text-[11.5px] font-bold tracking-wide text-fg-3 uppercase">Causal {causal}</p>
+      <p className={cx("text-[20px] leading-tight font-extrabold tabular", tono === "danger" ? "text-danger" : tono === "info" ? "text-info" : "text-fg")}>{valor}</p>
+      <p className="text-[12px] text-fg-2">{detalle}</p>
+    </div>
+  );
+}
+
+function FilaRiesgo({ tono, insignia, children }: { tono: TonoRiesgo; insignia?: string; children: React.ReactNode }) {
+  return (
+    <li className={cx("flex items-start gap-2.5 rounded-xl border px-3 py-2 text-[13px]", CLASE_TONO[tono])}>
+      {insignia && (
+        <span className={cx("grid h-5 min-w-5 shrink-0 place-items-center rounded-md px-1 text-[11px] font-bold text-white uppercase", tono === "danger" ? "bg-danger" : tono === "ok" ? "bg-ok" : "bg-warn")}>{insignia}</span>
+      )}
+      <div className="min-w-0 space-y-0.5">{children}</div>
+    </li>
+  );
+}
+
+function CausalesUDP() {
   const ctx = useCtx();
   const mutar = useApp((s) => s.mutar);
+  const incidentes = incidentesUDP(ctx);
+  const activos = incidentes.filter((i) => !i.aceptado);
+  const permanencias = [...ctx.st.permanenciasUDP].sort((a, b) => a - b);
   const periodos = periodosUDP(ctx);
-  const evaluaciones = evaluacionesCausalC(ctx, periodos);
-  const excepciones = [...ctx.st.excepcionesCausalC].sort((a, b) => a - b);
-  const candidatas = evaluaciones.filter((e) => e.cumple && !e.exenta && !excepciones.includes(e.semestre));
-  if (!excepciones.length && !candidatas.length)
+  const reincidencia = incidentes.some((i) => i.aceptado);
+  const ultimo = activos.at(-1);
+
+  if (!activos.length && !permanencias.length)
     return (
       <p className="flex items-center gap-2 text-[13px] font-semibold text-ok">
-        <CheckCircle2 className="size-4" /> Sin excepciones registradas
+        <CheckCircle2 className="size-4" /> Sin causales de eliminación detectadas
       </p>
     );
   return (
     <div className="space-y-2">
-      {excepciones.map((o) => {
-        const protegido = semestreProtegido(o, periodos);
+      {activos.length > 0 && (
+        <ul className="space-y-2">
+          {activos.flatMap((i) =>
+            i.causales.map((c, k) => (
+              <FilaRiesgo key={`${i.semestre}-${k}`} tono="danger" insignia={c.causal}>
+                <p>
+                  {c.descripcion} <span className="text-fg-2">· tras S{i.semestre}</span>
+                </p>
+              </FilaRiesgo>
+            )),
+          )}
+        </ul>
+      )}
+      {ultimo && (
+        <div className="space-y-2 rounded-xl border border-line px-3 py-2 text-[13px]">
+          <p>
+            Puedes solicitar tu permanencia por escrito al Comité de Carrera (art. 39).
+            {reincidencia ? " Ya tuviste una permanencia aceptada: si te la rechazan, la apelación a la Comisión Especial de Gracia es solo para la primera causal (art. 40)." : " Si la rechaza, puedes ir a la Comisión de Gracia de la Facultad y luego a la Comisión Especial de Gracia (art. 40)."}
+          </p>
+          <Boton tamano="sm" variante="suave" icono={<ShieldCheck className="size-3.5" />} onClick={() => mutar("Registrar permanencia", ({ st }) => st.permanenciasUDP.push(ultimo.semestre))}>
+            Me aceptaron la permanencia tras S{ultimo.semestre}
+          </Boton>
+        </div>
+      )}
+      {permanencias.map((p) => {
+        const cubiertas = [...new Set(incidentes.filter((i) => i.semestre <= p && !permanencias.some((q) => q < p && i.semestre <= q)).flatMap((i) => i.causales.map((c) => c.causal)))];
+        const exento = cubiertas.includes("c") ? semestreProtegido(p, periodos) : null;
         return (
-          <div key={o} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ok/25 bg-ok-soft px-3 py-2 text-[13px]">
-            <span className="flex items-center gap-2">
-              <ShieldCheck className="size-4 text-ok" /> Permanencia aceptada tras S{o}. {protegido === null ? "Se aplicará al próximo semestre cursado." : `Exención aplicada a S${protegido}.`}
+          <div key={p} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ok/25 bg-ok-soft px-3 py-2 text-[13px]">
+            <span className="flex min-w-0 items-start gap-2">
+              <ShieldCheck className="mt-0.5 size-4 shrink-0 text-ok" />
+              <span>
+                Permanencia aceptada tras S{p}
+                {cubiertas.length ? ` (${letrasCausal(cubiertas)})` : ""}.
+                {cubiertas.includes("c") && (exento === null ? " El próximo semestre cursado no se evalúa la causal c." : ` S${exento} no se evaluó por la causal c.`)}
+              </span>
             </span>
             <Boton
               tamano="sm"
               variante="fantasma"
               icono={<Trash2 className="size-3.5" />}
               onClick={async () => {
-                if (await confirmar({ titulo: "Quitar excepción", mensaje: `¿Quitar el registro de permanencia aceptada tras el semestre ${o}?`, aceptar: "Quitar", peligro: true }))
-                  mutar("Quitar excepción", ({ st }) => (st.excepcionesCausalC = st.excepcionesCausalC.filter((x) => x !== o)));
+                if (await confirmar({ titulo: "Quitar permanencia", mensaje: `¿Quitar el registro de permanencia aceptada tras el semestre ${p}?`, aceptar: "Quitar", peligro: true }))
+                  mutar("Quitar permanencia", ({ st }) => (st.permanenciasUDP = st.permanenciasUDP.filter((x) => x !== p)));
               }}
             >
               Quitar
@@ -292,17 +362,139 @@ function ExcepcionesCausalC() {
           </div>
         );
       })}
-      {candidatas.map((e) => (
-        <div key={e.semestre} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line px-3 py-2 text-[13px]">
-          <span className="flex items-center gap-2">
-            <Info className="size-4 text-info" /> Si la UDP aceptó tu permanencia por la causal c tras S{e.semestre}, regístralo.
-          </span>
-          <Boton tamano="sm" variante="suave" icono={<ShieldCheck className="size-3.5" />} onClick={() => mutar("Registrar excepción", ({ st }) => st.excepcionesCausalC.push(e.semestre))}>
-            Registrar
-          </Boton>
-        </div>
-      ))}
     </div>
+  );
+}
+
+function SemestreUDP({ s }: { s: SituacionSemestreUDP }) {
+  const ctx = useCtx();
+  const irA = useUI((st) => st.irA);
+  const enRiesgo = [...s.ramos.filter((r) => r.causales.length)].sort((a, b) => b.causales.length - a.causales.length || (b.causales.includes("b") ? 1 : 0) - (a.causales.includes("b") ? 1 : 0));
+  const m = s.margenC;
+  const filas: React.ReactNode[] = [];
+
+  if (s.reincidencia && (enRiesgo.length || s.combinadaA))
+    filas.push(
+      <FilaRiesgo key="reincidencia" tono="danger">
+        <p>Ya tuviste una permanencia aceptada: caer de nuevo en causal sería reincidir, y la apelación a la Comisión Especial de Gracia es solo para la primera vez (art. 40).</p>
+      </FilaRiesgo>,
+    );
+  enRiesgo.forEach((r) => {
+    const rend = textoRendimiento(r);
+    filas.push(
+      <FilaRiesgo key={r.entrada.uid} tono={rend.tono === "ok" ? "ok" : rend.tono === "danger" ? "danger" : "warn"} insignia={r.causales.join("+")}>
+        <p className="font-semibold">
+          {nombreEntrada(ctx, r.entrada)}: si lo repruebas, {letrasCausal(r.causales)}
+        </p>
+        <p className="text-fg-2">{motivoCausal(s, r)}</p>
+        <p>{rend.texto}</p>
+      </FilaRiesgo>,
+    );
+  });
+  if (s.combinadaA) {
+    const vanMal = s.ramos.filter((r) => s.combinadaA!.claves.includes(r.clave) && (r.rendimiento === "reprobando" || r.rendimiento === "perdido")).length;
+    filas.push(
+      <FilaRiesgo key="combinada" tono={vanMal >= s.combinadaA.necesarias ? "danger" : "warn"} insignia="a">
+        <p>
+          Si repruebas {s.combinadaA.necesarias} de estos ramos que ya reprobaste una vez ({listaNombres(ctx, s.combinadaA.claves)}), caes en causal a.
+          {vanMal > 0 && ` Hoy vas reprobando ${vanMal}.`}
+        </p>
+      </FilaRiesgo>,
+    );
+  }
+  if (m && !m.exento && m.permitidas < m.enCurso) {
+    const tono: TonoRiesgo = m.proyectadas > m.permitidas ? "danger" : m.proyectadas === m.permitidas && m.permitidas > 0 ? "warn" : m.permitidas === 0 ? "danger" : "neutro";
+    filas.push(
+      <FilaRiesgo key="c" tono={tono} insignia="c">
+        <p>
+          {m.permitidas === 0
+            ? `No puedes reprobar ningún ramo más este semestre: superarías el 50% en S${m.semestres[0]} y S${m.semestres[1]}.`
+            : `Puedes reprobar como máximo ${m.permitidas} de tus ${m.enCurso} ramos en curso sin superar el 50% en S${m.semestres[0]} y S${m.semestres[1]}.`}
+          {m.proyectadas > 0 && ` Hoy vas reprobando ${m.proyectadas}.`}
+        </p>
+      </FilaRiesgo>,
+    );
+  }
+  if (m?.exento)
+    filas.push(
+      <FilaRiesgo key="c-exento" tono="ok" insignia="c">
+        <p>Este semestre no se evalúa la causal c: aceptaron tu permanencia por esa causal.</p>
+      </FilaRiesgo>,
+    );
+  s.pendientesB.forEach(({ clave, veces }) =>
+    filas.push(
+      <FilaRiesgo key={"pb" + clave} tono="warn" insignia="b">
+        <p>
+          {nombreHistorial(ctx, clave)}: la llevas reprobada {veces} veces y aún no la apruebas. Si la vuelves a inscribir y reprobar, caes {veces >= 3 ? "otra vez en" : "en"} causal b.
+        </p>
+      </FilaRiesgo>,
+    ),
+  );
+
+  if (!s.ramos.length && !filas.length)
+    return <p className="text-[13px] text-fg-2">No tienes ramos en curso. Cuando los inscribas te diré cuáles te dejarían en causal.</p>;
+  if (!filas.length)
+    return (
+      <p className="flex items-center gap-2 text-[13px] font-semibold text-ok">
+        <CheckCircle2 className="size-4" /> Ningún ramo en curso te deja en causal si lo repruebas
+      </p>
+    );
+  return (
+    <div className="space-y-3">
+      <ul className="space-y-2">{filas}</ul>
+      {enRiesgo.some((r) => r.rendimiento === "sin-notas" || r.rendimiento === "reprobando") && (
+        <Boton tamano="sm" variante="suave" onClick={() => irA("notas")}>
+          Registrar notas <ArrowRight className="size-4" />
+        </Boton>
+      )}
+    </div>
+  );
+}
+
+function SituacionUDP() {
+  const ctx = useCtx();
+  const s = situacionSemestreUDP(ctx);
+  const ultimaC = evaluacionesCausalC(ctx).at(-1);
+  // El estado actual es informativo; solo una causal vigente (sin permanencia aceptada) se marca en rojo.
+  const vigentes = new Set(causalesEliminacionUDP(ctx).map((c) => c.tipo));
+  const tono = (causal: string): TonoRiesgo => (vigentes.has(causal) ? "danger" : "info");
+  return (
+    <>
+      <div className="mb-4 grid gap-2 sm:grid-cols-3">
+        <Contador
+          causal="a"
+          valor={`${s.dosVeces.length} de 3`}
+          tono={tono("a")}
+          detalle={s.dosVeces.length ? `reprobadas dos veces: ${listaNombres(ctx, s.dosVeces)}` : "asignaturas reprobadas dos veces"}
+        />
+        <Contador
+          causal="b"
+          valor={`${s.masReprobada?.veces ?? 0} de 3`}
+          tono={tono("b")}
+          detalle={s.masReprobada ? `reprobaciones de ${nombreHistorial(ctx, s.masReprobada.clave)}` : "reprobaciones de un mismo ramo"}
+        />
+        <Contador
+          causal="c"
+          valor={ultimaC ? `${Math.round(ultimaC.porcentaje)}%` : "—"}
+          tono={tono("c")}
+          detalle={ultimaC ? `reprobado en ${ultimaC.considerados.map((x) => "S" + x).join(" y ")} (${ultimaC.reprobadas} de ${ultimaC.cursadas}; límite 50%)` : "se evalúa desde tu segundo semestre"}
+        />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border border-line p-4">
+          <p className="mb-3 flex items-center gap-2 text-[13.5px] font-bold">
+            <Info className="size-4 text-info" /> Causales de eliminación
+          </p>
+          <CausalesUDP />
+        </div>
+        <div className="rounded-2xl border border-line p-4">
+          <p className="mb-3 flex items-center gap-2 text-[13.5px] font-bold">
+            <ShieldAlert className="size-4 text-accent" /> Para no caer este semestre · S{s.semestre}
+          </p>
+          <SemestreUDP s={s} />
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -317,27 +509,31 @@ function SituacionAcademica() {
       <CabeceraTarjeta
         icono={<ShieldCheck className="size-[18px]" />}
         titulo="Tu situación académica"
-        descripcion={`Se calcula con las notas finales que registras en Notas · ${udp ? "Reglamento de Pregrado UDP, art. 38" : "Reglamento del Alumno UC"}.`}
+        descripcion={udp ? "Se calcula con tus notas en Notas, incluidas las parciales de este semestre · Reglamento de Pregrado UDP, art. 38 a 40." : "Se calcula con las notas finales que registras en Notas · Reglamento del Alumno UC."}
         acciones={
           <Boton tamano="sm" variante="fantasma" onClick={() => irA("ayuda")}>
             ¿Cómo se calcula?
           </Boton>
         }
       />
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-line p-4">
-          <p className="mb-3 flex items-center gap-2 text-[13.5px] font-bold">
-            <TriangleAlert className="size-4 text-warn" /> {udp ? "Causales de eliminación" : "Alertas académicas"}
-          </p>
-          <ListaAlertas alertas={udp ? causalesEliminacionUDP(ctx) : alertasUC(ctx)} vacio={udp ? "Sin causales de eliminación detectadas" : "Sin alertas detectadas"} />
+      {udp ? (
+        <SituacionUDP />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-line p-4">
+            <p className="mb-3 flex items-center gap-2 text-[13.5px] font-bold">
+              <TriangleAlert className="size-4 text-warn" /> Alertas académicas
+            </p>
+            <ListaAlertas alertas={alertasUC(ctx)} vacio="Sin alertas detectadas" />
+          </div>
+          <div className="rounded-2xl border border-line p-4">
+            <p className="mb-3 flex items-center gap-2 text-[13.5px] font-bold">
+              <ShieldCheck className="size-4 text-accent" /> Revisión de permanencia
+            </p>
+            <ListaAlertas alertas={revisionPermanenciaUC(ctx)} vacio="Sin causales de revisión detectadas" />
+          </div>
         </div>
-        <div className="rounded-2xl border border-line p-4">
-          <p className="mb-3 flex items-center gap-2 text-[13.5px] font-bold">
-            <ShieldCheck className="size-4 text-accent" /> {udp ? "Excepción de la causal c" : "Revisión de permanencia"}
-          </p>
-          {udp ? <ExcepcionesCausalC /> : <ListaAlertas alertas={revisionPermanenciaUC(ctx)} vacio="Sin causales de revisión detectadas" />}
-        </div>
-      </div>
+      )}
     </Tarjeta>
   );
 }

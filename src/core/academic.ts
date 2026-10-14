@@ -1,6 +1,6 @@
 import { cumpleRequisitos, evaluarReglaPractica, anualDisponibleEn, esSoloMalla, type Curriculum } from "./curriculum";
 import { NOTA_APROB } from "./format";
-import { notaFinalEfectiva } from "./grades";
+import { calcularRamo, notaFinalEfectiva, rendimientoRamo, type CalculoRamo, type RendimientoRamo } from "./grades";
 import type { Entrada, Periodo, PlannerState } from "./state";
 import type { Ramo, RamoDef } from "./types";
 
@@ -489,17 +489,21 @@ export interface Alerta {
   nivel: "critica" | "advertencia";
 }
 
-// UDP · Reglamento de Pregrado, artículo 38 (causales de eliminación)
+// UDP · Reglamento del Estudiante de Pregrado, art. 38 a 40 (causales de eliminación)
+export type CausalUDP = "a" | "b" | "c";
+
 export interface PeriodoUDP {
   numero: number;
   cursadas: number;
   reprobadas: number;
 }
 
+/** Semestres efectivamente cursados con sus notas finales; el semestre en curso cuenta solo cuando cierras todos sus ramos. */
 export function periodosUDP(ctx: Ctx): PeriodoUDP[] {
   const por = new Map<number, PeriodoUDP>();
+  const enCursoAbierto = !semestreListoParaAvanzar(ctx);
   ctx.st.periodos.forEach((p) => {
-    if (p.tipo !== "regular") return;
+    if (p.tipo !== "regular" || (enCursoAbierto && esPeriodoActual(ctx.st, p))) return;
     let g = por.get(p.numero);
     if (!g) por.set(p.numero, (g = { numero: p.numero, cursadas: 0, reprobadas: 0 }));
     const vistos = new Set<string>();
@@ -525,58 +529,236 @@ export interface EvaluacionCausalC {
   exenta: boolean;
 }
 
-/** Un registro de permanencia aceptada exime al siguiente semestre efectivamente cursado. */
+/** Semestre siguiente efectivamente cursado: el que queda exento de la causal c tras una permanencia aceptada. */
 export function semestreProtegido(origen: number, periodos: PeriodoUDP[]): number | null {
   return periodos.find((p) => p.numero > origen)?.numero ?? null;
 }
 
+/**
+ * Causal c de cada semestre junto al anterior efectivamente cursado. Si estabas en causal c y
+ * aceptaron tu permanencia, el semestre siguiente no se evalúa por esa causal.
+ */
 export function evaluacionesCausalC(ctx: Ctx, periodos = periodosUDP(ctx)): EvaluacionCausalC[] {
-  const protegidos = new Set(
-    ctx.st.excepcionesCausalC.map((o) => semestreProtegido(o, periodos)).filter((s): s is number => s !== null),
-  );
+  const permanencias = new Set(ctx.st.permanenciasUDP);
   const out: EvaluacionCausalC[] = [];
+  let protegido: number | null = null;
   for (let i = 1; i < periodos.length; i++) {
     const dos = periodos.slice(i - 1, i + 1);
     const cursadas = dos.reduce((s, p) => s + p.cursadas, 0);
     const reprobadas = dos.reduce((s, p) => s + p.reprobadas, 0);
-    out.push({
-      semestre: periodos[i].numero,
+    const semestre = periodos[i].numero;
+    const ev: EvaluacionCausalC = {
+      semestre,
       considerados: dos.map((p) => p.numero),
       cursadas,
       reprobadas,
       porcentaje: cursadas > 0 ? (reprobadas / cursadas) * 100 : 0,
       cumple: cursadas > 0 && reprobadas > cursadas / 2,
-      exenta: protegidos.has(periodos[i].numero),
-    });
+      exenta: protegido === semestre,
+    };
+    out.push(ev);
+    if (ev.cumple && !ev.exenta && permanencias.has(semestre)) protegido = semestreProtegido(semestre, periodos);
   }
   return out;
 }
 
-export function causalesEliminacionUDP(ctx: Ctx): Alerta[] {
-  const out: Alerta[] = [];
-  const reprob = Object.entries(historialIntentos(ctx))
-    .map(([clave, notas]) => ({ clave, n: notas.filter((x) => x < NOTA_APROB).length }))
-    .filter((x) => x.n > 0);
+interface ReprobacionUDP {
+  clave: string;
+  semestre: number;
+  /** Veces que llevas reprobada esta asignatura, contando esta. */
+  vez: number;
+}
 
-  const dosVeces = reprob.filter((x) => x.n >= 2);
-  if (dosVeces.length >= 3) {
-    const nombres = dosVeces.map((x) => nombreHistorial(ctx, x.clave));
-    const detalle = nombres.length <= 3 ? nombres.join(", ") : `${nombres.slice(0, 3).join(", ")} y ${nombres.length - 3} más`;
-    out.push({ tipo: "a", descripcion: `${dosVeces.length} asignaturas reprobadas al menos dos veces: ${detalle}`, nivel: "critica" });
-  }
-  reprob
-    .filter((x) => x.n >= 3)
-    .forEach((x) => out.push({ tipo: "b", descripcion: `${nombreHistorial(ctx, x.clave)}: reprobada ${x.n} veces`, nivel: "critica" }));
-
-  const ultima = evaluacionesCausalC(ctx).at(-1);
-  if (ultima?.cumple && !ultima.exenta) {
-    out.push({
-      tipo: "c",
-      descripcion: `${ultima.reprobadas} de ${ultima.cursadas} asignaturas reprobadas (${Math.round(ultima.porcentaje)}%) en ${ultima.considerados.map((s) => "S" + s).join(" y ")}`,
-      nivel: "critica",
+/** Reprobaciones en orden cronológico (un intento por periodo; el verano cuenta con el semestre que lo precede). */
+function reprobacionesUDP(ctx: Ctx): ReprobacionUDP[] {
+  const veces: Record<string, number> = {};
+  const out: ReprobacionUDP[] = [];
+  periodosOrdenados(ctx.st).forEach((p) => {
+    if (p.tipo === "convalidaciones") return;
+    const vistos = new Set<string>();
+    p.ramos.forEach((e) => {
+      const n = notaEntrada(ctx, e);
+      const clave = claveHistorial(e);
+      if (n === null || vistos.has(clave)) return;
+      vistos.add(clave);
+      if (n < NOTA_APROB) out.push({ clave, semestre: p.numero, vez: (veces[clave] = (veces[clave] ?? 0) + 1) });
     });
-  }
+  });
   return out;
+}
+
+export function listaNombres(ctx: Ctx, claves: string[]): string {
+  const nombres = claves.map((c) => nombreHistorial(ctx, c));
+  return nombres.length <= 3 ? nombres.join(", ") : `${nombres.slice(0, 3).join(", ")} y ${nombres.length - 3} más`;
+}
+
+export interface IncidenteUDP {
+  /** Semestre tras el cual se cumplió la causal. */
+  semestre: number;
+  causales: { causal: CausalUDP; descripcion: string }[];
+  /** Registraste una permanencia aceptada en este semestre o después. */
+  aceptado: boolean;
+}
+
+/**
+ * Cada vez que caíste en causal. La a se cumple con cada segunda reprobación desde la tercera
+ * asignatura y la b con cada tercera (o más) reprobación de un ramo: tras una permanencia
+ * aceptada, volver a reprobar así es caer de nuevo en causal.
+ */
+export function incidentesUDP(ctx: Ctx): IncidenteUDP[] {
+  const por = new Map<number, IncidenteUDP["causales"]>();
+  const marcar = (semestre: number, causal: CausalUDP, descripcion: string) => {
+    let lista = por.get(semestre);
+    if (!lista) por.set(semestre, (lista = []));
+    const i = causal === "b" ? -1 : lista.findIndex((c) => c.causal === causal);
+    if (i >= 0) lista[i] = { causal, descripcion };
+    else lista.push({ causal, descripcion });
+  };
+  const dosVeces: string[] = [];
+  reprobacionesUDP(ctx).forEach((r) => {
+    if (r.vez === 2) {
+      dosVeces.push(r.clave);
+      if (dosVeces.length >= 3) marcar(r.semestre, "a", `${dosVeces.length} asignaturas reprobadas dos veces: ${listaNombres(ctx, dosVeces)}`);
+    }
+    if (r.vez >= 3) marcar(r.semestre, "b", `${nombreHistorial(ctx, r.clave)}: reprobada ${r.vez} veces`);
+  });
+  evaluacionesCausalC(ctx).forEach((e) => {
+    if (e.cumple && !e.exenta)
+      marcar(e.semestre, "c", `${e.reprobadas} de ${e.cursadas} asignaturas reprobadas (${Math.round(e.porcentaje)}%) en ${e.considerados.map((s) => "S" + s).join(" y ")}`);
+  });
+  const permanencias = ctx.st.permanenciasUDP;
+  return [...por.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([semestre, causales]) => ({
+      semestre,
+      causales: causales.sort((a, b) => a.causal.localeCompare(b.causal)),
+      aceptado: permanencias.some((p) => p >= semestre),
+    }));
+}
+
+/** Causales en que estás ahora (sin una permanencia aceptada registrada). */
+export function causalesEliminacionUDP(ctx: Ctx): Alerta[] {
+  return incidentesUDP(ctx)
+    .filter((i) => !i.aceptado)
+    .flatMap((i) => i.causales.map((c) => ({ tipo: c.causal, descripcion: c.descripcion, nivel: "critica" as const })));
+}
+
+export interface RiesgoRamoUDP {
+  entrada: Entrada;
+  clave: string;
+  /** Veces que ya reprobaste esta asignatura. */
+  reprobaciones: number;
+  /** Causales en que caes si la repruebas este semestre. */
+  causales: CausalUDP[];
+  calculo: CalculoRamo;
+  rendimiento: RendimientoRamo;
+}
+
+export interface MargenCausalC {
+  semestres: [number, number];
+  /** Asignaturas del año académico, contando las que cursas ahora. */
+  cursadas: number;
+  /** Reprobadas ya cerradas en el año académico. */
+  reprobadas: number;
+  /** Ramos en curso que aún puedes reprobar sin pasar del 50%. */
+  permitidas: number;
+  enCurso: number;
+  /** Ramos en curso que hoy vas reprobando o ya no alcanzas a aprobar. */
+  proyectadas: number;
+  /** Este semestre no se evalúa la causal c (permanencia aceptada por la c). */
+  exento: boolean;
+}
+
+export interface SituacionSemestreUDP {
+  semestre: number;
+  /** Ramos en curso (sin nota final) y lo que pasaría si los repruebas. */
+  ramos: RiesgoRamoUDP[];
+  /** Asignaturas reprobadas dos o más veces (con tres se cumple la causal a). */
+  dosVeces: string[];
+  /** Asignatura más reprobada (con tres veces se cumple la causal b). */
+  masReprobada: { clave: string; veces: number } | null;
+  /** Reprobar varios de estos ramos a la vez te deja en causal a. */
+  combinadaA: { necesarias: number; claves: string[] } | null;
+  /** Reprobadas dos o más veces, aún sin aprobar y que no cursas: otra reprobación es causal b. */
+  pendientesB: { clave: string; veces: number }[];
+  margenC: MargenCausalC | null;
+  /** Ya tuviste una permanencia aceptada: una nueva causal sería reincidencia (art. 40). */
+  reincidencia: boolean;
+}
+
+/** Qué te dejaría en causal este semestre y cómo vas en cada ramo según tus notas. */
+export function situacionSemestreUDP(ctx: Ctx): SituacionSemestreUDP {
+  const actual = ctx.st.semestreActual;
+  const veces: Record<string, number> = {};
+  reprobacionesUDP(ctx).forEach((r) => (veces[r.clave] = r.vez));
+  const dosVeces = Object.keys(veces).filter((k) => veces[k] >= 2);
+  const historial = historialIntentos(ctx);
+  const aprobada = (k: string) => !!historial[k]?.some((n) => n >= NOTA_APROB);
+  // Ante un empate, la que aún no apruebas: es la que puede llegar a la tercera.
+  const masReprobada = Object.entries(veces).reduce<SituacionSemestreUDP["masReprobada"]>(
+    (m, [clave, n]) => (!m || n > m.veces || (n === m.veces && aprobada(m.clave) && !aprobada(clave)) ? { clave, veces: n } : m),
+    null,
+  );
+
+  const periodo = ctx.st.periodos.find((p) => esPeriodoActual(ctx.st, p));
+  const vistos = new Set<string>();
+  let cerradas = 0;
+  let reprobadasAhora = 0;
+  const ramos: RiesgoRamoUDP[] = [];
+  periodo?.ramos.forEach((e) => {
+    const clave = claveHistorial(e);
+    if (esEximido(ctx, e.id) || vistos.has(clave)) return;
+    vistos.add(clave);
+    const nota = notaEntrada(ctx, e);
+    if (nota !== null) {
+      cerradas++;
+      if (nota < NOTA_APROB) reprobadasAhora++;
+      return;
+    }
+    const previas = veces[clave] ?? 0;
+    const causales: CausalUDP[] = [];
+    if (previas === 1 && dosVeces.length >= 2) causales.push("a");
+    if (previas >= 2) causales.push("b");
+    const calculo = calcularRamo(e);
+    ramos.push({ entrada: e, clave, reprobaciones: previas, causales, calculo, rendimiento: rendimientoRamo(calculo) });
+  });
+
+  const segundas = ramos.filter((r) => r.reprobaciones === 1).map((r) => r.clave);
+  const necesarias = 3 - dosVeces.length;
+  const combinadaA = necesarias >= 2 && segundas.length >= necesarias ? { necesarias, claves: segundas } : null;
+
+  const enCurso = new Set(ramos.map((r) => r.clave));
+  const pendientesB = dosVeces.filter((k) => !enCurso.has(k) && !aprobada(k)).map((clave) => ({ clave, veces: veces[clave] }));
+
+  let margenC: MargenCausalC | null = null;
+  const previo = periodosUDP(ctx)
+    .filter((p) => p.numero < actual)
+    .at(-1);
+  if (previo && ramos.length) {
+    const cursadas = previo.cursadas + cerradas + ramos.length;
+    const reprobadas = previo.reprobadas + reprobadasAhora;
+    const evPrevio = evaluacionesCausalC(ctx).find((e) => e.semestre === previo.numero);
+    margenC = {
+      semestres: [previo.numero, actual],
+      cursadas,
+      reprobadas,
+      permitidas: Math.max(0, Math.floor(cursadas / 2) - reprobadas),
+      enCurso: ramos.length,
+      proyectadas: ramos.filter((r) => r.rendimiento === "reprobando" || r.rendimiento === "perdido").length,
+      exento: !!evPrevio && evPrevio.cumple && !evPrevio.exenta && ctx.st.permanenciasUDP.includes(previo.numero),
+    };
+  }
+
+  return {
+    semestre: actual,
+    ramos,
+    dosVeces,
+    masReprobada,
+    combinadaA,
+    pendientesB,
+    margenC,
+    reincidencia: incidentesUDP(ctx).some((i) => i.aceptado),
+  };
 }
 
 // UC · alertas académicas y revisión de permanencia

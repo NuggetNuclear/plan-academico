@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useId, useRef, useState } from "react";
-import { creditosEntrada, esPeriodoActual, nombreEntrada, nombreRamo, ramoCatalogo, siglaEntrada, siglaRamo, type Ctx } from "../../core/academic";
+import { creditosEntrada, esPeriodoActual, nombreEntrada, nombreRamo, ramoCatalogo, siglaEntrada, siglaRamo, situacionSemestreUDP, type Ctx } from "../../core/academic";
 import { esPersonalizable } from "../../core/curriculum";
 import { NOTA_APROB, fmtNota, leerNumero, numeroConComa } from "../../core/format";
 import { calcularRamo, notaDesdePuntaje, PLANTILLAS, ramoAsegurado, statsCategoria } from "../../core/grades";
@@ -28,6 +28,7 @@ import { CampoNumero, CampoTexto } from "../../ui/CampoNumero";
 import { OpcionMenu, Popover } from "../../ui/overlays";
 import { Boton, BotonIcono, Insignia, Segmentado, cx } from "../../ui/primitives";
 
+import { AvisoCausalRamo, letrasCausal } from "../riesgoCausal";
 import type { SeleccionNota } from "./RegistroNota";
 
 type Editor = (etiqueta: string | null, fn: (e: Entrada, ctx: Ctx, p: Periodo) => void) => void;
@@ -324,8 +325,10 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
     });
     if (v === null) return;
     const nota = leerNumero(v);
+    const causales = (actual && ctx.cur.malla.reglamento === "udp" && situacionSemestreUDP(ctx).ramos.find((x) => x.entrada.uid === entrada.uid)?.causales) || [];
     editar(`Nota final de ${nombreEntrada(ctx, entrada)}`, (e, c, p) => cerrarEntrada(c, p, e, nota));
     if (nota >= NOTA_APROB) toast(`${nombreEntrada(ctx, entrada)} ${conv ? "convalidado" : "aprobado"} con ${fmtNota(nota)} 🎉`);
+    else if (causales.length) toast(`${nombreEntrada(ctx, entrada)} reprobado con ${fmtNota(nota)}: quedas en ${letrasCausal(causales)} de eliminación. Revisa Inicio › Tu situación académica.`, "error");
     else toast(`${nombreEntrada(ctx, entrada)} reprobado con ${fmtNota(nota)}. La nota queda en tu PPA y el ramo vuelve a estar disponible.`, "error");
   };
 
@@ -434,6 +437,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
 
       {!configurando && (
         <div id={`${panelId}-notas`} className="space-y-3 p-4">
+          {actual && !r.cerrado && <AvisoCausalRamo ctx={ctx} entrada={entrada} />}
           {entrada.categorias.length === 0 ? <p className="text-sm leading-relaxed text-fg-2">¿Te entregaron una nota? Regístrala ahora. Puedes definir los porcentajes después.</p> :
             <div className="space-y-3">
               {entrada.categorias.map((cat, ci) => <div key={ci}>

@@ -8,6 +8,7 @@ import { periodoPorClave } from "../../store/mutaciones";
 import { toast } from "../../store/ui";
 import { CabeceraModal, Modal, PieModal } from "../../ui/overlays";
 import { Boton } from "../../ui/primitives";
+import { alertaTrasNota } from "../riesgoCausal";
 import { guardarRegistro, validarRegistro, type Registro } from "./registro";
 
 export interface SeleccionNota { uid?: string; ci?: number; ni?: number }
@@ -57,7 +58,9 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
       fallo = ramo ? guardarRegistro(ramo, datos) : "Este ramo ya no está en el periodo.";
     });
     if (fallo) { guardando.current = false; return mostrarError(fallo); }
-    toast(`${nombre.trim()}: ${nota.replace(".", ",")} guardada`, "ok", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
+    const { cur, st } = useApp.getState();
+    const alerta = cur ? alertaTrasNota({ cur, st }, uid) : null;
+    toast(alerta ?? `${nombre.trim()}: ${nota.replace(".", ",")} guardada`, alerta ? "error" : "ok", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
     onCerrar();
   };
 

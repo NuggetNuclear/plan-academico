@@ -161,8 +161,11 @@ export function Ayuda() {
                   ["c", "Reprobar más del 50% de las asignaturas cursadas en un año académico (los dos últimos semestres efectivamente realizados)."],
                 ]}
               />
+              <p>
+                <strong className="text-fg">Antes de caer.</strong> Con las notas parciales que registras, la app te dice qué ramos en curso te dejarían en causal si los repruebas (por ejemplo, uno que ya reprobaste dos veces), cómo vas en cada uno y cuánto necesitas en lo que queda para aprobar. También te muestra cuántos ramos puedes reprobar este semestre sin superar el 50% de la causal c.
+              </p>
               <Aviso tono="info" icono={<ShieldCheck />}>
-                Si la UDP aceptó tu permanencia estando en causal por la letra c, regístralo en Inicio › Tu situación académica: la app no evaluará esa causal el semestre siguiente efectivamente cursado.
+                Si caíste en causal y la UDP aceptó tu permanencia, regístralo en Inicio › Tu situación académica. Las reprobaciones no se borran: con la a ya cumplida, cada nueva segunda reprobación te deja otra vez en causal, y con la b, cada nueva tercera reprobación de un ramo. Si la causal fue la c, el semestre siguiente efectivamente cursado no se evalúa por ella. La apelación a la Comisión Especial de Gracia de la Vicerrectoría Académica es solo para la primera vez que caes en causal (art. 40).
               </Aviso>
             </div>
           )}
