@@ -208,7 +208,7 @@ function Encabezado() {
           <p className="hidden text-[12px] font-semibold text-fg-3 sm:block">
             Planner <span className="mx-1 text-line-strong">/</span> {item.titulo}
           </p>
-          <h1 className="break-words text-lg leading-tight font-extrabold tracking-tight sm:text-xl">{item.titulo}</h1>
+          <h1 className="break-words text-base min-[360px]:text-lg leading-tight font-extrabold tracking-tight sm:text-xl">{item.titulo}</h1>
           {malla && (
             <p className="hidden truncate text-[12.5px] font-medium text-fg-2 md:block">
               {malla.carrera} · {malla.siglaUniversidad ?? malla.universidad} · Semestre {sem}
