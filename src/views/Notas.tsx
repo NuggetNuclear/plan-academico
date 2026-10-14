@@ -268,7 +268,7 @@ function BuscadorRamo({ periodo }: { periodo: Periodo }) {
       <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-fg-3" />
       <input
         className="input !py-2.5 !pl-9"
-        placeholder={conv ? "Buscar y agregar un ramo convalidado…" : "Buscar y agregar un ramo a este periodo…"}
+        placeholder={conv ? "Buscar ramo convalidado…" : "Buscar ramo por nombre…"}
         value={q}
         role="combobox"
         aria-label="Buscar y agregar un ramo"
@@ -363,7 +363,11 @@ export function Notas() {
           <h2 className="text-2xl font-extrabold tracking-tight">Tus notas, al día</h2>
           <p className="mt-1 text-sm text-fg-2">Registra una nota o toca una evaluación para actualizarla.</p>
         </div>
-        <Boton variante="primario" icono={<Plus className="size-5" />} onClick={() => setRegistro({})} disabled={!periodo?.ramos.some((e) => e.notaFinal === null)}>Registrar nota</Boton>
+        {periodo?.ramos.some((e) => e.notaFinal === null) ? (
+          <Boton variante="primario" icono={<Plus className="size-5" />} onClick={() => setRegistro({})}>Registrar nota</Boton>
+        ) : (
+          <Boton variante="primario" icono={<Plus className="size-5" />} onClick={() => { setAgregando(true); setTimeout(() => document.getElementById("agregar-ramo")?.scrollIntoView({ block: "center" }), 0); }}>{periodo?.ramos.length ? "Agregar otro ramo" : "Agregar tu primer ramo"}</Boton>
+        )}
       </div>
       <Tarjeta>
         <div className="flex flex-wrap items-end gap-3">

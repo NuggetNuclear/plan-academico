@@ -188,12 +188,12 @@ export function Wizard() {
               {congelo && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="label">Semestre que quedó pendiente</label>
-                    <input aria-label="Semestre desde el que congelaste" type="number" min={1} max={20} className="input" value={cong.desde} onChange={(e) => setCong({ ...cong, desde: Math.max(1, Number(e.target.value) || 1) })} />
+                    <label className="label" htmlFor="wz-cong-desde">Semestre que quedó pendiente</label>
+                    <input id="wz-cong-desde" type="number" min={1} max={20} className="input" value={cong.desde} onChange={(e) => setCong({ ...cong, desde: Math.max(1, Number(e.target.value) || 1) })} />
                   </div>
                   <div>
-                    <label className="label">Semestres que duró</label>
-                    <input aria-label="Cantidad de semestres congelados" type="number" min={1} max={20} className="input" value={cong.duracion} onChange={(e) => setCong({ ...cong, duracion: Math.max(1, Number(e.target.value) || 1) })} />
+                    <label className="label" htmlFor="wz-cong-dur">Semestres que duró</label>
+                    <input id="wz-cong-dur" type="number" min={1} max={20} className="input" value={cong.duracion} onChange={(e) => setCong({ ...cong, duracion: Math.max(1, Number(e.target.value) || 1) })} />
                   </div>
                 </div>
               )}
