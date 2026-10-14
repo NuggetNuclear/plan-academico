@@ -1,7 +1,5 @@
-import { CalendarDays, Check, FileUp, GraduationCap, Grid3x3, Zap, ListChecks } from "lucide-react";
+import { CalendarDays, Check, FileUp, Grid3x3, Zap, ListChecks } from "lucide-react";
 import { useEffect, useState } from "react";
-import { construirCurriculum } from "../core/curriculum";
-import type { MallaDef } from "../core/types";
 import { useApp } from "../store/app";
 import { marcarSemestres } from "../store/mutaciones";
 import { toast, useUI } from "../store/ui";
@@ -33,15 +31,11 @@ function Opcion({ activo, onClick, titulo, descripcion, icono }: { activo: boole
 export function Wizard() {
   const abierto = useUI((s) => s.wizardAbierto);
   const setWizard = useUI((s) => s.setWizard);
-  const indice = useApp((s) => s.indice);
-  const carreraActual = useApp((s) => s.carreraId);
+  const malla = useApp((s) => s.malla);
   const st = useApp((s) => s.st);
   const [paso, setPaso] = useState(1);
-  const [carrera, setCarrera] = useState(carreraActual ?? "");
-  const [malla, setMalla] = useState<MallaDef | null>(null);
   const [semestre, setSemestre] = useState(1);
   const [ingles, setIngles] = useState(0);
-  const [ruta, setRuta] = useState<string | null>(null);
   const [congelo, setCongelo] = useState(false);
   const [cong, setCong] = useState({ desde: 1, duracion: 1 });
   const [modo, setModo] = useState<"rapido" | "completo">("rapido");
@@ -50,10 +44,8 @@ export function Wizard() {
   useEffect(() => {
     if (!abierto) return;
     setPaso(1);
-    setCarrera(carreraActual ?? indice[0]?.id ?? "");
     setSemestre(st.semestreActual);
     setIngles(st.inglesEximido);
-    setRuta(st.rutaAcademica);
     setCongelo(st.congelaciones.length > 0);
     setCong(st.congelaciones[0] ?? { desde: Math.max(1, st.semestreActual), duracion: 1 });
     setModo(st.prefs.marcadoRapido || !st.prefs.wizardHecho ? "rapido" : "completo");
@@ -61,17 +53,7 @@ export function Wizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto]);
 
-  useEffect(() => {
-    const info = indice.find((c) => c.id === carrera);
-    if (!info) return;
-    fetch(info.archivo)
-      .then((r) => r.json())
-      .then((m: MallaDef) => setMalla(m))
-      .catch(() => setMalla(null));
-  }, [carrera, indice]);
-
   const niveles = malla?.nivelesIngles ?? [];
-  const rutas = malla?.rutasAcademicas ?? [];
 
   // Si la persona cierra el asistente sin terminar, no se vuelve a abrir solo.
   const cerrar = () => {
@@ -83,18 +65,12 @@ export function Wizard() {
     setWizard(false);
   };
 
-  const terminar = async () => {
-    const app = useApp.getState();
-    if (carrera !== app.carreraId) await app.cambiarCarrera(carrera);
+  const terminar = () => {
     let marcados = 0;
     useApp.getState().mutar("Asistente de inicio", (ctx) => {
       const s = ctx.st;
       s.semestreActual = semestre;
       s.inglesEximido = ingles;
-      if (rutas.length) {
-        s.rutaAcademica = ruta ?? malla?.rutaDefault ?? rutas[0].id;
-        ctx.cur = construirCurriculum(ctx.cur.malla, { rutaId: s.rutaAcademica, gruposAltModo: s.gruposAltModo });
-      }
       s.congelaciones = congelo ? [{ desde: Math.max(1, cong.desde), duracion: Math.max(1, cong.duracion) }] : [];
       s.prefs.marcadoRapido = modo === "rapido";
       s.prefs.wizardHecho = true;
@@ -110,12 +86,12 @@ export function Wizard() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (paso < 3) setPaso(paso + 1);
+          if (paso < 2) setPaso(paso + 1);
           else terminar();
         }}
       >
         <ol className="flex gap-2 px-6 pt-6" aria-label="Progreso">
-          {["Carrera", "Semestre", "Avance"].map((t, i) => (
+          {["Semestre", "Avance"].map((t, i) => (
             <li key={t} className="flex-1">
               <div className={cx("h-1.5 rounded-full transition-colors", i < paso ? "bg-accent" : "bg-surface-3")} />
               <p className={cx("mt-1.5 text-[11.5px] font-semibold", i + 1 === paso ? "text-accent" : "text-fg-3")}>
@@ -127,20 +103,7 @@ export function Wizard() {
 
         {paso === 1 && (
           <>
-            <CabeceraModal icono={<GraduationCap className="size-5" />} sobretitulo="Paso 1 de 3" titulo="¿Qué estudias?">
-              Cargaremos la malla oficial de tu carrera. Cada carrera guarda su propio progreso.
-            </CabeceraModal>
-            <div className="space-y-2 px-6 pt-4" role="group" aria-label="Selecciona una opción">
-              {indice.map((c) => (
-                <Opcion key={c.id} activo={carrera === c.id} onClick={() => setCarrera(c.id)} titulo={c.nombre} descripcion={c.universidad} icono={<GraduationCap className="size-4" />} />
-              ))}
-            </div>
-          </>
-        )}
-
-        {paso === 2 && (
-          <>
-            <CabeceraModal icono={<CalendarDays className="size-5" />} sobretitulo="Paso 2 de 3" titulo="¿En qué semestre vas?">
+            <CabeceraModal icono={<CalendarDays className="size-5" />} sobretitulo="Paso 1 de 2" titulo="¿En qué semestre vas?">
               Cuenta el semestre que estás cursando ahora, sin contar congelaciones.
             </CabeceraModal>
             <div className="space-y-4 px-6 pt-4">
@@ -166,24 +129,10 @@ export function Wizard() {
                     </select>
                   </div>
                 )}
-                {rutas.length > 0 && (
-                  <div className="sm:col-span-2">
-                    <label className="label" htmlFor="wz-ruta">
-                      Ruta de tu carrera
-                    </label>
-                    <select id="wz-ruta" className="input" value={ruta ?? malla?.rutaDefault ?? ""} onChange={(e) => setRuta(e.target.value)}>
-                      {rutas.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.nombreCompleto} ({r.semestresObjetivo} semestres)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
               </div>
               <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="Selecciona una opción">
                 <Opcion activo={!congelo} onClick={() => setCongelo(false)} titulo="Nunca he congelado" descripcion="Sigue al paso siguiente." />
-                <Opcion activo={congelo} onClick={() => setCongelo(true)} titulo="Congelé alguna vez" descripcion="Para ubicar bien los ramos anuales." />
+                <Opcion activo={congelo} onClick={() => setCongelo(true)} titulo="Congelé alguna vez" descripcion="Para estimar bien tu fecha de egreso." />
               </div>
               {congelo && (
                 <div className="grid grid-cols-2 gap-3">
@@ -201,30 +150,28 @@ export function Wizard() {
           </>
         )}
 
-        {paso === 3 && (
+        {paso === 2 && (
           <>
-            <CabeceraModal icono={<Grid3x3 className="size-5" />} sobretitulo="Paso 3 de 3" titulo="¿Cómo quieres marcar tu avance?">
+            <CabeceraModal icono={<Grid3x3 className="size-5" />} sobretitulo="Paso 2 de 2" titulo="¿Cómo quieres marcar tu avance?">
               Puedes cambiarlo después con el interruptor «Marcado rápido» de la malla.
             </CabeceraModal>
             <div className="space-y-2 px-6 pt-4" role="group" aria-label="Selecciona una opción">
-              {indice.find((c) => c.id === carrera)?.planes?.length ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWizard(false);
-                    useUI.getState().setImportar(true);
-                  }}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-accent-line bg-accent-soft p-3.5 text-left transition-colors hover:bg-accent-soft/70"
-                >
-                  <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent text-accent-fg">
-                    <FileUp className="size-4" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <strong className="block text-[14px]">¿Estudias en la UDP? Importa tu avance</strong>
-                    <span className="block text-[12.5px] text-fg-2">Sube tu Avance curricular (PDF) o tu Trabajo académico (Excel) y nos saltamos este paso.</span>
-                  </span>
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setWizard(false);
+                  useUI.getState().setImportar(true);
+                }}
+                className="flex w-full items-center gap-3 rounded-2xl border border-accent-line bg-accent-soft p-3.5 text-left transition-colors hover:bg-accent-soft/70"
+              >
+                <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent text-accent-fg">
+                  <FileUp className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <strong className="block text-[14px]">Importa tu avance desde la UDP</strong>
+                  <span className="block text-[12.5px] text-fg-2">Sube tu Avance curricular (PDF) o tu Trabajo académico (Excel) y nos saltamos este paso.</span>
+                </span>
+              </button>
               <Opcion activo={modo === "rapido"} onClick={() => setModo("rapido")} icono={<Zap className="size-4" />} titulo="Rápido (recomendado)" descripcion="Un clic marca el ramo como aprobado, sin pedir el semestre. Ideal para planificar." />
               <Opcion activo={modo === "completo"} onClick={() => setModo("completo")} icono={<ListChecks className="size-4" />} titulo="Completo" descripcion="Te preguntamos en qué semestre aprobaste cada ramo para armar tus notas, PPA y estadísticas." />
               {semestre > 1 && (
@@ -250,8 +197,8 @@ export function Wizard() {
               Atrás
             </Boton>
           )}
-          <Boton type="submit" variante="primario" disabled={!carrera}>
-            {paso < 3 ? "Siguiente" : "Empezar"}
+          <Boton type="submit" variante="primario">
+            {paso < 2 ? "Siguiente" : "Empezar"}
           </Boton>
         </div>
       </form>

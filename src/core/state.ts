@@ -62,7 +62,7 @@ export interface Entrada {
   decimas?: number;
   modo?: ModoPromedio;
   colapsado?: boolean;
-  /** Créditos reales (solo cursos flexibles como OFG). */
+  /** Créditos con que se inscribió, si difieren de la malla (los trae la importación). */
   creditos?: number | null;
   siglaReal?: string;
   nombreReal?: string;
@@ -79,7 +79,7 @@ export interface Periodo {
   /** Semestre académico (0 para convalidaciones; el verano usa el semestre que lo precede). */
   numero: number;
   ramos: Entrada[];
-  /** Ventana (UDP) o banner (UC) de toma de ramos. */
+  /** Ventana de toma de ramos (ej. A5). */
   ventana?: string;
 }
 
@@ -118,8 +118,6 @@ export interface PlannerState {
   inglesEximido: number;
   /** null usa el máximo de la carrera. */
   maxCreditos: number | null;
-  rutaAcademica: string | null;
-  gruposAltModo: Record<string, "dividido" | "unico">;
   congelaciones: Congelacion[];
   /**
    * Aprobaciones marcadas a mano en la malla:
@@ -130,7 +128,7 @@ export interface PlannerState {
   rapidosDesdeCursando: string[];
   cursando: string[];
   periodos: Periodo[];
-  /** Nombre y sigla reales de cursos flexibles (OPR, electivos con alternativas). */
+  /** Nombre y sigla reales de los electivos. */
   alias: Record<string, { sigla?: string; nombre?: string }>;
   /** Semestres tras los cuales la UDP aceptó tu permanencia estando en causal de eliminación. */
   permanenciasUDP: number[];
@@ -145,8 +143,6 @@ export function estadoInicial(): PlannerState {
     semestreActual: 1,
     inglesEximido: 0,
     maxCreditos: null,
-    rutaAcademica: null,
-    gruposAltModo: {},
     congelaciones: [],
     marcas: {},
     rapidosDesdeCursando: [],
@@ -180,8 +176,6 @@ export function normalizarEstado(raw: unknown): PlannerState {
     semestreActual: Math.max(1, Math.trunc(num(r.semestreActual, 1))),
     inglesEximido: Math.max(0, Math.trunc(num(r.inglesEximido, 0))),
     maxCreditos: typeof r.maxCreditos === "number" ? r.maxCreditos : null,
-    rutaAcademica: typeof r.rutaAcademica === "string" ? r.rutaAcademica : null,
-    gruposAltModo: r.gruposAltModo && typeof r.gruposAltModo === "object" ? r.gruposAltModo : {},
     congelaciones: (Array.isArray(r.congelaciones) ? r.congelaciones : [])
       .map((c) => ({ desde: Math.trunc(num(c?.desde, 0)), duracion: Math.trunc(num(c?.duracion, 0)) }))
       .filter((c) => c.desde >= 1 && c.duracion >= 1),

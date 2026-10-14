@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { useMemo } from "react";
 import {
-  alertasUC,
   aprobadosSet,
   calcularPPA,
   causalesEliminacionUDP,
@@ -37,12 +36,10 @@ import {
   periodosUDP,
   ramosSemestreActual,
   resumenCreditos,
-  revisionPermanenciaUC,
   semestreListoParaAvanzar,
   semestreProtegido,
   siglaEntrada,
   situacionSemestreUDP,
-  type Alerta,
   type SituacionSemestreUDP,
 } from "../core/academic";
 import { diasHasta, evaluacionesConFecha, hoyISO } from "../core/calendar";
@@ -98,7 +95,7 @@ function Checklist() {
   const { st } = ctx;
   const eximidos = idsInglesEximidos(ctx);
   const pasos = [
-    { hecho: st.prefs.wizardHecho, titulo: "Completa tus datos", texto: "Carrera, semestre actual e inglés.", accion: "Abrir asistente", fn: () => setWizard(true) },
+    { hecho: st.prefs.wizardHecho, titulo: "Completa tus datos", texto: "Semestre actual, inglés y congelaciones.", accion: "Abrir asistente", fn: () => setWizard(true) },
     {
       hecho: st.semestreActual <= 1 || Object.keys(st.marcas).some((id) => !eximidos.has(id)) || st.periodos.some((p) => p.ramos.some((e) => e.notaFinal !== null)),
       titulo: "Marca tu malla",
@@ -241,25 +238,6 @@ function Resumen() {
         </Boton>
       </Tarjeta>
     </div>
-  );
-}
-
-function ListaAlertas({ alertas, vacio }: { alertas: Alerta[]; vacio: string }) {
-  if (alertas.length === 0)
-    return (
-      <p className="flex items-center gap-2 text-[13px] font-semibold text-ok">
-        <CheckCircle2 className="size-4" /> {vacio}
-      </p>
-    );
-  return (
-    <ul className="space-y-2">
-      {alertas.map((a, i) => (
-        <li key={i} className={cx("flex items-start gap-2.5 rounded-xl border px-3 py-2 text-[13px]", a.nivel === "critica" ? "border-danger/25 bg-danger-soft" : "border-warn/25 bg-warn-soft")}>
-          <span className={cx("grid size-5 shrink-0 place-items-center rounded-md text-[11px] font-bold text-white uppercase", a.nivel === "critica" ? "bg-danger" : "bg-warn")}>{a.tipo}</span>
-          <span>{a.descripcion}</span>
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -499,41 +477,20 @@ function SituacionUDP() {
 }
 
 function SituacionAcademica() {
-  const ctx = useCtx();
   const irA = useUI((s) => s.irA);
-  const reglamento = ctx.cur.malla.reglamento;
-  if (!reglamento) return null;
-  const udp = reglamento === "udp";
   return (
     <Tarjeta>
       <CabeceraTarjeta
         icono={<ShieldCheck className="size-[18px]" />}
         titulo="Tu situación académica"
-        descripcion={udp ? "Se calcula con tus notas en Notas, incluidas las parciales de este semestre · Reglamento de Pregrado UDP, art. 38 a 40." : "Se calcula con las notas finales que registras en Notas · Reglamento del Alumno UC."}
+        descripcion="Se calcula con tus notas en Notas, incluidas las parciales de este semestre · Reglamento de Pregrado UDP, art. 38 a 40."
         acciones={
           <Boton tamano="sm" variante="fantasma" onClick={() => irA("ayuda")}>
             ¿Cómo se calcula?
           </Boton>
         }
       />
-      {udp ? (
-        <SituacionUDP />
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-line p-4">
-            <p className="mb-3 flex items-center gap-2 text-[13.5px] font-bold">
-              <TriangleAlert className="size-4 text-warn" /> Alertas académicas
-            </p>
-            <ListaAlertas alertas={alertasUC(ctx)} vacio="Sin alertas detectadas" />
-          </div>
-          <div className="rounded-2xl border border-line p-4">
-            <p className="mb-3 flex items-center gap-2 text-[13.5px] font-bold">
-              <ShieldCheck className="size-4 text-accent" /> Revisión de permanencia
-            </p>
-            <ListaAlertas alertas={revisionPermanenciaUC(ctx)} vacio="Sin causales de revisión detectadas" />
-          </div>
-        </div>
-      )}
+      <SituacionUDP />
     </Tarjeta>
   );
 }
@@ -660,11 +617,6 @@ function AvisosParaTi() {
   ctx.cur.ramos
     .filter((r) => r.aviso && !r.reglaPractica && estadoRamo(ctx, r.id, apr) === "disponible")
     .forEach((r) => avisos.push({ icono: <Info />, tono: "info", texto: <><strong>{nombreRamo(ctx, r.id)}:</strong> {r.aviso}</> }));
-  ctx.cur.ramos
-    .filter((r) => r.anual && estadoRamo(ctx, r.id, apr) === "disponible")
-    .forEach((r) =>
-      avisos.push({ icono: <CalendarDays />, tono: "info", texto: <><strong>{nombreRamo(ctx, r.id)}</strong> es anual: solo se dicta en el {r.semestre % 2 === 1 ? "1.er" : "2.º"} semestre del año.</> }),
-    );
   // Ramos en riesgo este semestre (proyección bajo 4,0).
   ctx.st.periodos
     .filter((p) => esPeriodoActual(ctx.st, p))
@@ -681,7 +633,7 @@ function AvisosParaTi() {
 
   return (
     <Tarjeta>
-      <CabeceraTarjeta icono={<BellRing className="size-[18px]" />} titulo="Avisos para ti" descripcion="Prácticas, ramos anuales, ramos en riesgo y otras reglas que te afectan." />
+      <CabeceraTarjeta icono={<BellRing className="size-[18px]" />} titulo="Avisos para ti" descripcion="Prácticas, ramos en riesgo y otras reglas que te afectan." />
       {avisos.length === 0 ? (
         <p className="flex items-center gap-2 text-[13px] font-semibold text-ok">
           <CheckCircle2 className="size-4" /> No tienes avisos por ahora.

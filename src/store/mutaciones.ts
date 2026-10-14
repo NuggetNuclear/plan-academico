@@ -3,14 +3,12 @@
 import {
   aprobadosSet,
   clavePeriodo,
-  cubiertoPorIngles,
   entradaAprobada,
   esPeriodoActual,
   idsInglesEximidos,
   ordenPeriodo,
   type Ctx,
 } from "../core/academic";
-import { esSoloMalla } from "../core/curriculum";
 import { NOTA_APROB } from "../core/format";
 import { nuevoUid, type Entrada, type Periodo, type PlannerState, type TipoPeriodo } from "../core/state";
 
@@ -27,17 +25,14 @@ export function obtenerPeriodo(st: PlannerState, tipo: TipoPeriodo, numero: numb
 
 export const periodoPorClave = (st: PlannerState, clave: string) => st.periodos.find((p) => clavePeriodo(p) === clave);
 
-export function nuevaEntrada(ctx: Ctx, id: string): Entrada {
-  const e: Entrada = { uid: nuevoUid(), id, categorias: [], notaFinal: null };
-  const ramo = ctx.cur.map[id] ?? ctx.cur.catalogo[id];
-  if (ramo?.tipo === "OFG") e.creditos = ramo.creditos;
-  return e;
+export function nuevaEntrada(id: string): Entrada {
+  return { uid: nuevoUid(), id, categorias: [], notaFinal: null };
 }
 
-export function asegurarEntrada(ctx: Ctx, p: Periodo, id: string): Entrada {
+export function asegurarEntrada(p: Periodo, id: string): Entrada {
   let e = p.ramos.find((x) => x.id === id);
   if (!e) {
-    e = nuevaEntrada(ctx, id);
+    e = nuevaEntrada(id);
     p.ramos.push(e);
   }
   return e;
@@ -78,10 +73,10 @@ export function sincronizar(ctx: Ctx) {
   });
   st.cursando.forEach((id) => {
     quitarEntradasVacias(st, id, { incluirActual: false });
-    asegurarEntrada(ctx, actual, id);
+    asegurarEntrada(actual, id);
   });
   Object.entries(st.marcas).forEach(([id, sem]) => {
-    if (sem === st.semestreActual && ctx.cur.map[id] && !esSoloMalla(ctx.cur.map[id])) asegurarEntrada(ctx, actual, id);
+    if (sem === st.semestreActual && ctx.cur.map[id]) asegurarEntrada(actual, id);
   });
 }
 
@@ -119,7 +114,7 @@ export function marcarAprobado(ctx: Ctx, id: string, semestre: number | null) {
   sacarRapido(st, id);
   st.marcas[id] = semestre;
   if (semestre === 0) {
-    asegurarEntrada(ctx, obtenerPeriodo(st, "convalidaciones", 0, true)!, id);
+    asegurarEntrada(obtenerPeriodo(st, "convalidaciones", 0, true)!, id);
     return;
   }
   const destino = obtenerPeriodo(st, "regular", semestre, true)!;
@@ -129,8 +124,8 @@ export function marcarAprobado(ctx: Ctx, id: string, semestre: number | null) {
     conv.ramos = conv.ramos.filter((e) => e !== entradaConv);
     if (conv.ramos.length === 0) st.periodos = st.periodos.filter((p) => p !== conv);
     destino.ramos.push(entradaConv);
-  } else if (ctx.cur.map[id] && !esSoloMalla(ctx.cur.map[id])) {
-    asegurarEntrada(ctx, destino, id);
+  } else if (ctx.cur.map[id]) {
+    asegurarEntrada(destino, id);
   }
 }
 
@@ -151,7 +146,7 @@ export function alternarRapido(ctx: Ctx, id: string): "marcado" | "desmarcado" |
 
 export function marcableComoCompleto(ctx: Ctx, id: string): boolean {
   const r = ctx.cur.map[id];
-  return !!r && r.semestre >= 1 && !esSoloMalla(r) && !cubiertoPorIngles(ctx, r);
+  return !!r && r.semestre >= 1;
 }
 
 /** Marca como aprobados (sin semestre) todos los ramos entre dos semestres. */
@@ -166,24 +161,11 @@ export function marcarSemestres(ctx: Ctx, hasta: number, desde = 1): number {
   return n;
 }
 
-export function alternarRequisito(ctx: Ctx, id: string): boolean {
-  const { st } = ctx;
-  if (id in st.marcas) {
-    delete st.marcas[id];
-    return false;
-  }
-  st.marcas[id] = null;
-  sacarCursando(st, id);
-  return true;
-}
-
 // ── Notas ──
 
 export function agregarRamoAPeriodo(ctx: Ctx, p: Periodo, id: string): Entrada {
   const { st } = ctx;
-  const ramo = ctx.cur.map[id] ?? ctx.cur.catalogo[id];
-  const e = ramo?.tipo === "OFG" ? nuevaEntrada(ctx, id) : asegurarEntrada(ctx, p, id);
-  if (!p.ramos.includes(e)) p.ramos.push(e);
+  const e = asegurarEntrada(p, id);
   if (p.tipo === "convalidaciones") {
     st.marcas[id] = 0;
     sacarCursando(st, id);

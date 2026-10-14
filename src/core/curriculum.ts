@@ -1,12 +1,11 @@
 import type { Congelacion } from "./state";
-import type { MallaDef, Ramo, RamoDef, RutaAcademica } from "./types";
+import type { MallaDef, Ramo, RamoDef } from "./types";
 
 export interface Curriculum {
   malla: MallaDef;
-  ruta: RutaAcademica | null;
   ramos: Ramo[];
   map: Record<string, Ramo>;
-  /** Todos los ramos de la carrera (incluye los de otras rutas, para el historial). */
+  /** Todos los ramos de la carrera (para el historial). */
   catalogo: Record<string, RamoDef>;
   desbloquea: Record<string, string[]>;
   prereqs: Record<string, string[]>;
@@ -17,72 +16,28 @@ export interface Curriculum {
   tipos: Record<string, string>;
 }
 
-export interface OpcionesCurriculum {
-  rutaId?: string | null;
-  gruposAltModo?: Record<string, "dividido" | "unico">;
-}
-
-export function rutaActiva(malla: MallaDef, rutaId?: string | null): RutaAcademica | null {
-  const rutas = malla.rutasAcademicas ?? [];
-  if (rutas.length === 0) return null;
-  return rutas.find((r) => r.id === rutaId) ?? rutas.find((r) => r.id === malla.rutaDefault) ?? rutas[0];
-}
-
-/** Ramos que no se planifican (pruebas institucionales, requisitos sin créditos). */
-export function esSoloMalla(r: RamoDef | undefined): boolean {
-  return !!r && (r.soloMalla === true || r.excluirPlanner === true || r.tipo === "REQUERIDO");
-}
-
-/** Cursos flexibles cuyo nombre real lo define la persona (OFG, OPR, electivos con alternativas). */
+/** Electivos cuyo nombre real lo define la persona. */
 export function esPersonalizable(r: RamoDef | undefined): boolean {
-  return !!r && (r.tipo === "OFG" || r.tipo === "OPR" || r.tipo === "ELECCION" || /electivo/i.test(r.nombre));
+  return !!r && /electivo/i.test(r.nombre);
 }
 
-export function construirCurriculum(malla: MallaDef, opts: OpcionesCurriculum = {}): Curriculum {
-  const ruta = rutaActiva(malla, opts.rutaId);
-  const todos = [...malla.ramos, ...(malla.ramosRutas ?? [])];
+export function construirCurriculum(malla: MallaDef): Curriculum {
   const catalogo: Record<string, RamoDef> = {};
-  todos.forEach((r) => (catalogo[r.id] = r));
+  malla.ramos.forEach((r) => (catalogo[r.id] = r));
 
-  // 1. Filtrar por ruta académica y ajustar semestres propios de la ruta.
-  const excluidos = new Set(ruta?.excluir ?? []);
-  const fuente = todos
-    .filter((r) => !excluidos.has(r.id))
-    .filter((r) => !Array.isArray(r.rutas) || (ruta && r.rutas.includes(ruta.id)))
-    .map((r) => {
-      const semestre = (ruta && r.semestrePorRuta?.[ruta.id]) ?? r.semestre;
-      // Los cursos propios de una articulación se habilitan desde su semestre oficial.
-      return { ...r, semestre, semestreMinimo: r.rutas ? semestre : r.semestreMinimo };
-    });
-
-  // 2. Grupos alternativos: un OFG puede dictarse como varios cursos o uno solo más grande.
-  const modos = opts.gruposAltModo ?? {};
-  const vistos = new Set<string>();
-  const resueltos: RamoDef[] = [];
-  fuente.forEach((r) => {
-    if (!r.grupoAlt || (modos[r.grupoAlt] ?? "dividido") === "dividido") {
-      resueltos.push(r);
-      return;
-    }
-    if (vistos.has(r.grupoAlt)) return;
-    vistos.add(r.grupoAlt);
-    resueltos.push({ ...r, creditos: r.grupoAltCreditosUnico ?? r.creditos });
-  });
-
-  const ramos: Ramo[] = resueltos.map((r) => ({
+  const ramos: Ramo[] = malla.ramos.map((r) => ({
     ...r,
     req: [...(r.req ?? [])],
-    coreq: [...(r.coreq ?? [])],
     tipo: r.tipo ?? "ESP",
     reqPractica: [],
   }));
 
-  // 3. Las prácticas con regla exigen todo lo de la malla hasta cierto semestre.
+  // Las prácticas con regla exigen todo lo de la malla hasta cierto semestre.
   ramos.forEach((r) => {
     if (!r.reglaPractica) return;
     const hasta = r.reglaPractica.hastaSemestre;
     r.reqPractica = ramos
-      .filter((x) => x.id !== r.id && x.semestre >= 1 && x.semestre <= hasta && !esSoloMalla(x))
+      .filter((x) => x.id !== r.id && x.semestre >= 1 && x.semestre <= hasta)
       .map((x) => x.id);
   });
 
@@ -94,7 +49,7 @@ export function construirCurriculum(malla: MallaDef, opts: OpcionesCurriculum = 
     desbloquea[r.id] = [];
   });
   ramos.forEach((r) => {
-    prereqs[r.id] = [...r.req, ...r.coreq, ...r.reqPractica];
+    prereqs[r.id] = [...r.req, ...r.reqPractica];
     [...r.req, ...r.reqPractica].forEach((id) => desbloquea[id]?.push(r.id));
   });
 
@@ -108,23 +63,21 @@ export function construirCurriculum(malla: MallaDef, opts: OpcionesCurriculum = 
 
   return {
     malla,
-    ruta,
     ramos,
     map,
     catalogo,
     desbloquea,
     prereqs,
     peso,
-    semestresObjetivo: ruta?.semestresObjetivo ?? malla.semestresObjetivo,
-    maxCreditosSemestre: ruta?.maxCreditosSemestre ?? malla.maxCreditosSemestre,
+    semestresObjetivo: malla.semestresObjetivo,
+    maxCreditosSemestre: malla.maxCreditosSemestre,
     tipos: malla.tipos ?? {},
   };
 }
 
-/** Un prerrequisito debe estar aprobado antes; un correquisito puede cursarse en paralelo. */
+/** Los prerrequisitos deben estar aprobados antes; la deuda de una práctica se cursa en paralelo. */
 export function cumpleRequisitos(ramo: Ramo, completados: Set<string>, mismoSemestre: Set<string> = new Set()): boolean {
   if (!ramo.req.every((id) => completados.has(id))) return false;
-  if (!ramo.coreq.every((id) => completados.has(id) || mismoSemestre.has(id))) return false;
   if (!ramo.reglaPractica) return true;
   const ev = evaluarReglaPractica(ramo, completados);
   return ev.ok && ev.deuda.every((id) => mismoSemestre.has(id));
@@ -150,17 +103,12 @@ export function evaluarReglaPractica(ramo: Ramo, completados: Set<string>): Eval
   return { ok, faltan, deuda: ok ? faltan : [], bloqueanPorSinDeuda: faltan.filter((id) => sinDeuda.has(id)) };
 }
 
-// ── Ramos anuales y congelaciones ──
+// ── Congelaciones ──
 
 /** Convierte el semestre académico en semestre calendario considerando las pausas. */
 export function semestreCalendario(semestreAcademico: number, congelaciones: Congelacion[]): number {
   const s = Math.max(1, Math.trunc(semestreAcademico || 1));
   return s + congelaciones.filter((c) => c.desde <= s).reduce((t, c) => t + c.duracion, 0);
-}
-
-export function anualDisponibleEn(ramo: RamoDef, semestreAcademico: number, congelaciones: Congelacion[]): boolean {
-  if (!ramo.anual) return true;
-  return ramo.semestre % 2 === semestreCalendario(semestreAcademico, congelaciones) % 2;
 }
 
 export function nombrePeriodoCalendario(semestreAcademico: number, congelaciones: Congelacion[]): string {

@@ -42,7 +42,7 @@ beforeEach(() => {
     { tipo: "regular", numero: 1, ramos: [{ uid: "final", id: cur.ramos[0].id, notaFinal: 5.5, categorias: [] }] },
     { tipo: "regular", numero: 2, ramos: [{ uid: "actual", id: cur.ramos[1].id, notaFinal: null, categorias: [{ nombre: "Solemnes", peso: 100, notas: [{ n: 5, f: 1 }, { n: null, f: 2 }] }] }] },
   ];
-  useApp.setState({ carga: "listo", carreraId: malla.id, malla, cur, st, pilaDeshacer: [], indice: [], planesEditados: null });
+  useApp.setState({ carga: "listo", malla, cur, st, pilaDeshacer: [], planesEditados: null });
   useUI.setState({ vista: "inicio", paletaAbierta: false, lateralCompacta: false, toasts: [], dialogo: null });
 });
 afterEach(async () => { await act(async () => root.unmount()); vi.unstubAllGlobals(); });
@@ -86,9 +86,7 @@ describe("accesibilidad de las vistas", () => {
     await act(async () => render());
     expect(document.activeElement).toBe(segundo);
   });
-  it.each([1, 2, 3])("el asistente de inicio paso %i es accesible", async (paso) => {
-    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ json: () => Promise.resolve(mallaJSON) })));
-    useApp.setState({ indice: [{ id: "inf", nombre: "Informática", universidad: "UDP", archivo: "/carreras/inf.json" }] as never });
+  it.each([1, 2])("el asistente de inicio paso %i es accesible", async (paso) => {
     useUI.setState({ wizardAbierto: true });
     await act(async () => root.render(createElement(Wizard)));
     for (let i = 1; i < paso; i++) {

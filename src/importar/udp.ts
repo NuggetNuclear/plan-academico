@@ -1,7 +1,7 @@
 // Piezas comunes de la importación desde los reportes de la UDP (Avance curricular y
 // Trabajo académico del estudiante). Todo es puro: no toca el estado ni el navegador.
 import { normalizarTexto } from "../core/format";
-import type { CarreraIndice, RamoDef } from "../core/types";
+import type { RamoDef } from "../core/types";
 import type { Curriculum } from "../core/curriculum";
 
 export class ErrorImportacion extends Error {}
@@ -103,11 +103,9 @@ export function casillaFija(mapa: MapaMalla, codigo: string): string | null {
   return null;
 }
 
-// ── Detección de carrera ──
+// ── Carrera del reporte ──
 
-/** Carrera cuyo nombre aparece en el reporte («ING. CIVIL INFORMÁTICA Y TELECOM»). */
-export function detectarCarrera(indice: CarreraIndice[], textoPlan: string | null): CarreraIndice | null {
-  if (!textoPlan) return null;
-  const t = normalizarTexto(textoPlan);
-  return indice.find((c) => (c.planes ?? []).some((f) => t.includes(normalizarTexto(f)))) ?? null;
+/** El reporte es de Ing. Civil en Informática y Telecomunicaciones («ING. CIVIL INFORMÁTICA Y TELECOM»). */
+export function esPlanInformatica(textoPlan: string): boolean {
+  return normalizarTexto(textoPlan).includes("informatica y telecom");
 }

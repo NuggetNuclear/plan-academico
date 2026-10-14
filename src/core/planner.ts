@@ -1,5 +1,5 @@
-import { aprobadosSet, creditosCurriculares, cubiertoPorIngles, ramosSemestreActual, type Ctx } from "./academic";
-import { anualDisponibleEn, cumpleRequisitos, esSoloMalla, evaluarReglaPractica, type Curriculum } from "./curriculum";
+import { aprobadosSet, ramosSemestreActual, type Ctx } from "./academic";
+import { cumpleRequisitos, evaluarReglaPractica, type Curriculum } from "./curriculum";
 import type { ModoPractica, PlanGuardado, TipoSemestrePlan } from "./state";
 import type { Ramo } from "./types";
 
@@ -33,8 +33,8 @@ type Estrategia = "semestre" | "desbloqueo" | "equilibrado";
 type Flex = "flex_last" | "flex_first" | "ingles_first";
 type Curva = "pareja" | "creciente" | "decreciente";
 
-const esFlexible = (r: Ramo) => r.tipo === "OFG" || r.tipo === "OPR" || r.tipo === "INGLES" || r.tipo === "CFG" || r.tipo === "TIN";
-const esIngles = (cur: Curriculum, r: Ramo) => r.tipo === "INGLES" || (cur.malla.nivelesIngles ?? []).includes(r.id);
+const esFlexible = (r: Ramo) => r.tipo === "CFG" || r.tipo === "TIN";
+const esIngles = (cur: Curriculum, r: Ramo) => (cur.malla.nivelesIngles ?? []).includes(r.id);
 
 export function modoPractica(ctx: Ctx): ModoPractica {
   return ctx.st.modoPractica;
@@ -43,11 +43,11 @@ export function modoPractica(ctx: Ctx): ModoPractica {
 export const esPracticaSobrecupo = (ctx: Ctx, r: Ramo) => !!r.reglaPractica && ctx.st.modoPractica === "sobrecupo";
 
 export function creditosCarga(ctx: Ctx, lista: Ramo[]): number {
-  return lista.reduce((s, r) => s + (esPracticaSobrecupo(ctx, r) ? 0 : creditosCurriculares(ctx, r)), 0);
+  return lista.reduce((s, r) => s + (esPracticaSobrecupo(ctx, r) ? 0 : r.creditos), 0);
 }
 
 export function creditosSobrecupo(ctx: Ctx, lista: Ramo[]): number {
-  return lista.reduce((s, r) => s + (esPracticaSobrecupo(ctx, r) ? creditosCurriculares(ctx, r) : 0), 0);
+  return lista.reduce((s, r) => s + (esPracticaSobrecupo(ctx, r) ? r.creditos : 0), 0);
 }
 
 export function maxCreditos(ctx: Ctx): number {
@@ -68,11 +68,9 @@ function profundidades(cur: Curriculum, pendientes: Set<string>): Record<string,
   return res;
 }
 
-/** Correquisitos para el generador: una práctica arrastra el ramo adeudado (se cursa en paralelo). */
-function correquisitosEnPlan(ramo: Ramo, completados: Set<string>): string[] {
-  const co = [...ramo.coreq];
-  if (ramo.reglaPractica) co.push(...evaluarReglaPractica(ramo, completados).deuda);
-  return co;
+/** Lo que se cursa en paralelo: una práctica arrastra el ramo adeudado. */
+function ramosEnParalelo(ramo: Ramo, completados: Set<string>): string[] {
+  return ramo.reglaPractica ? evaluarReglaPractica(ramo, completados).deuda : [];
 }
 
 export function idsPendientes(ctx: Ctx): Set<string> {
@@ -80,7 +78,7 @@ export function idsPendientes(ctx: Ctx): Set<string> {
   const cursando = new Set(ctx.st.cursando);
   return new Set(
     ctx.cur.ramos
-      .filter((r) => !esSoloMalla(r) && !cubiertoPorIngles(ctx, r) && !apr.has(r.id) && !cursando.has(r.id))
+      .filter((r) => !apr.has(r.id) && !cursando.has(r.id))
       .map((r) => r.id),
   );
 }
@@ -98,7 +96,7 @@ export function generarPlan(ctx: Ctx, maxCred: number, maxRamos: number, estrate
   const modo = st.modoPractica;
   const pendientes = idsPendientes(ctx);
 
-  const actuales = ramosSemestreActual(ctx).filter((r) => !cubiertoPorIngles(ctx, r));
+  const actuales = ramosSemestreActual(ctx);
   if (actuales.length > 0) semestres.push({ numero: st.semestreActual, ramos: actuales, creditos: creditosCarga(ctx, actuales), tipo: "cursando" });
   // Si aún no inscribes ramos este semestre, el plan parte desde el semestre actual.
   else numSem = st.semestreActual;
@@ -121,7 +119,7 @@ export function generarPlan(ctx: Ctx, maxCred: number, maxRamos: number, estrate
       const ramo = map[id];
       const ev = evaluarReglaPractica(ramo, completados);
       if (!ev.ok || ev.deuda.some((d) => practicasVerano.has(d))) return;
-      semestres.push({ numero: numeroPrevio, ramos: [ramo], creditos: creditosCurriculares(ctx, ramo), tipo: "verano" });
+      semestres.push({ numero: numeroPrevio, ramos: [ramo], creditos: ramo.creditos, tipo: "verano" });
       pendientes.delete(id);
       completados.add(id);
       ev.deuda.forEach((d) => prioridadDeuda.add(d));
@@ -133,7 +131,7 @@ export function generarPlan(ctx: Ctx, maxCred: number, maxRamos: number, estrate
   let credPend = 0;
   pendientes.forEach((id) => {
     const r = map[id];
-    if (!practicasVerano.has(id) && !esPracticaSobrecupo(ctx, r)) credPend += creditosCurriculares(ctx, r);
+    if (!practicasVerano.has(id) && !esPracticaSobrecupo(ctx, r)) credPend += r.creditos;
   });
 
   const minPorCreditos = Math.ceil(credPend / maxCred);
@@ -163,16 +161,14 @@ export function generarPlan(ctx: Ctx, maxCred: number, maxRamos: number, estrate
     pendientes.forEach((id) => {
       const r = map[id];
       if (!r || practicasVerano.has(id)) return;
-      if (r.semestreMinimo && numSem < r.semestreMinimo) return;
       if (!r.req.every((x) => completados.has(x))) return;
       if (!evaluarReglaPractica(r, completados).ok) return;
-      if (!anualDisponibleEn(r, numSem, st.congelaciones)) return;
-      const coreqOk = correquisitosEnPlan(r, completados).every((cid) => {
+      const paralelosOk = ramosEnParalelo(r, completados).every((cid) => {
         if (completados.has(cid)) return true;
         const co = map[cid];
-        return !!co && pendientes.has(cid) && co.req.every((x) => completados.has(x)) && anualDisponibleEn(co, numSem, st.congelaciones);
+        return !!co && pendientes.has(cid) && co.req.every((x) => completados.has(x));
       });
-      if (coreqOk) disponibles.push(r);
+      if (paralelosOk) disponibles.push(r);
     });
 
     if (disponibles.length === 0) {
@@ -193,26 +189,24 @@ export function generarPlan(ctx: Ctx, maxCred: number, maxRamos: number, estrate
     const idsSem = new Set<string>();
     let credSem = 0;
 
-    const bloqueConCorrequisitos = (ramo: Ramo): Ramo[] | null => {
+    const bloqueConParalelos = (ramo: Ramo): Ramo[] | null => {
       const bloque: Ramo[] = [];
       const visitados = new Set<string>();
       const agregar = (c: Ramo): boolean => {
         if (completados.has(c.id) || idsSem.has(c.id) || visitados.has(c.id)) return true;
         visitados.add(c.id);
         if (!pendientes.has(c.id)) return false;
-        if (c.semestreMinimo && numSem < c.semestreMinimo) return false;
         if (!c.req.every((x) => completados.has(x))) return false;
         if (!evaluarReglaPractica(c, completados).ok) return false;
-        if (!anualDisponibleEn(c, numSem, st.congelaciones)) return false;
         bloque.push(c);
-        return correquisitosEnPlan(c, completados).every((cid) => completados.has(cid) || idsSem.has(cid) || (!!map[cid] && agregar(map[cid])));
+        return ramosEnParalelo(c, completados).every((cid) => completados.has(cid) || idsSem.has(cid) || (!!map[cid] && agregar(map[cid])));
       };
       return agregar(ramo) ? bloque : null;
     };
 
     const intentarAgregar = (ramo: Ramo, limite: number): boolean => {
       if (idsSem.has(ramo.id)) return true;
-      const bloque = bloqueConCorrequisitos(ramo);
+      const bloque = bloqueConParalelos(ramo);
       if (!bloque) return false;
       const nuevos = bloque.filter((c) => !idsSem.has(c.id));
       if (conCarga(semRamos) + conCarga(nuevos) > maxRamos) return false;
@@ -249,7 +243,7 @@ export function generarPlan(ctx: Ctx, maxCred: number, maxRamos: number, estrate
 
   if (pendientes.size > 0) {
     const resto = [...pendientes].map((id) => map[id]).filter(Boolean);
-    if (resto.length) semestres.push({ numero: numSem, ramos: resto, creditos: resto.reduce((s, r) => s + creditosCurriculares(ctx, r), 0), tipo: "overflow" });
+    if (resto.length) semestres.push({ numero: numSem, ramos: resto, creditos: resto.reduce((s, r) => s + r.creditos, 0), tipo: "overflow" });
   }
   return semestres;
 }
@@ -293,7 +287,7 @@ const CONFIGS: { est: Estrategia; flex: Flex; curva: Curva; menosRamos?: boolean
 export function resumirPlan(ctx: Ctx, plan: Omit<Plan, "semestresRestantes" | "creditosPorSemestre" | "creditosMaximos" | "intercambios">): Plan {
   const semestres = plan.semestres.filter((s) => s.ramos.length > 0);
   semestres.forEach((s) => {
-    s.creditos = s.tipo === "verano" ? s.ramos.reduce((t, r) => t + creditosCurriculares(ctx, r), 0) : creditosCarga(ctx, s.ramos);
+    s.creditos = s.tipo === "verano" ? s.ramos.reduce((t, r) => t + r.creditos, 0) : creditosCarga(ctx, s.ramos);
   });
   const futuros = semestres.filter((s) => s.tipo === "futuro");
   const tot = futuros.reduce((t, s) => t + s.creditos, 0);
@@ -314,7 +308,7 @@ export function generarPlanes(ctx: Ctx): Plan[] {
   const pendientes = idsPendientes(ctx);
   if (pendientes.size === 0) return [];
   const mc = maxCreditos(ctx);
-  const creditos = [...pendientes].map((id) => creditosCurriculares(ctx, ctx.cur.map[id])).filter((c) => c > 0);
+  const creditos = [...pendientes].map((id) => ctx.cur.map[id]?.creditos ?? 0).filter((c) => c > 0);
   const tipico = creditos.length ? Math.min(...creditos) : 10;
   const mrMax = Math.max(3, Math.floor(mc / tipico));
 
@@ -392,9 +386,7 @@ export function puedeMoverRamo(ctx: Ctx, plan: Plan, ramoId: string, origen: num
   const ramo = ctx.cur.map[ramoId];
   const dest = plan.semestres.find((s) => s.numero === destino && s.tipo === "futuro");
   if (!ramo || !dest) return false;
-  if (ramo.semestreMinimo && destino < ramo.semestreMinimo) return false;
   if (dest.creditos + creditosCarga(ctx, [ramo]) > maxCreditos(ctx)) return false;
-  if (!anualDisponibleEn(ramo, destino, ctx.st.congelaciones)) return false;
   const antes = baseCompletados(ctx);
   plan.semestres.forEach((s) => {
     if ((s.tipo === "futuro" || s.tipo === "verano") && s.numero < destino) s.ramos.forEach((x) => x.id !== ramoId && antes.add(x.id));
@@ -406,8 +398,6 @@ export function puedeMoverRamo(ctx: Ctx, plan: Plan, ramoId: string, origen: num
     (s) => s.tipo === "futuro" && s.numero <= destino && s.ramos.some((x) => x.id !== ramoId && x.req.includes(ramoId)),
   );
   if (dependienteAntes) return false;
-  const coreqAntes = plan.semestres.some((s) => s.tipo === "futuro" && s.numero < destino && s.ramos.some((x) => x.id !== ramoId && x.coreq.includes(ramoId)));
-  if (coreqAntes) return false;
   const simulado = plan.semestres.map((s) => ({
     ...s,
     ramos: s.tipo === "futuro" && s.numero === origen ? s.ramos.filter((x) => x.id !== ramoId) : s === dest ? [...s.ramos, ramo] : s.ramos,
@@ -445,7 +435,6 @@ export function calcularIntercambios(ctx: Ctx, plan: Plan): Intercambio[] {
   const semDe: Record<string, number> = {};
   futuros.forEach((s) => s.ramos.forEach((r) => (semDe[r.id] = s.numero)));
   const base = baseCompletados(ctx);
-  const cong = ctx.st.congelaciones;
   const mc = maxCreditos(ctx);
 
   const completadosAntes = (n: number) => {
@@ -456,20 +445,14 @@ export function calcularIntercambios(ctx: Ctx, plan: Plan): Intercambio[] {
   const masTemprano = (id: string) => {
     const r = ctx.cur.map[id];
     for (const s of futuros) {
-      if (r.semestreMinimo && s.numero < r.semestreMinimo) continue;
-      if (cumpleRequisitos(r, completadosAntes(s.numero), new Set(s.ramos.map((x) => x.id))) && anualDisponibleEn(r, s.numero, cong)) return s.numero;
+      if (cumpleRequisitos(r, completadosAntes(s.numero), new Set(s.ramos.map((x) => x.id)))) return s.numero;
     }
     return Infinity;
   };
   const masTardio = (id: string) => {
-    const r = ctx.cur.map[id];
     const deps = (ctx.cur.desbloquea[id] ?? []).filter((d) => semDe[d] !== undefined);
-    const depsCo = ctx.cur.ramos.filter((x) => x.coreq.includes(id) && semDe[x.id] !== undefined).map((x) => x.id);
     const minDep = deps.length ? Math.min(...deps.map((d) => semDe[d])) : Infinity;
-    const minCo = depsCo.length ? Math.min(...depsCo.map((d) => semDe[d])) : Infinity;
-    const cands = futuros.filter(
-      (s) => s.numero < minDep && s.numero <= minCo && (!r.semestreMinimo || s.numero >= r.semestreMinimo) && anualDisponibleEn(r, s.numero, cong),
-    );
+    const cands = futuros.filter((s) => s.numero < minDep);
     return cands.length ? cands[cands.length - 1].numero : semDe[id];
   };
 
@@ -486,8 +469,8 @@ export function calcularIntercambios(ctx: Ctx, plan: Plan): Intercambio[] {
         for (const r2 of s2.ramos) {
           const [min1, max1] = rango[r1.id];
           const [min2, max2] = rango[r2.id];
-          if (!(s2.numero >= min1 && s2.numero <= max1 && anualDisponibleEn(r1, s2.numero, cong))) continue;
-          if (!(s1.numero >= min2 && s1.numero <= max2 && anualDisponibleEn(r2, s1.numero, cong))) continue;
+          if (!(s2.numero >= min1 && s2.numero <= max1)) continue;
+          if (!(s1.numero >= min2 && s1.numero <= max2)) continue;
           const c1 = s1.creditos - creditosCarga(ctx, [r1]) + creditosCarga(ctx, [r2]);
           const c2 = s2.creditos - creditosCarga(ctx, [r2]) + creditosCarga(ctx, [r1]);
           if (c1 > mc || c2 > mc) continue;

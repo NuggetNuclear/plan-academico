@@ -3,23 +3,15 @@ import { useState } from "react";
 import { useApp, useCtx } from "../../store/app";
 import { confirmar, toast, useUI } from "../../store/ui";
 import { estadoInicial } from "../../core/state";
-import { Boton, Campo, Insignia, Interruptor, cx } from "../../ui/primitives";
+import { Boton, Campo, Interruptor, cx } from "../../ui/primitives";
 
 export function TusDatos() {
   const ctx = useCtx();
   const { st, cur } = ctx;
   const mutar = useApp((s) => s.mutar);
-  const indice = useApp((s) => s.indice);
-  const carreraId = useApp((s) => s.carreraId);
-  const cambiarCarrera = useApp((s) => s.cambiarCarrera);
   const setWizard = useUI((s) => s.setWizard);
   const [abierto, setAbierto] = useState(false);
   const niveles = (cur.malla.nivelesIngles ?? []).filter((id) => cur.map[id] || cur.catalogo[id]);
-  const grupos = [...new Set(cur.malla.ramos.filter((r) => r.grupoAlt).map((r) => r.grupoAlt!))].map((g) => {
-    const integrantes = cur.malla.ramos.filter((r) => r.grupoAlt === g);
-    return { clave: g, nombre: integrantes[0].nombre, n: integrantes.length, cr: integrantes[0].creditos, unico: integrantes[0].grupoAltCreditosUnico ?? integrantes[0].creditos };
-  });
-  const rutas = cur.malla.rutasAcademicas ?? [];
 
   return (
     <section className="card overflow-hidden">
@@ -32,31 +24,13 @@ export function TusDatos() {
           <span className="block break-words text-[13px] text-fg-2">
             Semestre {st.semestreActual} · {st.inglesEximido ? `${st.inglesEximido} nivel(es) de inglés eximidos` : "sin inglés eximido"}
             {st.congelaciones.length > 0 && ` · ${st.congelaciones.length} congelación(es)`}
-            {cur.ruta && ` · ${cur.ruta.nombre}`}
           </span>
         </span>
         <ChevronDown className={cx("size-5 text-fg-3 transition-transform", abierto && "rotate-180")} />
       </button>
       {abierto && (
         <div className="animar-entrada space-y-5 border-t border-line px-5 py-5 sm:px-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Campo etiqueta="Carrera" htmlFor="td-carrera">
-              <select
-                id="td-carrera"
-                className="input"
-                value={carreraId ?? ""}
-                onChange={(e) => {
-                  cambiarCarrera(e.target.value);
-                  toast("Carrera cambiada. Cada carrera guarda su propio progreso.", "info");
-                }}
-              >
-                {indice.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre} ({c.universidad})
-                  </option>
-                ))}
-              </select>
-            </Campo>
+          <div className="grid gap-4 sm:grid-cols-2">
             <Campo etiqueta="Semestre actual" htmlFor="td-sem" ayuda="El que estás cursando ahora, sin contar congelaciones.">
               <input
                 id="td-sem"
@@ -88,52 +62,7 @@ export function TusDatos() {
                 </select>
               </Campo>
             )}
-            {grupos.map((g) => (
-              <Campo key={g.clave} etiqueta={`Tu ${g.nombre}`} htmlFor={`td-g-${g.clave}`}>
-                <select
-                  id={`td-g-${g.clave}`}
-                  className="input"
-                  value={st.gruposAltModo[g.clave] ?? "dividido"}
-                  onChange={(e) => mutar("Cambiar créditos de OFG", ({ st }) => (st.gruposAltModo[g.clave] = e.target.value as "dividido" | "unico"))}
-                >
-                  <option value="dividido">
-                    {g.n} cursos de {g.cr} créditos
-                  </option>
-                  <option value="unico">1 curso de {g.unico} créditos</option>
-                </select>
-              </Campo>
-            ))}
           </div>
-
-          {rutas.length > 0 && (
-            <div>
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <p className="text-[13.5px] font-bold">Malla que quieres visualizar</p>
-                <Insignia tono="ok">Tu progreso común se conserva</Insignia>
-              </div>
-              <div role="group" aria-label="Selecciona una opción" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {rutas.map((r) => {
-                  const activa = cur.ruta?.id === r.id;
-                  return (
-                    <button
-                      key={r.id}
-                      type="button"
-                      aria-pressed={activa}
-                      title={r.nota}
-                      onClick={() => !activa && mutar(`Cambiar a ${r.nombre}`, ({ st }) => ((st.rutaAcademica = r.id), (st.maxCreditos = null)))}
-                      className={cx("rounded-2xl border p-3 text-left transition-colors", activa ? "border-accent bg-accent-soft" : "border-line hover:border-line-strong")}
-                    >
-                      <p className="text-[13.5px] font-bold">{r.nombre}</p>
-                      <p className="text-[12px] text-fg-2">
-                        {r.semestresObjetivo} semestres{r.creditosPlan ? ` · ${r.creditosPlan} créditos` : ""}
-                      </p>
-                      {r.nota && <p className="mt-1 text-[11.5px] text-fg-3">{r.nota}</p>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           <div className="rounded-2xl border border-line p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -141,7 +70,7 @@ export function TusDatos() {
                 <p className="flex items-center gap-2 text-[13.5px] font-bold">
                   <Snowflake className="size-4 text-info" /> ¿Congelaste estudios?
                 </p>
-                <p className="text-[12.5px] text-fg-2">Ajusta la oferta de los ramos anuales según tus pausas.</p>
+                <p className="text-[12.5px] text-fg-2">Las pausas mueven tu semestre calendario y la fecha estimada de egreso.</p>
               </div>
               <Interruptor
                 checked={st.congelaciones.length > 0}

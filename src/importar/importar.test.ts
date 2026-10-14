@@ -4,17 +4,16 @@ import { describe, expect, it } from "vitest";
 import { aprobadosSet, type Ctx } from "../core/academic";
 import { construirCurriculum } from "../core/curriculum";
 import { estadoInicial, nuevoUid, normalizarEstado, type PlannerState } from "../core/state";
-import type { CarreraIndice, MallaDef } from "../core/types";
+import type { MallaDef } from "../core/types";
 import { sincronizar } from "../store/mutaciones";
 import { parsearAvance, romanoANumero } from "./avance";
 import { lineasDesdeItems } from "./pdf";
 import { aplicarPlan, construirPlanAvance, construirPlanTrabajo, previsualizar, semestreSugerido } from "./plan";
 import { leerTrabajoAcademico, registrosDesdeFilas, type RegistroTrabajo } from "./trabajo";
-import { detectarCarrera, ErrorImportacion, tituloCaso } from "./udp";
+import { ErrorImportacion, esPlanInformatica, tituloCaso } from "./udp";
 
 const inf = JSON.parse(readFileSync("public/carreras/inf.json", "utf8")) as MallaDef;
-const indice = (JSON.parse(readFileSync("public/carreras/index.json", "utf8")) as { carreras: CarreraIndice[] }).carreras;
-const cur = construirCurriculum(inf, {});
+const cur = construirCurriculum(inf);
 
 let fila = 1;
 const reg = (r: Partial<RegistroTrabajo> & Pick<RegistroTrabajo, "codigo">): RegistroTrabajo => ({
@@ -331,10 +330,9 @@ describe("Plan desde el Trabajo académico", () => {
 });
 
 describe("utilidades", () => {
-  it("detecta la carrera por el nombre del plan", () => {
-    expect(detectarCarrera(indice, "10202878 ING. CIVIL INFORMÁTICA Y TELECOM")?.id).toBe("inf");
-    expect(detectarCarrera(indice, "99 MEDICINA")).toBeNull();
-    expect(detectarCarrera(indice, null)).toBeNull();
+  it("reconoce el plan de Informática por su nombre", () => {
+    expect(esPlanInformatica("10202878 ING. CIVIL INFORMÁTICA Y TELECOM")).toBe(true);
+    expect(esPlanInformatica("99 MEDICINA")).toBe(false);
   });
 
   it("deja legibles los nombres en mayúsculas", () => {

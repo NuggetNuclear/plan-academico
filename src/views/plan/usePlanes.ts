@@ -8,10 +8,9 @@ import { firmaPlanificacion, useApp, useCtx } from "../../store/app";
  */
 export function usePlanes() {
   const ctx = useCtx();
-  const carreraId = useApp((s) => s.carreraId);
   const editados = useApp((s) => s.planesEditados);
   const setEditados = useApp((s) => s.setPlanesEditados);
-  const firma = useMemo(() => firmaPlanificacion(ctx, carreraId), [ctx, carreraId]);
+  const firma = useMemo(() => firmaPlanificacion(ctx), [ctx]);
   const ref = useRef(ctx);
   ref.current = ctx;
   // eslint-disable-next-line react-hooks/exhaustive-deps

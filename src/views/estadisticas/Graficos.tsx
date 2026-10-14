@@ -20,7 +20,7 @@ const SERIE_SEM = "var(--s1)";
 const SERIE_ACUM = "var(--s2)";
 
 /** Evolución del PPA: dos series en un solo eje (1,0–7,0) con línea de referencia en 4,0. */
-export function GraficoPPA({ datos, posicion }: { datos: PuntoPPA[]; posicion: string }) {
+export function GraficoPPA({ datos }: { datos: PuntoPPA[] }) {
   const ref = useRef<SVGSVGElement>(null);
   const [caja, W] = useAncho<HTMLDivElement>(680);
   const [hover, setHover] = useState<number | null>(null);
@@ -87,7 +87,7 @@ export function GraficoPPA({ datos, posicion }: { datos: PuntoPPA[]; posicion: s
             </text>
             {p.ventana && (
               <text x={x(i)} y={H - pad.b + 30} fontSize="9.5" fill="var(--fg-3)" textAnchor="middle">
-                {posicion.charAt(0)} {p.ventana}
+                V {p.ventana}
               </text>
             )}
           </g>
@@ -121,7 +121,7 @@ export function GraficoPPA({ datos, posicion }: { datos: PuntoPPA[]; posicion: s
             <span className="text-fg-3">acumulado</span>
           </p>
           <p className="mt-1 text-fg-3">
-            {d.creditos} créditos{d.ventana ? ` · ${posicion} ${d.ventana}` : ""}
+            {d.creditos} créditos{d.ventana ? ` · Ventana ${d.ventana}` : ""}
           </p>
         </div>
       )}

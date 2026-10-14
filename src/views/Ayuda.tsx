@@ -2,7 +2,7 @@ import { BookOpen, Briefcase, Calculator, CalendarDays, ChevronDown, CircleCheck
 import { nombreRamo, siglaRamo } from "../core/academic";
 import { useCtx } from "../store/app";
 import { Kbd } from "../ui/comun";
-import { Aviso, Tarjeta, cx } from "../ui/primitives";
+import { Aviso, cx } from "../ui/primitives";
 import { Sugerencias } from "./ayuda/Sugerencias";
 
 function Seccion({ id, icono, titulo, children, abierta }: { id?: string; icono: React.ReactNode; titulo: string; children: React.ReactNode; abierta?: boolean }) {
@@ -34,8 +34,6 @@ function Causales({ items }: { items: [string, string][] }) {
 export function Ayuda() {
   const ctx = useCtx();
   const practicas = ctx.cur.ramos.filter((r) => r.reglaPractica);
-  const anuales = ctx.cur.ramos.filter((r) => r.anual);
-  const reglamento = ctx.cur.malla.reglamento;
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   const mod = mac ? "⌘" : "Ctrl";
 
@@ -76,7 +74,7 @@ export function Ayuda() {
         <Seccion id="ayuda-como" icono={<BookOpen />} titulo="Cómo funciona" abierta>
           <ol className="space-y-2.5">
             {[
-              ["Completa tus datos.", "El asistente pregunta tu carrera, en qué semestre vas y si tienes inglés eximido. Los cambias cuando quieras en Mi malla › Tus datos."],
+              ["Completa tus datos.", "El asistente pregunta en qué semestre vas, si tienes inglés eximido y si congelaste. Los cambias cuando quieras en Mi malla › Tus datos."],
               ["Marca tu malla.", "Usa «Marcar semestres completos» y luego desmarca lo que debes. Marca como Cursando los ramos de este semestre."],
               ["Revisa tu plan.", "En Planificación ya tienes un plan recomendado. Ajusta tus créditos y la práctica, arrastra ramos y presiona «Quedarme con este plan»."],
               ["Registra tus notas.", "En Notas, el semestre en curso ya existe con tus ramos. Al registrar la nota final, el ramo pasa a aprobado en la malla."],
@@ -143,48 +141,22 @@ export function Ayuda() {
               <p>En Planificación eliges si la práctica cuenta en tu carga, va en sobrecupo, en un {(ctx.cur.malla.periodoVerano ?? "verano").toLowerCase()} o fuera del plan.</p>
             </div>
           )}
-          <div>
-            <p className="font-bold text-fg">¿Qué son los ramos anuales?</p>
+          <div className="space-y-2">
+            <p className="font-bold text-fg">Causales de eliminación (Reglamento de Pregrado UDP, art. 38)</p>
+            <Causales
+              items={[
+                ["a", "Reprobar por segunda vez tres o más asignaturas del plan de estudios."],
+                ["b", "Reprobar una misma asignatura del plan de estudios tres o más veces."],
+                ["c", "Reprobar más del 50% de las asignaturas cursadas en un año académico (los dos últimos semestres efectivamente realizados)."],
+              ]}
+            />
             <p>
-              Un ramo anual se dicta una sola vez al año. El planificador respeta esa oferta y, si registras una congelación, desplaza su disponibilidad. Se marcan con{" "}
-              <span className="rounded bg-warn-soft px-1 text-[11px] font-bold text-warn">A</span> en la malla.{" "}
-              {anuales.length ? `Tu carrera tiene ${anuales.length}: ${anuales.map((r) => r.nombre).join(", ")}.` : "Tu carrera no tiene ramos anuales."}
+              <strong className="text-fg">Antes de caer.</strong> Con las notas parciales que registras, la app te dice qué ramos en curso te dejarían en causal si los repruebas (por ejemplo, uno que ya reprobaste dos veces), cómo vas en cada uno y cuánto necesitas en lo que queda para aprobar. También te muestra cuántos ramos puedes reprobar este semestre sin superar el 50% de la causal c.
             </p>
+            <Aviso tono="info" icono={<ShieldCheck />}>
+              Si caíste en causal y la UDP aceptó tu permanencia, regístralo en Inicio › Tu situación académica. Las reprobaciones no se borran: con la a ya cumplida, cada nueva segunda reprobación te deja otra vez en causal, y con la b, cada nueva tercera reprobación de un ramo. Si la causal fue la c, el semestre siguiente efectivamente cursado no se evalúa por ella. La apelación a la Comisión Especial de Gracia de la Vicerrectoría Académica es solo para la primera vez que caes en causal (art. 40).
+            </Aviso>
           </div>
-          {reglamento === "udp" && (
-            <div className="space-y-2">
-              <p className="font-bold text-fg">Causales de eliminación (Reglamento de Pregrado UDP, art. 38)</p>
-              <Causales
-                items={[
-                  ["a", "Reprobar por segunda vez tres o más asignaturas del plan de estudios."],
-                  ["b", "Reprobar una misma asignatura del plan de estudios tres o más veces."],
-                  ["c", "Reprobar más del 50% de las asignaturas cursadas en un año académico (los dos últimos semestres efectivamente realizados)."],
-                ]}
-              />
-              <p>
-                <strong className="text-fg">Antes de caer.</strong> Con las notas parciales que registras, la app te dice qué ramos en curso te dejarían en causal si los repruebas (por ejemplo, uno que ya reprobaste dos veces), cómo vas en cada uno y cuánto necesitas en lo que queda para aprobar. También te muestra cuántos ramos puedes reprobar este semestre sin superar el 50% de la causal c.
-              </p>
-              <Aviso tono="info" icono={<ShieldCheck />}>
-                Si caíste en causal y la UDP aceptó tu permanencia, regístralo en Inicio › Tu situación académica. Las reprobaciones no se borran: con la a ya cumplida, cada nueva segunda reprobación te deja otra vez en causal, y con la b, cada nueva tercera reprobación de un ramo. Si la causal fue la c, el semestre siguiente efectivamente cursado no se evalúa por ella. La apelación a la Comisión Especial de Gracia de la Vicerrectoría Académica es solo para la primera vez que caes en causal (art. 40).
-              </Aviso>
-            </div>
-          )}
-          {reglamento === "uc" && (
-            <div className="space-y-2">
-              <p className="font-bold text-fg">Alertas académicas</p>
-              <Causales
-                items={[
-                  ["a", "Desde el término del primer semestre, PPA acumulado menor a 4,0."],
-                  ["b", "Al término del primer semestre, aprobar menos del 50% de los créditos inscritos."],
-                  ["c", "Desde el segundo semestre, PPA acumulado menor a 4,5 y aprobar menos del 40% de los créditos de los dos últimos semestres."],
-                  ["d", "Reprobar un mismo ramo en tres o más oportunidades."],
-                  ["e", "Reprobar dos o más veces ramos específicos definidos por la unidad académica (no se calcula)."],
-                ]}
-              />
-              <p className="font-bold text-fg">Revisión de permanencia</p>
-              <p>Desde el tercer periodo: PPA acumulado menor a 4,0 y menos de 80% de créditos aprobados en el periodo anterior. Las causales que dependen de antecedentes institucionales no se calculan.</p>
-            </div>
-          )}
           <Aviso tono="acento" icono={<Lightbulb />}>
             Mientras más completo esté tu historial en Notas, más precisos son estos cálculos. Son una orientación: la decisión oficial siempre la toma tu universidad.
           </Aviso>
@@ -196,7 +168,7 @@ export function Ayuda() {
               ["Créditos inscritos", "Cada intento registrado (aprobado, reprobado o en curso). Un ramo repetido cuenta una vez por intento."],
               ["Créditos aprobados", "Intentos con nota final 4,0 o más, y ramos marcados como aprobados en la malla."],
               ["Créditos reprobados", "Cada intento cerrado con nota bajo 4,0."],
-              ["Créditos de avance", "Los aprobados que avanzan tu malla: no repiten ramos y respetan los topes por área. Es el % de Inicio."],
+              ["Créditos de avance", "Los aprobados que avanzan tu malla: no repiten ramos. Es el % de Inicio."],
             ].map(([t, d]) => (
               <div key={t} className="rounded-xl bg-surface-2 p-3">
                 <p className="font-bold text-fg">{t}</p>
@@ -228,7 +200,7 @@ export function Ayuda() {
             </ul>
           </div>
           <Aviso tono="warn" icono={<ShieldCheck />}>
-            La planificación considera prerrequisitos, tu tope de créditos, ramos anuales, prácticas y congelaciones. No puede garantizar horarios, cupos, topes ni que un ramo se dicte: confírmalo con tu universidad antes de inscribir.
+            La planificación considera prerrequisitos, tu tope de créditos, prácticas y congelaciones. No puede garantizar horarios, cupos, topes ni que un ramo se dicte: confírmalo con tu universidad antes de inscribir.
           </Aviso>
         </Seccion>
 
@@ -278,11 +250,6 @@ export function Ayuda() {
           <p>
             <strong>Tus datos son tuyos:</strong> todo se guarda en tu navegador. Si activas la sincronización con Google, se guarda una copia en tu cuenta. Exporta un respaldo de vez en cuando desde Mi cuenta.
           </p>
-          <Tarjeta className="!p-4">
-            <p className="text-[12.5px]">
-              Las mallas se definen en archivos JSON dentro de <code className="rounded bg-surface-2 px-1 font-mono">public/carreras/</code>: agregar una carrera nueva es agregar un archivo.
-            </p>
-          </Tarjeta>
         </Seccion>
       </div>
     </div>

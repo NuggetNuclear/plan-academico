@@ -21,7 +21,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
-import { creditosCurriculares, nombreRamo, ramosSemestreActual, resumenCreditos, siglaRamo } from "../core/academic";
+import { nombreRamo, ramosSemestreActual, resumenCreditos, siglaRamo } from "../core/academic";
 import { nombrePeriodoCalendario, rutaCritica } from "../core/curriculum";
 import { plural } from "../core/format";
 import {
@@ -112,7 +112,7 @@ function RamoPlan({ ramo, idPlan, sem, editable, deuda, sobrecupo, onMover }: { 
           </p>
         )}
       </div>
-      <span className="shrink-0 text-[10.5px] font-semibold text-fg-3 tabular">{creditosCurriculares(ctx, ramo)}</span>
+      <span className="shrink-0 text-[10.5px] font-semibold text-fg-3 tabular">{ramo.creditos}</span>
       {editable && onMover && (
         <button
           type="button"
@@ -204,7 +204,7 @@ function GrillaPlan({ plan, idPlan, editable, onCambiar }: { plan: Plan; idPlan:
     if (puedeMoverRamo(ctx, plan, ramoId, origen, destino)) {
       onCambiar(moverRamo(ctx, plan, ramoId, origen, destino));
       toast(`${siglaRamo(ctx, ramoId)} movido al semestre ${destino}`);
-    } else toast("No se puede mover ahí (requisitos, créditos u oferta anual).", "error");
+    } else toast("No se puede mover ahí (requisitos, créditos o prácticas).", "error");
   };
   const onStart = (e: DragStartEvent) => setArrastrando({ ramo: e.active.data.current!.ramo, origen: e.active.data.current!.origen });
   const onEnd = (e: DragEndEvent) => {
@@ -246,7 +246,7 @@ function GrillaPlan({ plan, idPlan, editable, onCambiar }: { plan: Plan; idPlan:
       </DragOverlay>
       <Popover ancla={anclaMover} abierto={!!mover} onCerrar={() => setMover(null)} ancho={220}>
         <p className="px-2.5 py-1 text-[11.5px] font-bold text-fg-3">Mover a…</p>
-        {destinosValidos.length === 0 && <p className="px-2.5 py-2 text-[12.5px] text-fg-2">No hay otro semestre válido (requisitos, créditos u oferta anual).</p>}
+        {destinosValidos.length === 0 && <p className="px-2.5 py-2 text-[12.5px] text-fg-2">No hay otro semestre válido (requisitos, créditos o prácticas).</p>}
         {destinosValidos.map((s) => (
           <OpcionMenu
             key={s.numero}
@@ -501,7 +501,7 @@ export function Planificacion() {
             </>
           )}
           <p className="text-[12px] text-fg-3">
-            El plan respeta prerrequisitos, tu máximo de créditos, ramos anuales y las reglas de práctica. No puede garantizar horarios, cupos ni que un ramo se dicte: confírmalo con tu universidad antes de inscribir.
+            El plan respeta prerrequisitos, tu máximo de créditos y las reglas de práctica. No puede garantizar horarios, cupos ni que un ramo se dicte: confírmalo con tu universidad antes de inscribir.
           </p>
         </div>
       </Paso>

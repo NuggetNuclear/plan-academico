@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import {
   calcularPPA,
   clavePeriodo,
-  creditosCurriculares,
   esPeriodoActual,
   nombreEntrada,
   nombrePeriodo,
@@ -13,7 +12,6 @@ import {
   siglaEntrada,
 } from "../core/academic";
 import { evaluacionesConFecha, generarICS } from "../core/calendar";
-import { esSoloMalla } from "../core/curriculum";
 import { NOTA_APROB, fmtNota, normalizarTexto, plural } from "../core/format";
 import { notaDesdePuntaje, puntajeParaNota } from "../core/grades";
 import type { Periodo, TipoPeriodo } from "../core/state";
@@ -249,7 +247,7 @@ function BuscadorRamo({ periodo }: { periodo: Periodo }) {
   const resultados = useMemo(() => {
     const t = normalizarTexto(q.trim());
     return ctx.cur.ramos
-      .filter((r) => !esSoloMalla(r) && creditosCurriculares(ctx, r) > 0 && (r.tipo === "OFG" || !periodo.ramos.some((e) => e.id === r.id)))
+      .filter((r) => r.creditos > 0 && !periodo.ramos.some((e) => e.id === r.id))
       .filter((r) => !t || normalizarTexto(`${r.id} ${r.sigla ?? ""} ${r.nombre}`).includes(t))
       .slice(0, 8);
   }, [q, ctx, periodo]);
@@ -323,7 +321,6 @@ export function Notas() {
   const [modalPeriodo, setModalPeriodo] = useState(false);
   const [modalEscala, setModalEscala] = useState(false);
   const verano = ctx.cur.malla.periodoVerano ?? "Semestre de verano";
-  const posicion = ctx.cur.malla.posicionToma === "banner" ? "Banner" : "Ventana";
   const ordenados = periodosOrdenados(ctx.st);
   const claveSel = sel && ordenados.some((p) => clavePeriodo(p) === sel) ? sel : `s${ctx.st.semestreActual}`;
   const periodo = ordenados.find((p) => clavePeriodo(p) === claveSel) ?? ordenados.at(-1);
@@ -341,7 +338,7 @@ export function Notas() {
         .join("");
       if (!filas) return;
       const ppaP = calcularPPA(ctx, [p]).ppa;
-      cuerpo += `<h2>${escaparHTML(nombrePeriodo(p, verano))}${p.ventana ? ` · ${posicion} ${escaparHTML(p.ventana)}` : ""}</h2><table><tr><th style="width:110px">Sigla</th><th>Ramo</th><th style="width:80px">Nota</th></tr>${filas}<tr class="total"><td></td><td>Promedio del periodo</td><td class="num">${fmtNota(ppaP, 2)}</td></tr></table>`;
+      cuerpo += `<h2>${escaparHTML(nombrePeriodo(p, verano))}${p.ventana ? ` · Ventana ${escaparHTML(p.ventana)}` : ""}</h2><table><tr><th style="width:110px">Sigla</th><th>Ramo</th><th style="width:80px">Nota</th></tr>${filas}<tr class="total"><td></td><td>Promedio del periodo</td><td class="num">${fmtNota(ppaP, 2)}</td></tr></table>`;
     });
     if (!cuerpo) return toast("Aún no hay notas finales registradas.", "error");
     const total = calcularPPA(ctx);
@@ -444,23 +441,23 @@ export function Notas() {
           {periodo && periodo.tipo === "regular" && (
             <div className="flex items-center gap-2">
               <label className="text-[12.5px] font-semibold text-fg-2" htmlFor="ventana">
-                {posicion} del semestre
+                Ventana del semestre
               </label>
               <input
                 id="ventana"
                 key={claveSel}
                 className="input w-24 text-center font-bold uppercase placeholder:font-normal placeholder:normal-case"
                 defaultValue={periodo.ventana ?? ""}
-                placeholder={posicion === "Ventana" ? "Ej. A5" : "Ej. 7/16"}
-                maxLength={posicion === "Ventana" ? 2 : 8}
-                title={posicion === "Ventana" ? "Letra de A a E y número de 1 a 5, por ejemplo A5" : "Tu posición de banner, por ejemplo 7/16"}
+                placeholder="Ej. A5"
+                maxLength={2}
+                title="Letra de A a E y número de 1 a 5, por ejemplo A5"
                 onBlur={(e) => {
                   const v = e.target.value.trim().toUpperCase();
-                  if (posicion === "Ventana" && v && !/^[A-E][1-5]$/.test(v)) {
+                  if (v && !/^[A-E][1-5]$/.test(v)) {
                     e.target.value = periodo.ventana ?? "";
                     return toast("Ventana inválida. Usa una letra de A a E y un número de 1 a 5 (ej. A5).", "error");
                   }
-                  if (v !== (periodo.ventana ?? "")) mutar(`${posicion} del semestre`, (c) => {
+                  if (v !== (periodo.ventana ?? "")) mutar("Ventana del semestre", (c) => {
                     const p = periodoPorClave(c.st, claveSel);
                     if (p) p.ventana = v || undefined;
                   });

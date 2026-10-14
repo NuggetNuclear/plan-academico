@@ -1,15 +1,14 @@
 import { AlertTriangle, CheckCircle2, ChevronRight, FileSpreadsheet, FileText, FileUp, Info, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
-import { construirCurriculum, type Curriculum } from "../core/curriculum";
+import type { Curriculum } from "../core/curriculum";
 import { fmtNota, plural } from "../core/format";
-import { estadoInicial, type PlannerState } from "../core/state";
-import type { CarreraIndice } from "../core/types";
+import type { PlannerState } from "../core/state";
 import { parsearAvance, type AvanceCurricular } from "../importar/avance";
 import { lineasDePDF } from "../importar/pdf";
 import { aplicarPlan, construirPlanAvance, construirPlanTrabajo, previsualizar, type PlanImportacion } from "../importar/plan";
 import { COLUMNAS_TRABAJO, leerTrabajoAcademico, type TablaTrabajo } from "../importar/trabajo";
-import { detectarCarrera, ErrorImportacion } from "../importar/udp";
-import { cargarMalla, leerEstadoGuardado, useApp } from "../store/app";
+import { ErrorImportacion, esPlanInformatica } from "../importar/udp";
+import { useApp } from "../store/app";
 import { toast, useUI } from "../store/ui";
 import { CabeceraModal, Modal } from "../ui/overlays";
 import { Aviso, Boton, Insignia, Segmentado, cx } from "../ui/primitives";
@@ -17,7 +16,6 @@ import { Aviso, Boton, Insignia, Segmentado, cx } from "../ui/primitives";
 type Modo = "rapido" | "avanzado";
 
 interface Revision {
-  carrera: CarreraIndice;
   cur: Curriculum;
   base: PlannerState;
   plan: PlanImportacion;
@@ -52,20 +50,13 @@ async function leerArchivos(archivos: File[]) {
 async function prepararRevision(archivos: File[]): Promise<Revision> {
   const { avance, trabajo } = await leerArchivos(archivos);
   if (!avance && !trabajo) throw new ErrorImportacion("Elige tu Avance curricular (PDF) o tu Trabajo académico (Excel).");
-  const app = useApp.getState();
-  const importables = app.indice.filter((c) => c.planes?.length);
-  const actual = importables.find((c) => c.id === app.carreraId);
-  const detectada = detectarCarrera(app.indice, avance?.plan ?? null);
-  if (avance?.plan && !detectada)
-    throw new ErrorImportacion(`Tu plan («${avance.plan}») todavía no está en la app. Por ahora funciona con: ${importables.map((c) => c.nombre).join(", ")}.`);
-  const carrera = detectada ?? actual ?? (importables.length === 1 ? importables[0] : null);
-  if (!carrera) throw new ErrorImportacion("Esta importación es para carreras de la UDP. Cambia a tu carrera UDP y vuelve a intentarlo.");
-
-  const base = carrera.id === app.carreraId ? app.st : (leerEstadoGuardado(carrera.id) ?? estadoInicial());
-  const cur = carrera.id === app.carreraId && app.cur ? app.cur : construirCurriculum(await cargarMalla(carrera), { rutaId: base.rutaAcademica, gruposAltModo: base.gruposAltModo });
+  if (avance?.plan && !esPlanInformatica(avance.plan))
+    throw new ErrorImportacion(`Tu plan («${avance.plan}») no es Ing. Civil en Informática y Telecomunicaciones: la app solo funciona con esa carrera.`);
+  const { st: base, cur } = useApp.getState();
+  if (!cur) throw new ErrorImportacion("La malla aún no termina de cargar. Vuelve a intentarlo en unos segundos.");
   const plan = trabajo ? construirPlanTrabajo(cur, trabajo.registros, avance) : construirPlanAvance(cur, avance!);
   plan.advertencias.unshift(...(trabajo?.advertencias ?? []));
-  return { carrera, cur, base, plan, conPDF: !!avance, conExcel: !!trabajo };
+  return { cur, base, plan, conPDF: !!avance, conExcel: !!trabajo };
 }
 
 function Dato({ etiqueta, valor, detalle }: { etiqueta: string; valor: ReactNode; detalle?: string }) {
@@ -173,10 +164,8 @@ export function ImportarUDP() {
   const plan = useMemo(() => (rev ? { ...rev.plan, semestreActual: semestre } : null), [rev, semestre]);
   const resumen = useMemo(() => (rev && plan ? previsualizar(rev.cur, rev.base, plan) : null), [rev, plan]);
 
-  const importar = async () => {
+  const importar = () => {
     if (!rev || !plan) return;
-    const app = useApp.getState();
-    if (rev.carrera.id !== app.carreraId) await app.cambiarCarrera(rev.carrera.id);
     useApp.getState().mutar("Importar avance de la UDP", (ctx) => aplicarPlan(ctx, plan));
     setImportar(false);
     useUI.getState().irA("malla");
@@ -192,7 +181,7 @@ export function ImportarUDP() {
   return (
     <Modal abierto={abierto} onCerrar={() => setImportar(false)} etiqueta="Importar desde la UDP" ancho="lg">
       <CabeceraModal icono={<FileUp className="size-5" />} sobretitulo="Importar desde la UDP" titulo={rev ? "Revisa antes de importar" : "Rellena tu planner con tus reportes"} onCerrar={() => setImportar(false)}>
-        {rev ? `Carrera detectada: ${rev.carrera.nombre}.` : "Sube el reporte que descargas de la UDP y se completa tu malla sola."}
+        {rev ? "Ing. Civil en Informática y Telecomunicaciones." : "Sube el reporte que descargas de la UDP y se completa tu malla sola."}
       </CabeceraModal>
 
       {!rev && (

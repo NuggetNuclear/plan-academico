@@ -3,7 +3,7 @@
 // la app funciona igual guardando todo en el navegador.
 import { create } from "zustand";
 import type { PlannerState } from "../core/state";
-import { leerTodosLosEstados, useApp } from "../store/app";
+import { CARRERA_ID, leerTodosLosEstados, useApp } from "../store/app";
 import { toast } from "../store/ui";
 
 const SDK = "https://www.gstatic.com/firebasejs/10.12.2";
@@ -100,13 +100,12 @@ async function subir() {
   const u = useSync.getState().usuario;
   if (!u) return;
   const { db, m } = await cargarFirebase();
-  const { indice, carreraId } = useApp.getState();
   useSync.setState({ estado: "sincronizando" });
   try {
     const ahora = Date.now();
     await m.setDoc(m.doc(db, COLECCION, u.uid), {
-      estados: JSON.stringify(leerTodosLosEstados(indice)),
-      carreraActual: carreraId,
+      estados: JSON.stringify(leerTodosLosEstados()),
+      carreraActual: CARRERA_ID,
       actualizado: ahora,
       version: 1,
     });
@@ -120,11 +119,11 @@ async function reconciliar(u: Usuario) {
   useSync.setState({ estado: "conectando" });
   try {
     const nube = await leerNube(u.uid);
-    const local = leerTodosLosEstados(useApp.getState().indice);
+    const local = leerTodosLosEstados();
     if (!nube || !tieneProgreso(nube.estados)) return subir();
     if (!tieneProgreso(local) || firma(local) === firma(nube.estados)) {
       aplicandoNube = true;
-      await useApp.getState().reemplazarTodo(nube.estados, nube.carreraActual);
+      useApp.getState().reemplazarTodo(nube.estados);
       aplicandoNube = false;
       useSync.setState({ estado: "sincronizado", ultima: nube.actualizado });
       return;
@@ -141,7 +140,7 @@ export async function resolverConflicto(eleccion: "nube" | "local") {
   useSync.setState({ conflicto: null });
   if (eleccion === "nube") {
     aplicandoNube = true;
-    await useApp.getState().reemplazarTodo(c.nube.estados, c.nube.carreraActual);
+    useApp.getState().reemplazarTodo(c.nube.estados);
     aplicandoNube = false;
     useSync.setState({ estado: "sincronizado", ultima: c.nube.actualizado });
     toast("Se cargó el progreso de tu cuenta.");

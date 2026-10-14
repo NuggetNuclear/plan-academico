@@ -1,7 +1,7 @@
 // Convierte lo leído de la UDP en un plan de importación y lo aplica al progreso.
 // construirPlan* no toca nada; aplicarPlan modifica un borrador (como store/mutaciones.ts).
 import { aprobadosSet, calcularPPA, clavePeriodo, ordenPeriodo, type Ctx } from "../core/academic";
-import { esSoloMalla, type Curriculum } from "../core/curriculum";
+import type { Curriculum } from "../core/curriculum";
 import { NOTA_APROB } from "../core/format";
 import type { Congelacion, Entrada, Periodo, PlannerState, TipoPeriodo } from "../core/state";
 import { desmarcar, marcarAprobado, marcarCursando, nuevaEntrada, quitarEntradasVacias, sincronizar } from "../store/mutaciones";
@@ -63,7 +63,7 @@ const unicos = (xs: string[]) => [...new Set(xs)];
 
 function resolverFijo(cur: Curriculum, mapa: MapaMalla, codigo: string): string | null {
   const id = casillaFija(mapa, codigo) ?? mapa.porCodigo.get(claveCodigo(codigo)) ?? null;
-  return id && cur.map[id] && !esSoloMalla(cur.map[id]) ? id : null;
+  return id && cur.map[id] ? id : null;
 }
 
 // ── Avance curricular (PDF) ──
@@ -295,7 +295,7 @@ function aplicarAvance(ctx: Ctx, plan: PlanImportacion) {
   const respaldados = new Set([...plan.aprobadosRapidos, ...plan.convalidados]);
   // Las marcas hechas a mano que el reporte no respalda se quitan; las notas registradas no se tocan.
   Object.keys(st.marcas).forEach((id) => {
-    if (!respaldados.has(id) && !esSoloMalla(ctx.cur.map[id])) desmarcar(ctx, id);
+    if (!respaldados.has(id)) desmarcar(ctx, id);
   });
   plan.convalidados.forEach((id) => aprobadosSet(ctx).has(id) || marcarAprobado(ctx, id, 0));
   plan.aprobadosRapidos.forEach((id) => aprobadosSet(ctx).has(id) || marcarAprobado(ctx, id, null));
@@ -324,7 +324,7 @@ function aplicarTrabajo(ctx: Ctx, plan: PlanImportacion) {
     const clave = clavePeriodo(pp);
     const ramos = pp.entradas.map((ep) => {
       const prev = previos.get(clave + "|" + ep.id);
-      const e: Entrada = prev ? structuredClone(prev) : nuevaEntrada(ctx, ep.id);
+      const e: Entrada = prev ? structuredClone(prev) : nuevaEntrada(ep.id);
       if (ep.nota !== null) {
         e.notaFinal = ep.nota;
         e.decimas = 0;
@@ -339,7 +339,7 @@ function aplicarTrabajo(ctx: Ctx, plan: PlanImportacion) {
     return p;
   });
 
-  st.marcas = Object.fromEntries(Object.entries(st.marcas).filter(([id]) => esSoloMalla(ctx.cur.map[id])));
+  st.marcas = {};
   plan.aprobadosRapidos.forEach((id) => (st.marcas[id] = null));
   periodos.filter((p) => p.tipo === "convalidaciones").forEach((p) => p.ramos.forEach((e) => (st.marcas[e.id] = 0)));
   st.rapidosDesdeCursando = [];
@@ -378,7 +378,7 @@ export function previsualizar(cur: Curriculum, st: PlannerState, plan: PlanImpor
   aplicarPlan(ctx, plan);
   sincronizar(ctx);
   const apr = aprobadosSet(ctx);
-  const contables = cur.ramos.filter((r) => !esSoloMalla(r));
+  const contables = cur.ramos;
   const regulares = borrador.periodos.filter((p) => p.tipo === "regular" && p.ramos.some((e) => e.notaFinal !== null));
   return {
     ramosAprobados: contables.filter((r) => apr.has(r.id)).length,

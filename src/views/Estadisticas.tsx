@@ -30,7 +30,6 @@ export function Estadisticas() {
   const evo = useMemo(() => evolucionPPA(ctx), [ctx]);
   const periodos = useMemo(() => resumenPeriodos(ctx, { incluirVerano: true }), [ctx]);
   const { ppa } = calcularPPA(ctx);
-  const posicion = ctx.cur.malla.posicionToma === "banner" ? "Banner" : "Ventana";
 
   const finales = useMemo(() => {
     const out: { id: string; nota: number }[] = [];
@@ -132,7 +131,7 @@ export function Estadisticas() {
                   <th className="py-2 text-right font-semibold">Promedio</th>
                   <th className="py-2 text-right font-semibold">PPA acumulado</th>
                   <th className="py-2 text-right font-semibold">Créditos</th>
-                  <th className="py-2 text-right font-semibold">{posicion}</th>
+                  <th className="py-2 text-right font-semibold">Ventana</th>
                 </tr>
               </thead>
               <tbody className="tabular">
@@ -152,7 +151,7 @@ export function Estadisticas() {
           <>
             <LeyendaPPA />
             <div className="mt-3">
-              <GraficoPPA datos={evo} posicion={posicion} />
+              <GraficoPPA datos={evo} />
             </div>
           </>
         )}

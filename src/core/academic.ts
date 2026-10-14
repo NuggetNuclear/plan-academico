@@ -1,4 +1,4 @@
-import { cumpleRequisitos, evaluarReglaPractica, anualDisponibleEn, esSoloMalla, type Curriculum } from "./curriculum";
+import { cumpleRequisitos, evaluarReglaPractica, type Curriculum } from "./curriculum";
 import { NOTA_APROB } from "./format";
 import { calcularRamo, notaFinalEfectiva, rendimientoRamo, type CalculoRamo, type RendimientoRamo } from "./grades";
 import type { Entrada, Periodo, PlannerState } from "./state";
@@ -46,13 +46,11 @@ export function ramoCatalogo(ctx: Ctx, id: string): RamoDef | undefined {
 
 export function siglaRamo(ctx: Ctx, id: string): string {
   const r = ramoCatalogo(ctx, id);
-  if (r?.tipo === "OFG") return r.sigla || id;
   return ctx.st.alias[id]?.sigla || r?.sigla || id;
 }
 
 export function nombreRamo(ctx: Ctx, id: string): string {
   const r = ramoCatalogo(ctx, id);
-  if (r?.tipo === "OFG") return r.nombre || id;
   return ctx.st.alias[id]?.nombre || r?.nombre || id;
 }
 
@@ -64,7 +62,7 @@ export function nombreEntrada(ctx: Ctx, e: Entrada): string {
   return e.nombreReal?.trim() || nombreRamo(ctx, e.id);
 }
 
-// ── Inglés y OFG ──
+// ── Inglés ──
 
 export function idsInglesEximidos(ctx: Ctx): Set<string> {
   const niveles = (ctx.cur.malla.nivelesIngles ?? []).filter((id) => ramoCatalogo(ctx, id));
@@ -74,24 +72,6 @@ export function idsInglesEximidos(ctx: Ctx): Set<string> {
 export function esEximido(ctx: Ctx, id: string): boolean {
   return idsInglesEximidos(ctx).has(id) && !tieneConvalidacion(ctx, id);
 }
-
-function creditosInglesComoLibres(ctx: Ctx): number {
-  const cfg = ctx.cur.malla.configuracionOFG;
-  if (!cfg) return 0;
-  const niveles = (ctx.cur.malla.nivelesIngles ?? []).filter((id) => ramoCatalogo(ctx, id));
-  const porCursar = niveles.slice(ctx.st.inglesEximido).reduce((s, id) => s + (ramoCatalogo(ctx, id)?.creditos ?? 0), 0);
-  return Math.min(cfg.maxCreditosInglesComoLibres || 0, porCursar);
-}
-
-/** Créditos que un ramo aporta a la malla (el OFG libre puede quedar cubierto por inglés). */
-export function creditosCurriculares(ctx: Ctx, ramo: RamoDef | undefined): number {
-  if (!ramo) return 0;
-  const cfg = ctx.cur.malla.configuracionOFG;
-  if (!cfg || ramo.tipo !== "OFG" || ramo.id !== cfg.ofgLibreId) return ramo.creditos;
-  return Math.max(0, ramo.creditos - creditosInglesComoLibres(ctx));
-}
-
-export const cubiertoPorIngles = (ctx: Ctx, ramo: RamoDef) => ramo.tipo === "OFG" && creditosCurriculares(ctx, ramo) === 0;
 
 export function creditosEntrada(ctx: Ctx, e: Entrada): number {
   if (typeof e.creditos === "number" && e.creditos >= 0) return e.creditos;
@@ -160,12 +140,9 @@ export function estaAprobado(ctx: Ctx, id: string, aprobados = aprobadosSet(ctx)
 
 export function estadoRamo(ctx: Ctx, id: string, aprobados = aprobadosSet(ctx)): EstadoRamo {
   const ramo = ctx.cur.map[id];
-  if (ramo && cubiertoPorIngles(ctx, ramo)) return "bloqueado";
   if (aprobados.has(id)) return "aprobado";
   if (ctx.st.cursando.includes(id)) return "cursando";
   if (!ramo) return "bloqueado";
-  if (ramo.semestreMinimo && ctx.st.semestreActual < ramo.semestreMinimo) return "bloqueado";
-  if (!anualDisponibleEn(ramo, ctx.st.semestreActual, ctx.st.congelaciones)) return "bloqueado";
   if (ramo.reglaPractica) return evaluarReglaPractica(ramo, aprobados).ok ? "disponible" : "bloqueado";
   return cumpleRequisitos(ramo, aprobados, new Set(ctx.st.cursando)) ? "disponible" : "bloqueado";
 }
@@ -177,8 +154,7 @@ export function prerrequisitosPendientes(ctx: Ctx, ramo: Ramo, aprobados = aprob
     if (ev.ok) return [];
     return ev.faltan.length <= (ramo.reglaPractica.maxDeuda ?? 1) ? ev.bloqueanPorSinDeuda : ev.faltan;
   }
-  const cursando = new Set(ctx.st.cursando);
-  return [...ramo.req.filter((id) => !aprobados.has(id)), ...ramo.coreq.filter((id) => !aprobados.has(id) && !cursando.has(id))];
+  return ramo.req.filter((id) => !aprobados.has(id));
 }
 
 /** Ramos del semestre en curso: los que estás cursando y los ya cerrados este semestre. */
@@ -186,11 +162,11 @@ export function ramosSemestreActual(ctx: Ctx): Ramo[] {
   const actual = ctx.st.periodos.find((p) => esPeriodoActual(ctx.st, p));
   const cerradosAqui = new Set(actual?.ramos.filter((e) => entradaAprobada(ctx, e)).map((e) => e.id) ?? []);
   Object.entries(ctx.st.marcas).forEach(([id, sem]) => sem === ctx.st.semestreActual && cerradosAqui.add(id));
-  return ctx.cur.ramos.filter((r) => !esSoloMalla(r) && (ctx.st.cursando.includes(r.id) || cerradosAqui.has(r.id)));
+  return ctx.cur.ramos.filter((r) => ctx.st.cursando.includes(r.id) || cerradosAqui.has(r.id));
 }
 
 /** Semestre en que se aprobó un ramo (para la etiqueta S# de la malla). */
-export function infoAprobacion(ctx: Ctx, id: string): { etiqueta: string; tipo: "semestre" | "convalidado" | "rapido" | "eximido" | "cumplido" } | null {
+export function infoAprobacion(ctx: Ctx, id: string): { etiqueta: string; tipo: "semestre" | "convalidado" | "rapido" | "eximido" } | null {
   const reg = aprobacionEnNotas(ctx, id);
   if (reg) {
     if (reg.periodo.tipo === "convalidaciones") return { etiqueta: "Convalidado", tipo: "convalidado" };
@@ -199,7 +175,6 @@ export function infoAprobacion(ctx: Ctx, id: string): { etiqueta: string; tipo: 
   if (esEximido(ctx, id)) return { etiqueta: "Eximido", tipo: "eximido" };
   if (id in ctx.st.marcas) {
     const sem = ctx.st.marcas[id];
-    if (ramoCatalogo(ctx, id)?.tipo === "REQUERIDO") return { etiqueta: "Cumplido", tipo: "cumplido" };
     if (sem === null) return { etiqueta: "Cursado", tipo: "rapido" };
     if (sem === 0) return { etiqueta: "Convalidado", tipo: "convalidado" };
     return { etiqueta: `S${sem}`, tipo: "semestre" };
@@ -247,8 +222,7 @@ export function intentosInscritos(ctx: Ctx): Intento[] {
   ctx.st.periodos.forEach((p) => {
     const vistos = new Set<string>();
     p.ramos.forEach((e) => {
-      const esOFG = ramoCatalogo(ctx, e.id)?.tipo === "OFG";
-      if (!esOFG && vistos.has(e.id)) return;
+      if (vistos.has(e.id)) return;
       vistos.add(e.id);
       if (esEximido(ctx, e.id)) return;
       const nota = notaFinalEfectiva(e);
@@ -265,8 +239,8 @@ export function intentosInscritos(ctx: Ctx): Intento[] {
   Object.keys(ctx.st.marcas).forEach((id) => {
     if (aprobadosConNota.has(id) || !idsActivos.has(id) || esEximido(ctx, id)) return;
     const ramo = ctx.cur.map[id];
-    if (!ramo || cubiertoPorIngles(ctx, ramo) || ramo.creditos <= 0) return;
-    out.push({ id, creditos: creditosCurriculares(ctx, ramo), resultado: "aprobado" });
+    if (!ramo || ramo.creditos <= 0) return;
+    out.push({ id, creditos: ramo.creditos, resultado: "aprobado" });
   });
 
   ctx.st.cursando.forEach((id) => {
@@ -282,7 +256,7 @@ export interface ResumenCreditos {
   reprobados: number;
   cursando: number;
   ramosCursando: number;
-  /** Aprobados que avanzan la malla (sin repetir ramos y con topes por área OFG). */
+  /** Aprobados que avanzan la malla (sin repetir ramos). */
   avance: number;
   /** Créditos totales del plan. */
   total: number;
@@ -303,45 +277,22 @@ export function resumenCreditos(ctx: Ctx): ResumenCreditos {
 }
 
 function creditosAvance(ctx: Ctx, intentos: Intento[]): number {
-  const cfg = ctx.cur.malla.configuracionOFG;
-  const maxOFG = cfg?.maxCreditosPorArea ?? Infinity;
-  const maxIngles = cfg ? cfg.maxCreditosInglesComoLibres || 0 : Infinity;
-  const areaLibre = cfg ? ramoCatalogo(ctx, cfg.ofgLibreId)?.areaOFG ?? cfg.ofgLibreId : null;
   const idsActivos = new Set(ctx.cur.ramos.map((r) => r.id));
   const contados = new Set<string>();
-  const ofgPorArea = new Map<string, number>();
-  let ingles = 0;
   let total = 0;
-
   intentos
     .filter((i) => i.resultado === "aprobado" && i.creditos > 0)
     .forEach((i) => {
-      const ramo = ramoCatalogo(ctx, i.id);
-      if (ramo?.tipo === "OFG") {
-        const area = ramo.areaOFG ?? ramo.id;
-        ofgPorArea.set(area, (ofgPorArea.get(area) ?? 0) + i.creditos);
-        return;
-      }
-      if (contados.has(i.id)) return;
-      if (ramo && !idsActivos.has(i.id) && ramo.tipo !== "INGLES") return;
+      if (contados.has(i.id) || (ramoCatalogo(ctx, i.id) && !idsActivos.has(i.id))) return;
       contados.add(i.id);
-      if (ramo?.tipo === "INGLES") ingles += i.creditos;
-      else total += i.creditos;
+      total += i.creditos;
     });
-
-  ofgPorArea.forEach((cr, area) => {
-    const max = area === areaLibre ? Math.max(0, maxOFG - creditosInglesComoLibres(ctx)) : maxOFG;
-    total += Math.min(max, cr);
-  });
-  return total + Math.min(maxIngles, ingles);
+  return total;
 }
 
 export function creditosTotalesPlan(ctx: Ctx): number {
-  if (ctx.cur.ruta?.creditosPlan) return ctx.cur.ruta.creditosPlan;
   const eximidos = idsInglesEximidos(ctx);
-  return ctx.cur.ramos
-    .filter((r) => !esSoloMalla(r) && !eximidos.has(r.id))
-    .reduce((s, r) => s + creditosCurriculares(ctx, r), 0);
+  return ctx.cur.ramos.filter((r) => !eximidos.has(r.id)).reduce((s, r) => s + r.creditos, 0);
 }
 
 // ── PPA ──
@@ -761,45 +712,6 @@ export function situacionSemestreUDP(ctx: Ctx): SituacionSemestreUDP {
   };
 }
 
-// UC · alertas académicas y revisión de permanencia
-export function alertasUC(ctx: Ctx): Alerta[] {
-  const out: Alerta[] = [];
-  const periodos = resumenPeriodos(ctx);
-  const ultimo = periodos.at(-1);
-  const primero = periodos[0];
-  if (ultimo && ultimo.ppaAcumulado < 4.0) out.push({ tipo: "a", descripcion: `PPA acumulado ${fmt(ultimo.ppaAcumulado)} bajo 4,0`, nivel: "critica" });
-  if (primero && primero.porcentajeAprobado < 50)
-    out.push({ tipo: "b", descripcion: `Primer semestre: ${Math.round(primero.porcentajeAprobado)}% de créditos aprobados (menos del 50%)`, nivel: "critica" });
-  if (periodos.length >= 2 && ultimo) {
-    const dos = periodos.slice(-2);
-    const tot = dos.reduce((s, p) => s + p.credTotal, 0);
-    const apr = dos.reduce((s, p) => s + p.credAprobados, 0);
-    const pct = tot > 0 ? (apr / tot) * 100 : 0;
-    if (ultimo.ppaAcumulado < 4.5 && pct < 40)
-      out.push({ tipo: "c", descripcion: `PPA ${fmt(ultimo.ppaAcumulado)} bajo 4,5 y ${Math.round(pct)}% de aprobación en los dos últimos semestres`, nivel: "critica" });
-  }
-  Object.entries(historialIntentos(ctx)).forEach(([clave, notas]) => {
-    const n = notas.filter((x) => x < NOTA_APROB).length;
-    if (n >= 3) out.push({ tipo: "d", descripcion: `${nombreHistorial(ctx, clave)}: reprobado ${n} veces`, nivel: "advertencia" });
-  });
-  return out;
-}
-
-export function revisionPermanenciaUC(ctx: Ctx): Alerta[] {
-  const periodos = resumenPeriodos(ctx);
-  const ultimo = periodos.at(-1);
-  if (periodos.length >= 3 && ultimo && ultimo.ppaAcumulado < 4.0 && ultimo.porcentajeAprobado < 80) {
-    return [{
-      tipo: "a",
-      descripcion: `PPA acumulado ${fmt(ultimo.ppaAcumulado)} bajo 4,0 y ${Math.round(ultimo.porcentajeAprobado)}% de créditos aprobados en el último periodo`,
-      nivel: "critica",
-    }];
-  }
-  return [];
-}
-
-const fmt = (n: number) => n.toFixed(1).replace(".", ",");
-
 // ── Semestre en curso ──
 
 /** El semestre terminó si todos sus ramos tienen nota final. */
@@ -812,5 +724,5 @@ export function semestreListoParaAvanzar(ctx: Ctx): boolean {
 /** Ramos que se pueden inscribir ahora (para el resumen de la malla). */
 export function ramosDisponibles(ctx: Ctx): Ramo[] {
   const apr = aprobadosSet(ctx);
-  return ctx.cur.ramos.filter((r) => !esSoloMalla(r) && estadoRamo(ctx, r.id, apr) === "disponible");
+  return ctx.cur.ramos.filter((r) => estadoRamo(ctx, r.id, apr) === "disponible");
 }

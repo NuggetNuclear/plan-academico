@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { useId, useRef, useState } from "react";
-import { creditosEntrada, esPeriodoActual, nombreEntrada, nombreRamo, ramoCatalogo, siglaEntrada, siglaRamo, situacionSemestreUDP, type Ctx } from "../../core/academic";
+import { creditosEntrada, esPeriodoActual, nombreEntrada, ramoCatalogo, siglaEntrada, siglaRamo, situacionSemestreUDP, type Ctx } from "../../core/academic";
 import { esPersonalizable } from "../../core/curriculum";
 import { NOTA_APROB, fmtNota, leerNumero, numeroConComa } from "../../core/format";
 import { aplicarPlantilla, calcularRamo, configExamen, indiceExamen, notaDesdePuntaje, PLANTILLAS, ramoAsegurado, statsCategoria, type Condicion, type InfoExamen } from "../../core/grades";
@@ -432,7 +432,6 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
   const [plantillas, setPlantillas] = useState(false);
   const r = calcularRamo(entrada);
   const ramo = ramoCatalogo(ctx, entrada.id);
-  const esOFG = ramo?.tipo === "OFG";
   const conv = periodo.tipo === "convalidaciones";
   const actual = esPeriodoActual(ctx.st, periodo);
   const cursando = actual && ctx.st.cursando.includes(entrada.id);
@@ -508,7 +507,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
     });
     if (v === null) return;
     const nota = leerNumero(v);
-    const causales = (actual && ctx.cur.malla.reglamento === "udp" && situacionSemestreUDP(ctx).ramos.find((x) => x.entrada.uid === entrada.uid)?.causales) || [];
+    const causales = (actual && situacionSemestreUDP(ctx).ramos.find((x) => x.entrada.uid === entrada.uid)?.causales) || [];
     editar(`Nota final de ${nombreEntrada(ctx, entrada)}`, (e, c, p) => cerrarEntrada(c, p, e, nota));
     if (nota >= NOTA_APROB) toast(`${nombreEntrada(ctx, entrada)} ${conv ? "convalidado" : "aprobado"} con ${fmtNota(nota)} 🎉`);
     else if (causales.length) toast(`${nombreEntrada(ctx, entrada)} reprobado con ${fmtNota(nota)}: quedas en ${letrasCausal(causales)} de eliminación. Revisa Inicio › Tu situación académica.`, "error");
@@ -528,54 +527,35 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
             <div className="flex flex-wrap gap-1.5">
               <CampoTexto
                 className="input w-28 !px-2 !py-1 font-mono !text-[12px]"
-                valor={esOFG ? entrada.siglaReal ?? "" : ctx.st.alias[entrada.id]?.sigla ?? ""}
+                valor={ctx.st.alias[entrada.id]?.sigla ?? ""}
                 placeholder={siglaRamo(ctx, entrada.id)}
                 aria-label="Sigla real"
                 onGuardar={(v) =>
-                  esOFG
-                    ? editar("Cambiar sigla", (e) => (e.siglaReal = v))
-                    : mutar("Cambiar sigla", ({ st }) => {
-                        st.alias[entrada.id] = { ...st.alias[entrada.id], sigla: v || undefined };
-                      })
+                  mutar("Cambiar sigla", ({ st }) => {
+                    st.alias[entrada.id] = { ...st.alias[entrada.id], sigla: v || undefined };
+                  })
                 }
               />
               <CampoTexto
                 className="input min-w-0 flex-1 !px-2 !py-1 !text-[13px] font-semibold"
-                valor={esOFG ? entrada.nombreReal ?? "" : ctx.st.alias[entrada.id]?.nombre ?? ""}
+                valor={ctx.st.alias[entrada.id]?.nombre ?? ""}
                 placeholder={ramo?.nombre ?? entrada.id}
                 aria-label="Nombre real del curso"
                 onGuardar={(v) =>
-                  esOFG
-                    ? editar("Cambiar nombre", (e) => (e.nombreReal = v))
-                    : mutar("Cambiar nombre", ({ st }) => {
-                        st.alias[entrada.id] = { ...st.alias[entrada.id], nombre: v || undefined };
-                      })
+                  mutar("Cambiar nombre", ({ st }) => {
+                    st.alias[entrada.id] = { ...st.alias[entrada.id], nombre: v || undefined };
+                  })
                 }
               />
             </div>
           ) : (
             <>
               <p className="font-mono text-[11px] font-semibold text-fg-3">{siglaEntrada(ctx, entrada)}</p>
-              <h3 className="text-[14.5px] leading-snug font-bold">{esOFG ? nombreEntrada(ctx, entrada) : nombreRamo(ctx, entrada.id)}</h3>
+              <h3 className="text-[14.5px] leading-snug font-bold">{nombreEntrada(ctx, entrada)}</h3>
             </>
           )}
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            {esOFG && !r.cerrado ? (
-              <label className="flex items-center gap-1 text-[12px] text-fg-2" title="Créditos reales de este curso">
-                <CampoNumero
-                  className="input w-12 !px-1.5 !py-0.5 text-center !text-[12px]"
-                  valor={creditosEntrada(ctx, entrada)}
-                  min={0}
-                  max={30}
-                  decimales={0}
-                  vacioPermitido={false}
-                  onGuardar={(v) => editar("Cambiar créditos", (e) => (e.creditos = v))}
-                />
-                cr
-              </label>
-            ) : (
-              <Insignia>{creditosEntrada(ctx, entrada)} cr</Insignia>
-            )}
+            <Insignia>{creditosEntrada(ctx, entrada)} cr</Insignia>
             {chip}
             {!r.cerrado && eximido && <Insignia tono="ok" icono={<GraduationCap className="size-3" />}>Eximido</Insignia>}
           </div>

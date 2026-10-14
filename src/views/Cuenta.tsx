@@ -1,6 +1,6 @@
 import { Download, FileUp, GitCompareArrows, Info, LogOut, RefreshCw, Trash2, Upload, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useApp, leerTodosLosEstados, borrarEstadosLocales } from "../store/app";
+import { CARRERA_ID, useApp, leerTodosLosEstados, borrarEstadosLocales } from "../store/app";
 import { crearRespaldo, descargarArchivo, leerRespaldo } from "../store/respaldo";
 import { confirmar, toast, useUI } from "../store/ui";
 import { cerrarSesion, eliminarCuenta, entrarConGoogle, estadoSync, iniciarSync, resolverConflicto, sincronizarAhora, syncDisponible, useSync } from "../sync/useSync";
@@ -71,10 +71,9 @@ export function Cuenta() {
   }, [carga]);
 
   const exportar = () => {
-    const { indice, carreraId } = useApp.getState();
-    const estados = leerTodosLosEstados(indice);
+    const estados = leerTodosLosEstados();
     if (!Object.keys(estados).length) return toast("Todavía no hay datos guardados en este dispositivo.", "error");
-    descargarArchivo(`notas-respaldo-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(crearRespaldo(estados, carreraId), null, 2));
+    descargarArchivo(`notas-respaldo-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(crearRespaldo(estados, CARRERA_ID), null, 2));
     toast("Respaldo descargado. Guárdalo en un lugar seguro.");
   };
 
@@ -82,15 +81,16 @@ export function Cuenta() {
     if (!f) return;
     try {
       const r = await leerRespaldo(f);
+      if (!r.estados[CARRERA_ID]) throw new Error("El respaldo no trae progreso de Informática UDP.");
       const fecha = r.exportado ? fmtFecha(Date.parse(r.exportado)) : "fecha desconocida";
       const ok = await confirmar({
         titulo: "Importar respaldo",
-        mensaje: `Se reemplazará el progreso de este dispositivo por el del archivo (${Object.keys(r.estados).length} carrera(s), exportado el ${fecha}).${sync.usuario ? "\nTambién se actualizará tu cuenta." : ""}`,
+        mensaje: `Se reemplazará el progreso de este dispositivo por el del archivo (exportado el ${fecha}).${sync.usuario ? "\nTambién se actualizará tu cuenta." : ""}`,
         aceptar: "Importar y reemplazar",
         peligro: true,
       });
       if (!ok) return;
-      await useApp.getState().reemplazarTodo(r.estados, r.carreraActual);
+      useApp.getState().reemplazarTodo(r.estados);
       setCuenta(false);
       toast("Respaldo importado correctamente.");
     } catch (e) {
@@ -157,7 +157,7 @@ export function Cuenta() {
                   useUI.getState().setImportar(true);
                 }}
               />
-              <AccionDatos icono={<Download />} titulo="Exportar respaldo" descripcion="Un archivo con tu malla, notas y planes de todas tus carreras." onClick={exportar} />
+              <AccionDatos icono={<Download />} titulo="Exportar respaldo" descripcion="Un archivo con tu malla, notas y planes." onClick={exportar} />
               <AccionDatos icono={<Upload />} titulo="Importar respaldo" descripcion="Restaura un respaldo exportado desde esta app." onClick={() => archivo.current?.click()} />
             </div>
             <input ref={archivo} type="file" accept="application/json,.json" hidden onChange={(e) => importar(e.target.files?.[0])} />
@@ -178,7 +178,7 @@ export function Cuenta() {
                 });
                 if (!ok) return;
                 if (sync.usuario) await cerrarSesion();
-                borrarEstadosLocales(useApp.getState().indice);
+                borrarEstadosLocales();
                 location.reload();
               }}
             >

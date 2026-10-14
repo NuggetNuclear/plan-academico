@@ -40,7 +40,6 @@ export function motivoCausal(s: SituacionSemestreUDP, r: RiesgoRamoUDP): string 
 
 /** Aviso del reglamento UDP dentro de la tarjeta de un ramo en curso. */
 export function AvisoCausalRamo({ ctx, entrada }: { ctx: Ctx; entrada: Entrada }) {
-  if (ctx.cur.malla.reglamento !== "udp") return null;
   const s = situacionSemestreUDP(ctx);
   const r = s.ramos.find((x) => x.entrada.uid === entrada.uid);
   if (!r) return null;
@@ -76,7 +75,6 @@ export function AvisoCausalRamo({ ctx, entrada }: { ctx: Ctx; entrada: Entrada }
 
 /** Mensaje breve para avisar tras registrar una nota que te está dejando en causal. */
 export function alertaTrasNota(ctx: Ctx, uid: string): string | null {
-  if (ctx.cur.malla.reglamento !== "udp") return null;
   const s = situacionSemestreUDP(ctx);
   const r = s.ramos.find((x) => x.entrada.uid === uid);
   if (!r?.causales.length) return null;

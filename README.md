@@ -1,15 +1,15 @@
 # Notas · Planner académico
 
-Malla interactiva, notas con ponderaciones, simulador de PPA, planificación de semestres y estadísticas para estudiantes universitarios. Viene configurada con la malla de **Ingeniería Civil en Informática y Telecomunicaciones (UDP)** y la de **Ciencia de Datos (UC)**, y agregar otra carrera es agregar un JSON.
+Malla interactiva, notas con ponderaciones, simulador de PPA, planificación de semestres y estadísticas para estudiantes de **Ingeniería Civil en Informática y Telecomunicaciones (UDP)**.
 
 ## Funciones
 
 **Base**
 
-- **Inicio:** avance de la carrera (créditos válidos), PPA acumulado con tendencia, semestres que faltan, situación académica (causales de eliminación UDP art. 38 a 40: cuánto te falta para cada una, qué ramos en curso te dejarían en causal y cuánto necesitas para aprobarlos, y registro de permanencias aceptadas; o alertas y revisión de permanencia UC), ramos del semestre, avisos (prácticas, ramos anuales) y lista de próximos pasos.
-- **Mi malla:** estados aprobado / cursando / puedo tomar / bloqueado, menú por ramo (aprobado con semestre o convalidado, cursando, desmarcar), marcado rápido, marcar semestres completos, resaltado de prerrequisitos y de lo que desbloquea, búsqueda y filtros, notas en la malla, inglés eximido, congelaciones (desplazan la oferta de ramos anuales), rutas académicas y grupos de OFG alternativos.
-- **Notas:** periodos regulares, de verano/TAV y convalidaciones; categorías con %, notas con peso relativo (×), categorías con requisito de 4,0, examen con nota de presentación y eximición (nota y asistencia), modo *actual* o *peor caso*, nota necesaria, nota final con décimas, reabrir, ventana/banner por semestre, simulador de PPA y exportación a PDF.
-- **Planificación:** seis estrategias que se filtran por las que terminan en el mínimo de semestres, ramos críticos primero, tope de créditos, correquisitos, ramos anuales, reglas de práctica (dentro de la carga, sobrecupo, verano o fuera del plan), arrastrar y soltar con validación, ajustes sugeridos (intercambios), guardar el plan y PDF.
+- **Inicio:** avance de la carrera (créditos válidos), PPA acumulado con tendencia, semestres que faltan, situación académica (causales de eliminación UDP art. 38 a 40: cuánto te falta para cada una, qué ramos en curso te dejarían en causal y cuánto necesitas para aprobarlos, y registro de permanencias aceptadas), ramos del semestre, avisos (prácticas y ramos en riesgo) y lista de próximos pasos.
+- **Mi malla:** estados aprobado / cursando / puedo tomar / bloqueado, menú por ramo (aprobado con semestre o convalidado, cursando, desmarcar), marcado rápido, marcar semestres completos, resaltado de prerrequisitos y de lo que desbloquea, búsqueda y filtros, notas en la malla, inglés eximido y congelaciones.
+- **Notas:** periodos regulares, de verano/TAV y convalidaciones; categorías con %, notas con peso relativo (×), categorías con requisito de 4,0, examen con nota de presentación y eximición (nota y asistencia), modo *actual* o *peor caso*, nota necesaria, nota final con décimas, reabrir, ventana por semestre, simulador de PPA y exportación a PDF.
+- **Planificación:** seis estrategias que se filtran por las que terminan en el mínimo de semestres, ramos críticos primero, tope de créditos, reglas de práctica (dentro de la carga, sobrecupo, verano o fuera del plan), arrastrar y soltar con validación, ajustes sugeridos (intercambios), guardar el plan y PDF.
 - **Estadísticas:** PPA, créditos inscritos/aprobados/reprobados/de avance, evolución del PPA (gráfico o tabla), aprobación de créditos por semestre, rendimiento por tipo de ramo y distribución de notas por ramo o por evaluación.
 - **Asistente de inicio, modo oscuro, exportar/importar, sincronización opcional con Google.**
 
@@ -57,7 +57,7 @@ src/
   ui/          Componentes base, diálogos, popovers, paleta de comandos y el shell
   sync/        Sincronización opcional con Firebase (se carga desde el CDN solo si está configurada)
 public/
-  carreras/    index.json + una malla JSON por carrera
+  carreras/    inf.json: la malla de la carrera
   sw.js        Service worker (modo sin conexión)
 ```
 
@@ -74,18 +74,16 @@ npm run build      # typecheck + build de producción en dist/
 
 El workflow `.github/workflows/deploy.yml` corre los tests, construye y publica en cada push a `main`. En el repositorio: **Settings › Pages › Source: GitHub Actions**. El build usa rutas relativas, así que funciona en `usuario.github.io/notas/`.
 
-## Agregar una carrera
+## La malla
 
-1. Crea `public/carreras/<id>.json` (usa `inf.json` como ejemplo):
+La malla vive en `public/carreras/inf.json`. Para corregir un ramo, sus créditos o sus prerrequisitos, edita ese archivo:
 
 ```jsonc
 {
-  "id": "civil",
-  "carrera": "Ingeniería Civil",
+  "id": "inf",
+  "carrera": "Ingeniería Civil en Informática y Telecomunicaciones",
   "universidad": "Universidad Diego Portales",
   "siglaUniversidad": "UDP",
-  "reglamento": "udp",            // "udp", "uc" o null (sin cálculo de causales)
-  "posicionToma": "ventana",      // "ventana" (UDP) o "banner" (UC)
   "periodoVerano": "Semestre de verano",
   "maxCreditosSemestre": 36,
   "semestresObjetivo": 11,
@@ -93,16 +91,13 @@ El workflow `.github/workflows/deploy.yml` corre los tests, construye y publica 
   "tipos": { "PC": "Plan común", "FI": "Formación ingeniería" },
   "ramos": [
     { "id": "CBM-1001", "nombre": "Cálculo I", "creditos": 7, "semestre": 1, "req": [], "tipo": "PC" },
-    { "id": "CBM-1003", "nombre": "Cálculo II", "creditos": 6, "semestre": 2, "req": ["CBM-1001"], "tipo": "PC" },
-    { "id": "PRA-1", "nombre": "Práctica I", "creditos": 7, "semestre": 5, "req": [], "tipo": "ELEC",
+    { "id": "CIT-4000", "nombre": "Práctica Profesional I", "creditos": 7, "semestre": 5, "req": [], "tipo": "ELEC",
       "reglaPractica": { "hastaSemestre": 4, "maxDeuda": 1 } }
   ]
 }
 ```
 
-   Campos opcionales por ramo: `coreq`, `anual`, `semestreMinimo`, `soloMalla`, `areaOFG`, `grupoAlt`, `opciones` (electivo con alternativas), `aviso`, `rutas`, `semestrePorRuta`.
-
-2. Agrégala a `public/carreras/index.json` y al arreglo `BASE` de `public/sw.js` si quieres que esté disponible sin conexión.
+   Campos opcionales por ramo: `sigla`, `equivalentes` (otros códigos con que los reportes de la UDP informan el ramo), `reglaPractica` y `aviso`.
 
 ## Sincronización con Google (opcional)
 

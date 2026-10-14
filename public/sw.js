@@ -1,6 +1,6 @@
 // Service worker: la app funciona sin conexión después de la primera visita.
-const CACHE = "notas-v1";
-const BASE = ["./", "./index.html", "./carreras/index.json", "./carreras/inf.json", "./carreras/ds.json", "./icon.svg", "./manifest.webmanifest"];
+const CACHE = "notas-v2";
+const BASE = ["./", "./index.html", "./carreras/inf.json", "./icon.svg", "./manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();

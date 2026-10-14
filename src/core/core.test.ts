@@ -20,11 +20,10 @@ import { estadoInicial, nuevoUid, normalizarEstado, type Entrada, type Periodo, 
 import type { MallaDef } from "./types";
 
 const inf = JSON.parse(readFileSync("public/carreras/inf.json", "utf8")) as MallaDef;
-const ds = JSON.parse(readFileSync("public/carreras/ds.json", "utf8")) as MallaDef;
 
-function ctxCon(cambios: Partial<PlannerState> = {}, malla = inf): Ctx {
+function ctxCon(cambios: Partial<PlannerState> = {}): Ctx {
   const st = { ...estadoInicial(), ...cambios };
-  return { cur: construirCurriculum(malla, { rutaId: st.rutaAcademica, gruposAltModo: st.gruposAltModo }), st };
+  return { cur: construirCurriculum(inf), st };
 }
 
 const entrada = (id: string, notaFinal: number | null, extra: Partial<Entrada> = {}): Entrada => ({
@@ -252,22 +251,11 @@ describe("malla", () => {
     expect(resumenCreditos(ctx).avance).toBe(0);
   });
 
-  it("desplaza la oferta anual con congelaciones", () => {
+  it("las congelaciones desplazan el semestre calendario", () => {
     expect(semestreCalendario(3, [{ desde: 3, duracion: 1 }])).toBe(4);
     expect(semestreCalendario(2, [{ desde: 3, duracion: 1 }])).toBe(2);
   });
 
-  it("resuelve rutas académicas y grupos alternativos (Ciencia de Datos)", () => {
-    const lic = construirCurriculum(ds, { rutaId: "licenciatura" });
-    expect(lic.semestresObjetivo).toBe(8);
-    expect(lic.map["MAT2605"]).toBeUndefined();
-    const est = construirCurriculum(ds, { rutaId: "estadistica" });
-    expect(est.map["MAT2605"]).toBeDefined();
-    expect(est.map["OPR8C"]).toBeUndefined();
-    const unico = construirCurriculum(ds, { gruposAltModo: { ofg_salud: "unico" } });
-    expect(unico.map["OFG7B"]).toBeUndefined();
-    expect(unico.map["OFG7A"].creditos).toBe(10);
-  });
 });
 
 describe("PPA y créditos", () => {

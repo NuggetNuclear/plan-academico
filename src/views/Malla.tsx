@@ -17,8 +17,6 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   aprobadosSet,
-  creditosCurriculares,
-  cubiertoPorIngles,
   esEximido,
   estadoRamo,
   ETIQUETA_ESTADO,
@@ -36,7 +34,7 @@ import { normalizarTexto, plural } from "../core/format";
 import { idsPendientes } from "../core/planner";
 import type { Ramo } from "../core/types";
 import { useApp, useCtx } from "../store/app";
-import { alternarRapido, alternarRequisito, desmarcar, marcableComoCompleto, marcarAprobado, marcarCursando, marcarSemestres } from "../store/mutaciones";
+import { alternarRapido, desmarcar, marcableComoCompleto, marcarAprobado, marcarCursando, marcarSemestres } from "../store/mutaciones";
 import { confirmar, pedirTexto, toast, useUI } from "../store/ui";
 import { colorTipo, etiquetaTipo, NotaChip } from "../ui/comun";
 import { CabeceraModal, Modal, OpcionMenu, PieModal, Popover } from "../ui/overlays";
@@ -144,7 +142,6 @@ function TarjetaRamo({
   const ref = useRef<HTMLButtonElement>(null);
   const info = estado === "aprobado" ? infoAprobacion(ctx, ramo.id) : null;
   const nota = ctx.st.prefs.mostrarNotas ? notaRamo(ctx, ramo.id) : null;
-  const cubierto = cubiertoPorIngles(ctx, ramo);
   const apr = aprobadosSet(ctx);
   const deuda = ramo.reglaPractica && estado === "disponible" ? evaluarReglaPractica(ramo, apr).deuda : [];
   const pendientes = estado === "bloqueado" ? prerrequisitosPendientes(ctx, ramo, apr) : [];
@@ -213,11 +210,6 @@ function TarjetaRamo({
               {critico}
             </span>
           )}
-          {ramo.anual && (
-            <span className="rounded bg-warn-soft px-1 text-[9.5px] font-bold text-warn" title="Ramo anual">
-              A
-            </span>
-          )}
           {ramo.reglaPractica && <Briefcase className="size-3 text-fg-3" aria-label="Práctica profesional" />}
           {info && <span className={cx("rounded px-1 text-[9.5px] font-bold", info.tipo === "rapido" ? "bg-surface-3 text-fg-2" : "bg-ok/15 text-ok")}>{info.etiqueta}</span>}
           {ultimoReprobado && <span className="rounded bg-danger-soft px-1 text-[9.5px] font-bold text-danger">Rep.</span>}
@@ -226,7 +218,7 @@ function TarjetaRamo({
       </span>
       <span className="line-clamp-3 text-[12.5px] leading-snug font-semibold text-fg">{nombreRamo(ctx, ramo.id)}</span>
       <span className="mt-auto flex items-center gap-1.5 text-[11px] text-fg-3">
-        <span className="tabular">{cubierto ? ramo.creditos : creditosCurriculares(ctx, ramo)} cr</span>
+        <span className="tabular">{ramo.creditos} cr</span>
         <span className="truncate">· {ramo.tipo}</span>
         {nota !== null && <NotaChip nota={nota} className="ml-auto !min-w-0 !px-1 !text-[10.5px]" />}
       </span>
@@ -235,7 +227,6 @@ function TarjetaRamo({
           <TriangleAlert className="size-3" /> Condicional: debes {deuda.map((id) => siglaRamo(ctx, id)).join(", ")}
         </span>
       )}
-      {cubierto && <span className="text-[10.5px] text-fg-3">* Créditos cubiertos por inglés</span>}
     </button>
   );
 }
@@ -311,13 +302,7 @@ export function Malla() {
       toast(`${ramo.nombre} está bloqueado. Primero aprueba: ${nombres.length > 2 ? `${nombres.slice(0, 2).join(", ")} y ${nombres.length - 2} más` : nombres.join(" y ")}.`, "error");
       return;
     }
-    if (cubiertoPorIngles(ctx, ramo)) return toast("Este OFG libre ya está cubierto por los niveles de inglés que debes cursar.", "info");
     if (esEximido(ctx, ramo.id)) return toast("Este nivel está eximido. Cámbialo en Tus datos › Inglés eximido.", "info");
-    if (ramo.tipo === "REQUERIDO") {
-      let marcado = false;
-      mutar(`Requisito ${ramo.nombre}`, (c) => (marcado = alternarRequisito(c, ramo.id)));
-      return toast(marcado ? `${ramo.nombre} marcado como cumplido` : `${ramo.nombre} desmarcado`);
-    }
     if (st.prefs.marcadoRapido) {
       let r = "";
       mutar(`Marcado rápido de ${ramo.nombre}`, (c) => (r = alternarRapido(c, ramo.id)));
@@ -504,7 +489,7 @@ export function Malla() {
                 const ramos = col.ramos.filter(visible);
                 if (!ramos.length) return null;
                 const porMarcar = col.semestre > 0 ? col.ramos.filter((r) => marcableComoCompleto(ctx, r.id) && !apr.has(r.id)).length : 0;
-                const creditos = col.ramos.reduce((s, r) => s + creditosCurriculares(ctx, r), 0);
+                const creditos = col.ramos.reduce((s, r) => s + r.creditos, 0);
                 return (
                   <section key={col.titulo} className="md:w-[176px] md:shrink-0" aria-label={col.titulo}>
                     <header className="mb-2 flex items-center justify-between gap-2 px-0.5">
@@ -551,28 +536,10 @@ export function Malla() {
         )}
       </Tarjeta>
 
-      <Popover ancla={anclaMenu} abierto={!!menu} onCerrar={() => setMenu(null)} ancho={ramoMenu?.opciones?.length ? 260 : 210}>
+      <Popover ancla={anclaMenu} abierto={!!menu} onCerrar={() => setMenu(null)} ancho={210}>
         {ramoMenu && (
           <>
             <p className="truncate px-2.5 pt-1.5 pb-1 text-[11.5px] font-bold text-fg-3">{nombreRamo(ctx, ramoMenu.id)}</p>
-            {ramoMenu.opciones?.length ? (
-              <>
-                <p className="px-2.5 pt-1 text-[11px] font-bold tracking-wider text-accent uppercase">Elige tu alternativa</p>
-                {ramoMenu.opciones.map((o) => (
-                  <OpcionMenu
-                    key={o.sigla}
-                    activo={st.alias[ramoMenu.id]?.sigla === o.sigla}
-                    onClick={() => {
-                      mutar("Elegir alternativa", ({ st }) => (st.alias[ramoMenu.id] = { sigla: o.sigla, nombre: o.nombre }));
-                      setMenu(null);
-                    }}
-                  >
-                    <span className="font-mono text-[12px]">{o.sigla}</span> {o.nombre}
-                  </OpcionMenu>
-                ))}
-                <div className="my-1 h-px bg-line" />
-              </>
-            ) : null}
             <OpcionMenu icono={<Check className="text-ok" />} activo={estadoMenu === "aprobado"} onClick={() => accion(ramoMenu, "aprobado")} descripcion="Te preguntamos en qué semestre">
               Aprobado
             </OpcionMenu>
