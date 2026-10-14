@@ -1,0 +1,56 @@
+name: Reportar un error
+description: Algo no funciona como debería en la app.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por avisarme. Los issues son **públicos**: no incluyas tus notas, tu RUT ni otros datos personales, y tapa esa información en las capturas.
+        Para dudas o ideas, escríbeme desde **Ayuda › Escríbeme** dentro de la app.
+  - type: textarea
+    id: que-paso
+    attributes:
+      label: ¿Qué pasó?
+      description: Lo que viste, con el mensaje de error si apareció alguno.
+      placeholder: "Ej.: al registrar la nota final de Cálculo I, el ramo no pasa a aprobado en la malla."
+    validations:
+      required: true
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para repetirlo
+      placeholder: |
+        1. Ir a Notas
+        2. Abrir Cálculo I
+        3. Escribir 5,0 en la nota final
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: ¿Qué esperabas que pasara?
+    validations:
+      required: true
+  - type: dropdown
+    id: seccion
+    attributes:
+      label: Sección de la app
+      options:
+        - Inicio
+        - Mi malla
+        - Importar desde la UDP
+        - Notas
+        - Planificación
+        - Estadísticas
+        - Mi cuenta / sincronización
+        - Otra
+  - type: input
+    id: entorno
+    attributes:
+      label: Dispositivo y navegador
+      placeholder: "Ej.: Android, Chrome 141 · app instalada"
+  - type: textarea
+    id: capturas
+    attributes:
+      label: Capturas de pantalla
+      description: Arrastra las imágenes aquí. Es lo que más me ayuda.

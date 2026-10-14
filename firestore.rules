@@ -13,6 +13,20 @@ service cloud.firestore {
         && request.resource.data.iv is string
         && request.resource.data.datos is string;
     }
+    // Formulario de Ayuda (src/sugerencias/): cualquiera puede enviar un mensaje, nadie puede leerlos
+    // ni cambiarlos desde la web. Se revisan en la consola de Firebase. Mismas reglas que validar.ts.
+    match /sugerencias/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['tipo', 'mensaje', 'correo', 'creado'])
+        && request.resource.data.keys().hasAll(['tipo', 'mensaje', 'correo', 'creado'])
+        && request.resource.data.tipo in ['duda', 'idea', 'otro']
+        && request.resource.data.mensaje is string
+        && request.resource.data.mensaje.size() >= 10
+        && request.resource.data.mensaje.size() <= 2000
+        && request.resource.data.correo is string
+        && request.resource.data.correo.size() <= 120
+        && request.resource.data.creado == request.time;
+      allow read, update, delete: if false;
+    }
     match /{document=**} {
       allow read, write: if false;
     }

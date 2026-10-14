@@ -18,6 +18,14 @@ const TAMANOS: Record<Tamano, string> = {
   md: "min-h-11 px-4 py-2 text-sm gap-2 rounded-xl",
 };
 
+/** Clases de un botón, para enlaces que deben verse como uno. */
+export const claseBoton = (variante: Variante = "secundario", tamano: Tamano = "md") =>
+  cx(
+    "inline-flex max-w-full shrink-0 items-center justify-center font-semibold whitespace-normal transition-colors sm:whitespace-nowrap disabled:opacity-50 disabled:pointer-events-none [&>svg]:shrink-0",
+    VARIANTES[variante],
+    TAMANOS[tamano],
+  );
+
 interface BotonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variante?: Variante;
   tamano?: Tamano;
@@ -32,12 +40,7 @@ export const Boton = forwardRef<HTMLButtonElement, BotonProps>(function Boton(
     <button
       ref={ref}
       type={type}
-      className={cx(
-        "inline-flex max-w-full shrink-0 items-center justify-center font-semibold whitespace-normal transition-colors sm:whitespace-nowrap disabled:opacity-50 disabled:pointer-events-none [&>svg]:shrink-0",
-        VARIANTES[variante],
-        TAMANOS[tamano],
-        className,
-      )}
+      className={cx(claseBoton(variante, tamano), className)}
       {...rest}
     >
       {icono}

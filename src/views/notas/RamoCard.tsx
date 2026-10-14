@@ -336,7 +336,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
         <Popover ancla={refMenu} abierto={menu} onCerrar={() => setMenu(false)} ancho={250}>
           {!r.cerrado && (
             <>
-              <OpcionMenu icono={<Target />} onClick={opcion(definirMeta)} descripcion="Te decimos cuánto necesitas para lograrla">
+              <OpcionMenu icono={<Target />} onClick={opcion(definirMeta)} descripcion="Calcula cuánto necesitas para lograrla">
                 {entrada.meta ? `Meta: ${fmtNota(entrada.meta)}` : "Ponerme una meta"}
               </OpcionMenu>
               {!sinConfigurar && (

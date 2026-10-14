@@ -1,9 +1,9 @@
-import { BookOpen, Briefcase, Calculator, CalendarDays, ChevronDown, CircleCheck, CircleX, FileUp, Keyboard, Lightbulb, MessageSquare, Route, ShieldCheck, Sparkles } from "lucide-react";
+import { BookOpen, Briefcase, Bug, Calculator, CalendarDays, ChevronDown, CircleCheck, CircleX, FileUp, Keyboard, Lightbulb, MessageSquare, Route, ShieldCheck, Sparkles } from "lucide-react";
 import { nombreRamo, siglaRamo } from "../core/academic";
 import { useCtx } from "../store/app";
 import { Kbd } from "../ui/comun";
 import { Aviso, cx } from "../ui/primitives";
-import { Sugerencias } from "./ayuda/Sugerencias";
+import { ReportarError, Sugerencias } from "./ayuda/Sugerencias";
 
 function Seccion({ id, icono, titulo, children, abierta }: { id?: string; icono: React.ReactNode; titulo: string; children: React.ReactNode; abierta?: boolean }) {
   return (
@@ -47,7 +47,8 @@ export function Ayuda() {
             ["#ayuda-datos", "Entiende tus datos"],
             ["#ayuda-herramientas", "Herramientas extra"],
             ["#ayuda-atajos", "Atajos de teclado"],
-            ["#ayuda-sugerencias", "Dudas y sugerencias"],
+            ["#ayuda-escribeme", "Escríbeme"],
+            ["#ayuda-errores", "Reportar un error"],
             ["#ayuda-sobre", "Sobre la app"],
           ].map(([h, t]) => (
             <li key={h}>
@@ -210,7 +211,7 @@ export function Ayuda() {
               [<Route key="r" className="size-4 text-danger" />, "Ruta crítica", "La cadena de prerrequisitos más larga que te queda (método CPM). Te dice el mínimo de semestres para titularte y qué ramos no puedes atrasar."],
               [<CalendarDays key="c" className="size-4 text-accent" />, "Calendario de evaluaciones", "Pon fecha a cada evaluación (botón ··· de la nota), míralas en Inicio y expórtalas a Google Calendar con recordatorio un día antes."],
               [<Calculator key="e" className="size-4 text-accent" />, "Escala de notas", "Convierte puntaje en nota con cualquier exigencia y úsalo directo en una casilla."],
-              [<Lightbulb key="m" className="size-4 text-warn" />, "Metas", "Define la nota que quieres en un ramo o el PPA con que quieres egresar, y te decimos cuánto necesitas."],
+              [<Lightbulb key="m" className="size-4 text-warn" />, "Metas", "Define la nota que quieres en un ramo o el PPA con que quieres egresar, y la app te dice cuánto necesitas."],
               [<Sparkles key="p" className="size-4 text-accent" />, "Plantillas", "Arma la evaluación de un ramo con un clic: solemnes + examen, con laboratorio, con tareas… o copia la de otro de tus ramos."],
             ].map(([i, t, d]) => (
               <li key={t as string} className="flex gap-3">
@@ -239,8 +240,12 @@ export function Ayuda() {
           </ul>
         </Seccion>
 
-        <Seccion id="ayuda-sugerencias" icono={<MessageSquare />} titulo="Dudas y sugerencias">
+        <Seccion id="ayuda-escribeme" icono={<MessageSquare />} titulo="Escríbeme: dudas e ideas">
           <Sugerencias />
+        </Seccion>
+
+        <Seccion id="ayuda-errores" icono={<Bug />} titulo="Reportar un error">
+          <ReportarError />
         </Seccion>
 
         <Seccion id="ayuda-sobre" icono={<Sparkles />} titulo="Sobre la app">
@@ -251,11 +256,18 @@ export function Ayuda() {
             <strong>Tus datos son tuyos:</strong> todo se guarda en tu navegador. Si activas la sincronización con Google, se guarda una copia cifrada con una contraseña que solo tú conoces. Exporta un respaldo de vez en cuando desde Mi cuenta.
           </p>
           <p>
-            Es un proyecto independiente, no oficial de la universidad. El código está en{" "}
+            <strong>Créditos:</strong> Notas es un remake del{" "}
+            <a className="font-semibold text-accent hover:underline" href="https://sofiiahh.github.io/Planner/" target="_blank" rel="noopener noreferrer">
+              Planner original
+            </a>{" "}
+            de <strong>Sofía Solorza</strong> de la Universidad Católica para el ramo de Ciencia de datos. Lamentablemente el código no está publicado, así que este es un remake de la app con un stack diferente y de código abierto. La idea es que cualquier estudiante pueda usarlo y adaptarlo a lo que necesite.
+          </p>
+          <p>
+            Es un proyecto independiente, no es oficial de ninguna universidad. El código es público en{" "}
             <a className="font-semibold text-accent hover:underline" href="https://github.com/NuggetNuclear/plan-academico" target="_blank" rel="noopener noreferrer">
               GitHub
             </a>
-            .
+            : puedes revisarlo, abrir issues o proponer cambios.
           </p>
         </Seccion>
       </div>

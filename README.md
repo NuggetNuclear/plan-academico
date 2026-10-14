@@ -12,7 +12,7 @@ Malla interactiva, notas con ponderaciones, simulador de PPA, planificación de 
 - **Planificación:** seis estrategias que se filtran por las que terminan en el mínimo de semestres, ramos críticos primero, tope de créditos, reglas de práctica (dentro de la carga, sobrecupo, verano o fuera del plan), arrastrar y soltar con validación, ajustes sugeridos (intercambios), guardar el plan y PDF.
 - **Estadísticas:** PPA, créditos inscritos/aprobados/reprobados/de avance, evolución del PPA (gráfico o tabla), aprobación de créditos por semestre, fortalezas por área (Matemáticas, Ciencias básicas, Programación, Software/datos/IA, Sistemas y redes, Telecomunicaciones, Gestión, Comunicación y formación general, Electivos) y distribución de notas por ramo o por evaluación.
 - **Asistente de inicio, modo oscuro, exportar/importar, sincronización opcional con Google.**
-- **Ayuda:** cómo funciona, reglas de la carrera (prácticas y causales), cómo se calcula cada dato y enlace para reportar errores o ideas en los [issues de GitHub](https://github.com/NuggetNuclear/plan-academico/issues).
+- **Ayuda:** cómo funciona, reglas de la carrera (prácticas y causales), cómo se calcula cada dato, un formulario para escribirme dudas e ideas y un acceso para reportar errores en los [issues de GitHub](https://github.com/NuggetNuclear/plan-academico/issues).
 
 **Herramientas avanzadas**
 
@@ -105,20 +105,27 @@ La malla vive en `public/carreras/inf.json`. Para corregir un ramo, sus crédito
 
 La app está hecha solo para esta carrera: las causales, las prácticas, el importador de reportes y los respaldos asumen la UDP y `inf.json`. Agregar otra carrera no es solo agregar un JSON.
 
-## Dudas y sugerencias
+## Dudas, ideas y errores
 
-El formulario de **Ayuda › Dudas y sugerencias** ya está construido y validado (`src/views/ayuda/Sugerencias.tsx`, `src/sugerencias/`), pero todavía **no envía nada** y solo se muestra si existe `VITE_SUGERENCIAS_URL`. Mientras tanto, la Ayuda enlaza a los issues de GitHub. El plan para conectarlo está en [`docs/plan-formulario-sugerencias.md`](docs/plan-formulario-sugerencias.md).
+- **Dudas e ideas:** escríbeme desde **Ayuda › Escríbeme** en la app. El formulario guarda el mensaje en la colección `sugerencias` de Firestore (solo se puede crear, no leer desde la web) y aparece cuando la sincronización con Google está configurada. Detalles en [`docs/formulario-ayuda.md`](docs/formulario-ayuda.md).
+- **Errores:** abre un [issue](https://github.com/NuggetNuclear/plan-academico/issues/new?template=error.yml) con la plantilla de error. Son públicos: no incluyas notas ni datos personales.
 
 ## Sincronización con Google (opcional)
 
 1. Crea un proyecto en [Firebase](https://console.firebase.google.com), activa **Authentication › Google** y **Firestore**.
-2. Publica las reglas de `firestore.rules` (cada persona solo accede a `usuarios/{su uid}` y solo se acepta el documento cifrado).
+2. Publica las reglas de `firestore.rules` (cada persona solo accede a `usuarios/{su uid}` y solo se acepta el documento cifrado; los mensajes del formulario de ayuda solo se pueden crear).
 3. Copia `.env.example` a `.env.local` con la configuración de tu app web, o defínelas como *Variables* del repositorio para el workflow.
 4. Agrega tu dominio de GitHub Pages en **Authentication › Settings › Authorized domains**.
 
 Sin esas variables, el botón de Google aparece desactivado y todo sigue funcionando en el navegador.
 
 La copia en la nube va cifrada de extremo a extremo (`src/sync/cifrado.ts`): PBKDF2-SHA-256 con 600.000 iteraciones a partir de una contraseña que elige cada persona, AES-256-GCM con IV aleatorio por escritura, el uid como dato autenticado y relleno a bloques de 4 KB. La clave se recuerda en IndexedDB como `CryptoKey` no extraíble y se borra al cerrar sesión. Firestore solo ve `{ v, iter, sal, iv, datos }`.
+
+## Créditos
+
+Este proyecto es un remake de código abierto del [Planner original](https://sofiiahh.github.io/Planner/) de **Sofía Solorza** (UC). El código del original no está publicado, así que la app se rehízo para que cualquiera pueda verla, usarla y mejorarla.
+
+El repositorio es público: puedes revisar el código, abrir issues o proponer cambios con un pull request.
 
 ## Aviso
 

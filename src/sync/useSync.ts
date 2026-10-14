@@ -185,7 +185,7 @@ async function abrirSobre(u: Usuario, sobre: Sobre | null): Promise<Nube | null 
 
 const importar = (ruta: string) => import(/* @vite-ignore */ `${SDK}/${ruta}`);
 
-async function cargarFirebase() {
+export async function cargarFirebase() {
   if (fb) return fb;
   const [app, auth, fs] = await Promise.all([importar("firebase-app.js"), importar("firebase-auth.js"), importar("firebase-firestore.js")]);
   const instancia = app.initializeApp(config);
