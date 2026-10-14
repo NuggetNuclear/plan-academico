@@ -1,13 +1,28 @@
-import { Image as IconoImagen, Info, Send, ShieldAlert, X } from "lucide-react";
+import { Image as IconoImagen, Send, ShieldAlert, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { ADJUNTO_TIPOS, MAX_ADJUNTO, MAX_CORREO, MAX_MENSAJE, TIPOS, fmtMB, validarAdjunto, validarSugerencia, type TipoSugerencia } from "../../sugerencias/validar";
 import { Aviso, Boton, BotonIcono, Campo, Segmentado } from "../../ui/primitives";
 
-// Mientras no haya un destino configurado el formulario se ve y se valida, pero no se puede enviar.
+// Mientras no haya un destino configurado el formulario no se muestra: solo el enlace a los issues de GitHub.
 // El plan para conectarlo está en docs/plan-formulario-sugerencias.md.
 export const sugerenciasDisponible = !!import.meta.env.VITE_SUGERENCIAS_URL;
+const URL_ISSUES = "https://github.com/NuggetNuclear/plan-academico/issues/new";
 
 export function Sugerencias() {
+  if (!sugerenciasDisponible)
+    return (
+      <p>
+        ¿Algo no funciona, falta una idea o tienes una duda? Escríbenos abriendo un{" "}
+        <a className="font-semibold text-accent hover:underline" href={URL_ISSUES} target="_blank" rel="noopener noreferrer">
+          issue en GitHub
+        </a>
+        . Necesitas una cuenta de GitHub y lo que escribas queda público, así que no incluyas notas ni datos personales.
+      </p>
+    );
+  return <FormularioSugerencias />;
+}
+
+function FormularioSugerencias() {
   const [tipo, setTipo] = useState<TipoSugerencia>("idea");
   const [mensaje, setMensaje] = useState("");
   const [correo, setCorreo] = useState("");
@@ -35,7 +50,7 @@ export function Sugerencias() {
   function enviar(e: React.FormEvent) {
     e.preventDefault();
     setTocado({ mensaje: true, correo: true });
-    if (!sugerenciasDisponible || errores.mensaje || errores.correo) return;
+    if (errores.mensaje || errores.correo) return;
     // El envío se conecta aquí cuando se elija dónde guardar las respuestas (ver el plan).
   }
 
@@ -121,7 +136,7 @@ export function Sugerencias() {
       </Aviso>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Boton variante="primario" type="submit" icono={<Send className="size-4" />} disabled={!sugerenciasDisponible}>
+        <Boton variante="primario" type="submit" icono={<Send className="size-4" />}>
           Enviar
         </Boton>
         <p className="text-[12px] text-fg-3">
@@ -136,19 +151,6 @@ export function Sugerencias() {
           .
         </p>
       </div>
-
-      {!sugerenciasDisponible && (
-        <p className="flex items-start gap-1.5 text-[12px] text-fg-3">
-          <Info className="mt-0.5 size-3.5 shrink-0" />
-          <span>
-            El envío aún no está habilitado en este sitio. Mientras tanto, escríbenos abriendo un{" "}
-            <a className="font-semibold text-accent hover:underline" href="https://github.com/nuggetnuclear/notas/issues/new" target="_blank" rel="noopener noreferrer">
-              issue en GitHub
-            </a>
-            .
-          </span>
-        </p>
-      )}
     </form>
   );
 }

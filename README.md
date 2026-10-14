@@ -12,6 +12,7 @@ Malla interactiva, notas con ponderaciones, simulador de PPA, planificación de 
 - **Planificación:** seis estrategias que se filtran por las que terminan en el mínimo de semestres, ramos críticos primero, tope de créditos, reglas de práctica (dentro de la carga, sobrecupo, verano o fuera del plan), arrastrar y soltar con validación, ajustes sugeridos (intercambios), guardar el plan y PDF.
 - **Estadísticas:** PPA, créditos inscritos/aprobados/reprobados/de avance, evolución del PPA (gráfico o tabla), aprobación de créditos por semestre, rendimiento por tipo de ramo y distribución de notas por ramo o por evaluación.
 - **Asistente de inicio, modo oscuro, exportar/importar, sincronización opcional con Google.**
+- **Ayuda:** cómo funciona, reglas de la carrera (prácticas y causales), cómo se calcula cada dato y enlace para reportar errores o ideas en los [issues de GitHub](https://github.com/NuggetNuclear/plan-academico/issues).
 
 **Herramientas avanzadas**
 
@@ -72,7 +73,7 @@ npm run build      # typecheck + build de producción en dist/
 
 ## Publicar en GitHub Pages
 
-El workflow `.github/workflows/deploy.yml` corre los tests, construye y publica en cada push a `main`. En el repositorio: **Settings › Pages › Source: GitHub Actions**. El build usa rutas relativas, así que funciona en `usuario.github.io/notas/`.
+El workflow `.github/workflows/deploy.yml` corre los tests, construye y publica en cada push a `main`. En el repositorio: **Settings › Pages › Source: GitHub Actions**. El build usa rutas relativas, así que funciona en `usuario.github.io/plan-academico/`.
 
 ## La malla
 
@@ -98,6 +99,12 @@ La malla vive en `public/carreras/inf.json`. Para corregir un ramo, sus crédito
 ```
 
    Campos opcionales por ramo: `sigla`, `equivalentes` (otros códigos con que los reportes de la UDP informan el ramo), `reglaPractica` y `aviso`.
+
+La app está hecha solo para esta carrera: las causales, las prácticas, el importador de reportes y los respaldos asumen la UDP y `inf.json`. Agregar otra carrera no es solo agregar un JSON.
+
+## Dudas y sugerencias
+
+El formulario de **Ayuda › Dudas y sugerencias** ya está construido y validado (`src/views/ayuda/Sugerencias.tsx`, `src/sugerencias/`), pero todavía **no envía nada** y solo se muestra si existe `VITE_SUGERENCIAS_URL`. Mientras tanto, la Ayuda enlaza a los issues de GitHub. El plan para conectarlo está en [`docs/plan-formulario-sugerencias.md`](docs/plan-formulario-sugerencias.md).
 
 ## Sincronización con Google (opcional)
 

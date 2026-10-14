@@ -1,6 +1,6 @@
 # Plan: formulario de dudas y sugerencias
 
-**Estado:** el formulario ya está en **Ayuda › Dudas y sugerencias** (`src/views/ayuda/Sugerencias.tsx`) con su validación (`src/sugerencias/validar.ts`, con tests), pero **no envía nada**: el botón queda desactivado mientras no exista `VITE_SUGERENCIAS_URL`. Este documento dice cómo conectarlo cuando se decida dónde guardar las respuestas.
+**Estado:** **no implementado.** El formulario está construido (`src/views/ayuda/Sugerencias.tsx`) con su validación (`src/sugerencias/validar.ts`, con tests), pero **no envía nada** y está **oculto** mientras no exista `VITE_SUGERENCIAS_URL`. Hoy **Ayuda › Dudas y sugerencias** solo muestra un enlace a los [issues de GitHub](https://github.com/NuggetNuclear/plan-academico/issues/new) (opción G). Este documento dice cómo conectarlo cuando se decida dónde guardar las respuestas.
 
 ## 1. Qué recoge
 
@@ -52,14 +52,14 @@ La validación del navegador (`validarAdjunto`) mejora la experiencia, pero **un
 - **Si ya vas a activar Firebase para la sincronización → A**, solo texto (sin captura) al inicio. Es lo más barato de integrar y las reglas viven en el repo.
 - **Si quieres capturas y una bandeja cómoda sin gastar → B** (Apps Script + Sheets + Drive).
 - **Si quieres seguimiento tipo tickets y no te importa que sea público → C.**
-- Mientras tanto, G ya está en pantalla: el aviso del formulario enlaza a *New issue* de GitHub.
+- Mientras tanto, G ya está en pantalla: la Ayuda enlaza a *New issue* de GitHub en lugar del formulario.
 
 ## 4. Pasos para conectarlo (cuando se elija)
 
 1. **Elegir destino** (sección 3) y crear la cuenta/proyecto/script.
 2. **Implementar el receptor** con las reglas de la sección 2 (validar de nuevo, re-codificar, anti-bot, rate limit).
 3. **Crear `src/sugerencias/enviar.ts`**: una función `enviarSugerencia(datos, adjunto)` que haga el POST (o escriba en Firestore) y devuelva éxito o un error legible. Con timeout y sin reintentos automáticos.
-4. **Conectar el formulario**: en `enviar()` de `Sugerencias.tsx`, llamar a esa función, mostrar estado «Enviando…», un `toast` de éxito y limpiar los campos; en error, conservar lo escrito. Agregar el *honeypot*.
+4. **Conectar el formulario**: en `enviar()` de `FormularioSugerencias` (`Sugerencias.tsx`), llamar a esa función, mostrar estado «Enviando…», un `toast` de éxito y limpiar los campos; en error, conservar lo escrito. Agregar el *honeypot*.
 5. **Configuración**: definir `VITE_SUGERENCIAS_URL` (y la clave pública del anti-bot) como variable del repositorio y pasarla en el paso `build` de `.github/workflows/deploy.yml`, igual que las de Firebase. Documentarla en `.env.example` y en el README.
 6. **Si el destino es Firestore** (A): agregar a `firestore.rules` una regla `match /sugerencias/{id} { allow create: if <validar tipos y largos>; allow read, update, delete: if false; }` y activar App Check.
 7. **Privacidad y términos**: actualizar `public/privacidad.html` (qué se recoge, dónde se guarda, cuánto tiempo, quién lo ve, terceros si los hay) y `public/terminos.html`. Esto es **obligatorio antes de activar**: hoy la privacidad dice que no hay recolección.
