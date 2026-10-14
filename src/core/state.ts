@@ -19,7 +19,18 @@ export interface Categoria {
   req?: boolean;
   /** Es el examen: las demás categorías forman la nota de presentación. */
   examen?: boolean;
+  /** Mínimos de esta categoría para eximirse o para tener derecho a examen. */
+  minimos?: MinimosCategoria;
   notas: Nota[];
+}
+
+export interface MinimosCategoria {
+  /** Promedio mínimo para eximirse (ej. tareas ≥ 5,5). */
+  eximir?: number | null;
+  /** Nota mínima de cada evaluación para eximirse (ej. cada tarea ≥ 4,0). */
+  eximirCada?: number | null;
+  /** Promedio mínimo para tener derecho a examen (ej. tareas ≥ 4,0). */
+  examen?: number | null;
 }
 
 /**
@@ -37,6 +48,8 @@ export interface ConfigExamen {
   asistenciaMin: number | null;
   /** Tu % de asistencia (null = aún no lo sabes). */
   asistencia: number | null;
+  /** Nota de presentación mínima para tener derecho a examen (null = sin mínimo). Sin derecho, se reprueba. */
+  minPresentacion?: number | null;
 }
 
 export type ModoPromedio = "actual" | "peor";

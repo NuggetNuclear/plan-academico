@@ -19,7 +19,7 @@ import { useId, useRef, useState } from "react";
 import { creditosEntrada, esPeriodoActual, nombreEntrada, nombreRamo, ramoCatalogo, siglaEntrada, siglaRamo, situacionSemestreUDP, type Ctx } from "../../core/academic";
 import { esPersonalizable } from "../../core/curriculum";
 import { NOTA_APROB, fmtNota, leerNumero, numeroConComa } from "../../core/format";
-import { aplicarPlantilla, calcularRamo, configExamen, indiceExamen, notaDesdePuntaje, PLANTILLAS, ramoAsegurado, statsCategoria, type InfoExamen } from "../../core/grades";
+import { aplicarPlantilla, calcularRamo, configExamen, indiceExamen, notaDesdePuntaje, PLANTILLAS, ramoAsegurado, statsCategoria, type Condicion, type InfoExamen } from "../../core/grades";
 import type { Categoria, ConfigExamen, Entrada, Nota, Periodo } from "../../core/state";
 import { useApp } from "../../store/app";
 import { cerrarEntrada, periodoPorClave, quitarEntrada, reabrirEntrada } from "../../store/mutaciones";
@@ -276,6 +276,7 @@ function PanelExamen({ entrada, info, editar }: { entrada: Entrada; info: InfoEx
   const cfg = configExamen(entrada);
   const pres = 100 - info.peso;
   const editarCfg = (etiqueta: string, cambio: Partial<ConfigExamen>) => editar(etiqueta, (e) => (e.examen = { ...configExamen(e), ...cambio }));
+  const categorias = entrada.categorias.map((c, ci) => ({ c, ci })).filter(({ c }) => !c.examen);
   return (
     <div className="space-y-3 rounded-xl border border-accent-line bg-accent-soft/40 p-3">
       <p className="flex items-center gap-1.5 text-[13px] font-semibold">
@@ -312,17 +313,77 @@ function PanelExamen({ entrada, info, editar }: { entrada: Entrada; info: InfoEx
           <label className="label" htmlFor={`${id}-asis`}>Tu asistencia</label>
           <CampoNumero id={`${id}-asis`} aria-label="Tu asistencia (%)" className="input !py-1.5" valor={cfg.asistencia} min={0} max={100} decimales={0} placeholder="%" disabled={cfg.eximicion === null || cfg.asistenciaMin === null} onGuardar={(v) => editarCfg("Tu asistencia", { asistencia: v })} />
         </div>
+        <div>
+          <label className="label" htmlFor={`${id}-min-np`}>Mínimo para dar examen</label>
+          <CampoNumero id={`${id}-min-np`} aria-label="Nota de presentación mínima para dar examen" className="input !py-1.5" valor={cfg.minPresentacion ?? null} min={1} max={7} decimales={1} minDecimales={1} placeholder="Sin mínimo" onGuardar={(v) => editarCfg("Mínimo para dar examen", { minPresentacion: v })} />
+        </div>
       </div>
       <p className="text-xs text-fg-2">
         {cfg.eximicion === null
           ? "Si el ramo exime, escribe la nota de presentación con la que te eximes (ej. 5,0). Déjalo vacío si siempre se rinde examen."
           : `Con presentación ${fmtNota(cfg.eximicion)} o más${cfg.asistenciaMin !== null ? ` y ${cfg.asistenciaMin}% de asistencia` : ""}, no rindes examen y tu nota final es la de presentación.`}
+        {cfg.minPresentacion ? ` Con presentación bajo ${fmtNota(cfg.minPresentacion)} no puedes dar examen y repruebas.` : ""}
       </p>
+      {categorias.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold text-fg-2">Mínimos por categoría (opcional)</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="text-left align-bottom text-fg-3">
+                  <th scope="col" className="pr-2 pb-1 font-semibold">Categoría</th>
+                  {COLUMNAS_MINIMOS.map((col) => (
+                    <th key={col.clave} scope="col" className="pr-1 pb-1 font-semibold">{col.titulo}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {categorias.map(({ c, ci }) => {
+                  const nombre = c.nombre || `Categoría ${ci + 1}`;
+                  return (
+                    <tr key={ci}>
+                      <th scope="row" className="max-w-24 pr-2 py-0.5 text-left text-[12px] font-medium break-words">{nombre}</th>
+                      {COLUMNAS_MINIMOS.map((col) => (
+                        <td key={col.clave} className="pr-1 py-0.5">
+                          <CampoNumero
+                            aria-label={`${col.etiqueta} en ${nombre}`}
+                            className="input w-full min-w-14 !px-2 !py-1 text-center"
+                            valor={c.minimos?.[col.clave] ?? null}
+                            min={1}
+                            max={7}
+                            decimales={1}
+                            minDecimales={1}
+                            placeholder="—"
+                            disabled={col.clave !== "examen" && cfg.eximicion === null}
+                            onGuardar={(v) =>
+                              editar(col.etiqueta, (e) => {
+                                const cat = e.categorias[ci];
+                                cat.minimos = { ...cat.minimos, [col.clave]: v };
+                              })
+                            }
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-fg-2">Ej.: tareas ≥ 5,5 y cada tarea ≥ 4,0 para eximirse, y tareas ≥ 4,0 para dar examen. Sin derecho a examen, repruebas el ramo.</p>
+        </div>
+      )}
     </div>
   );
 }
 
-/** Mensajes sobre la nota de presentación y la eximición. */
+const COLUMNAS_MINIMOS = [
+  { clave: "eximir", titulo: "Eximirse: promedio ≥", etiqueta: "Promedio mínimo para eximirse" },
+  { clave: "eximirCada", titulo: "Eximirse: cada nota ≥", etiqueta: "Nota mínima de cada evaluación para eximirse" },
+  { clave: "examen", titulo: "Dar examen: promedio ≥", etiqueta: "Promedio mínimo para dar examen" },
+] as const;
+
+/** Mensajes sobre la nota de presentación, la eximición y el derecho a examen. */
 function ayudasExamen(ex: InfoExamen, cfg: ConfigExamen): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   if (ex.np !== null)
@@ -332,19 +393,31 @@ function ayudasExamen(ex: InfoExamen, cfg: ConfigExamen): React.ReactNode[] {
         Nota de presentación {fmtNota(ex.np, 2)}{ex.presentacionCompleta ? "" : " con lo rendido"}
       </span>,
     );
-  const asistencia = ex.asistenciaPendiente ? ` si cumples ${cfg.asistenciaMin}% de asistencia` : "";
-  const umbral = fmtNota(ex.eximicion);
+  const asistencia = ex.asistenciaPendiente ? ` (y ${cfg.asistenciaMin}% de asistencia)` : "";
+  const lo = (c: Condicion) => (c.cada ? `saca al menos ${fmtNota(c.nec, 1)} en cada una de las que quedan` : `necesitas ${fmtNota(c.nec, 2)} en lo que queda`);
   if (ex.estado === "eximido") out.push(<span key="ex" className="flex items-center gap-1 font-semibold text-ok"><CircleCheck className="size-3.5" />Eximido del examen{asistencia}: tu nota final es la de presentación</span>);
   else if (ex.estado === "asegurada") out.push(<span key="ex" className="flex items-center gap-1 font-semibold text-ok"><CircleCheck className="size-3.5" />Eximición asegurada aunque saques 1,0 antes del examen{asistencia}</span>);
-  else if (ex.estado === "posible" && ex.necesariaEximir !== null)
-    out.push(<span key="ex" className="flex items-center gap-1 font-semibold text-accent"><GraduationCap className="size-3.5" />Para eximirte ({umbral}): necesitas {fmtNota(ex.necesariaEximir, 2)} en lo que queda antes del examen{asistencia}</span>);
-  else if (ex.estado === "no-eximido")
+  else if (ex.estado === "posible")
+    ex.condicionesEximir
+      .filter((c) => c.estado === "pendiente")
+      .forEach((c, i) => out.push(<span key={"ex" + i} className="flex items-center gap-1 font-semibold text-accent"><GraduationCap className="size-3.5" />Para eximirte, {c.texto}: {lo(c)}{i === 0 ? asistencia : ""}</span>));
+  else if (ex.estado === "no-eximido") {
+    const falla = ex.condicionesEximir.find((c) => c.estado === "falla");
     out.push(
       <span key="ex" className="flex items-center gap-1 font-semibold text-warn">
         <GraduationCap className="size-3.5" />
-        {ex.motivo === "asistencia" ? `Sin eximición: tu asistencia está bajo ${cfg.asistenciaMin}%` : ex.motivo === "requisito" ? "Sin eximición: tienes un requisito bajo 4,0" : `Sin eximición: la presentación no alcanza ${umbral}`}. Vas a examen ({pct(ex.peso)}%)
+        {ex.motivo === "asistencia" ? `Sin eximición: tu asistencia está bajo ${cfg.asistenciaMin}%` : ex.motivo === "requisito" ? "Sin eximición: tienes un requisito bajo 4,0" : `Sin eximición: no cumples ${falla?.texto ?? "lo exigido"}`}
+        {ex.habilitacion !== "no-habilitado" && `. Vas a examen (${pct(ex.peso)}%)`}
       </span>,
     );
+  }
+  if (ex.habilitacion === "no-habilitado") {
+    const falla = ex.condicionesExamen.find((c) => c.estado === "falla");
+    out.push(<span key="hab" className="flex items-center gap-1 font-semibold text-danger"><CircleX className="size-3.5" />Sin derecho a examen: no cumples {falla?.texto ?? "los mínimos"}. Repruebas el ramo</span>);
+  } else if (ex.habilitacion === "pendiente")
+    ex.condicionesExamen
+      .filter((c) => c.estado === "pendiente")
+      .forEach((c, i) => out.push(<span key={"hab" + i} className="flex items-center gap-1 font-semibold text-warn"><GraduationCap className="size-3.5" />Para dar examen, {c.texto}: {lo(c)}</span>));
   return out;
 }
 
@@ -364,7 +437,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
   const actual = esPeriodoActual(ctx.st, periodo);
   const cursando = actual && ctx.st.cursando.includes(entrada.id);
   const asegurado = ramoAsegurado(r);
-  const reqMal = r.reqFallidos.length > 0;
+  const reqMal = r.reqFallidos.length > 0 || r.examen?.habilitacion === "no-habilitado";
   const notaMostrada = r.nf !== null ? Math.min(7, r.nf + (r.cerrado ? r.decimas : 0)) : null;
   const personalizable = esPersonalizable(ramo) && !r.cerrado;
   const ex = r.examen;
@@ -390,7 +463,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
     else {
       const maxReq = r.reqMetas.length ? Math.max(...r.reqMetas.map((m) => m.nec)) : null;
       const generalManda = r.reqMetas.length === 0 || r.pendienteNoReq > 0 || (r.necesaria !== null && r.necesaria > (maxReq ?? 0));
-      if (r.restante > 0 && r.necesaria !== null && generalManda) {
+      if (r.restante > 0 && r.necesaria !== null && generalManda && ex?.habilitacion !== "no-habilitado") {
         if (r.necesaria <= 1 && !r.reqMetas.length) ayudas.push(<span key="a" className="flex items-center gap-1 font-semibold text-ok"><CircleCheck className="size-3.5" />4,0 asegurado aunque saques 1,0</span>);
         else if (r.necesaria > 7) ayudas.push(<span key="a" className="flex items-center gap-1 font-semibold text-danger"><CircleX className="size-3.5" />Ya no alcanza el 4,0</span>);
         else

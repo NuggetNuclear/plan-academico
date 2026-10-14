@@ -223,6 +223,7 @@ export function Ayuda() {
               <li><strong>Lo que necesitas:</strong> (3,95 − lo asegurado) ÷ % que falta. Si las categorías aún no suman 100%, lo no definido también cuenta como pendiente.</li>
               <li><strong>Requisito (✱):</strong> la categoría debe promediar 4,0 por sí sola, aunque el promedio general apruebe.</li>
               <li><strong>Examen (birrete):</strong> lo demás forma tu nota de presentación. Sus % pueden ser de la presentación (suman 100% y esa nota vale, por ejemplo, 70% del ramo) o del ramo (suman 70% y se normalizan). Si el ramo exime y tu presentación alcanza la nota de eximición (ej. 5,0, redondeada a una décima) con la asistencia exigida, tu nota final es la de presentación y no rindes examen.</li>
+              <li><strong>Mínimos:</strong> cada categoría puede exigir un promedio o una nota mínima en cada evaluación para eximirse (ej. tareas ≥ 5,5 y cada tarea ≥ 4,0), y un promedio para dar examen (ej. tareas ≥ 4,0). También puedes exigir una nota de presentación mínima para dar examen (ej. 3,5). Sin derecho a examen, se reprueba el ramo.</li>
               <li>Se aprueba con <strong>3,95</strong>, que se redondea a 4,0.</li>
             </ul>
           </div>

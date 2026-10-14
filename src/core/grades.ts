@@ -1,4 +1,4 @@
-import { NOTA_APROB, clamp } from "./format";
+import { NOTA_APROB, clamp, fmtNota } from "./format";
 import type { Categoria, ConfigExamen, Entrada, EscalaPresentacion, ModoPromedio } from "./state";
 
 export interface StatsCategoria {
@@ -39,12 +39,31 @@ export interface MetaRequisito {
 
 /**
  * - "sin-eximicion": el ramo no exime (siempre se rinde el examen).
- * - "eximido": la presentación está completa y alcanza la nota de eximición.
+ * - "eximido": la presentación está completa y cumple todo lo exigido para eximirse.
  * - "asegurada": aunque saques 1,0 en lo que queda antes del examen, te eximes.
- * - "posible": aún puedes eximirte (ver necesariaEximir).
+ * - "posible": aún puedes eximirte (ver condicionesEximir).
  * - "no-eximido": ya no te eximes (ver motivo); vas a examen.
  */
 export type EstadoEximicion = "sin-eximicion" | "eximido" | "asegurada" | "posible" | "no-eximido";
+
+/** "cumple" incluye lo que ya está asegurado aunque saques 1,0 en lo que queda. */
+export type EstadoCondicion = "cumple" | "pendiente" | "falla";
+
+/** Algo que se exige para eximirse o para tener derecho a examen. */
+export interface Condicion {
+  /** Qué se exige, ej. "Tareas ≥ 5,5" o "cada nota de Tareas ≥ 4,0". */
+  texto: string;
+  estado: EstadoCondicion;
+  /** Lo que necesitas en lo que queda para cumplirla (en promedio, o en cada nota si `cada`). */
+  nec: number | null;
+  cada: boolean;
+}
+
+/**
+ * Derecho a examen según los mínimos (null si no hay mínimos o si te eximes).
+ * Sin derecho a examen, el ramo se reprueba.
+ */
+export type HabilitacionExamen = "habilitado" | "pendiente" | "no-habilitado";
 
 export interface InfoExamen {
   /** % de la nota final que vale el examen. */
@@ -62,9 +81,14 @@ export interface InfoExamen {
   pesoPresentacionEsperado: number;
   eximicion: number | null;
   estado: EstadoEximicion;
-  /** Promedio que necesitas en lo que queda antes del examen para eximirte. */
+  /** Promedio que necesitas en lo que queda antes del examen para que la presentación alcance la eximición. */
   necesariaEximir: number | null;
-  motivo: "asistencia" | "requisito" | "nota" | null;
+  /** Nota de presentación y mínimos por categoría para eximirse (vacío si el ramo no exime). */
+  condicionesEximir: Condicion[];
+  motivo: "asistencia" | "requisito" | "condicion" | null;
+  habilitacion: HabilitacionExamen | null;
+  /** Mínimos para tener derecho a examen. */
+  condicionesExamen: Condicion[];
   /** Se exige asistencia y aún no registras la tuya. */
   asistenciaPendiente: boolean;
   /** Nota que necesitas en el examen para el 4,0 (presentación completa, sin eximición y examen pendiente). */
@@ -115,6 +139,7 @@ export function configExamen(e: Pick<Entrada, "examen">): ConfigExamen {
     eximicion: numOpc(c?.eximicion, 1, 7),
     asistenciaMin: numOpc(c?.asistenciaMin, 0, 100),
     asistencia: numOpc(c?.asistencia, 0, 100),
+    minPresentacion: numOpc(c?.minPresentacion, 1, 7),
   };
 }
 
@@ -205,14 +230,54 @@ function armar(e: Entrada, a: Acumulado, examen: InfoExamen | null): CalculoRamo
   };
 }
 
+/** Promedio mínimo (se redondea a una décima: 5,45 cumple un 5,5). */
+function condicionPromedio(texto: string, suma: number, rendido: number, total: number, min: number): Condicion {
+  const base = { texto, cada: false, nec: null };
+  const corte = min - 0.05 - 1e-9;
+  if (total <= 0) return { ...base, estado: "pendiente", nec: min };
+  const pendiente = total - rendido;
+  if (pendiente < 1e-9) return { ...base, estado: suma / total >= corte ? "cumple" : "falla" };
+  if ((suma + pendiente) / total >= corte) return { ...base, estado: "cumple" };
+  const nec = (corte * total - suma) / pendiente;
+  return nec > 7 ? { ...base, estado: "falla" } : { ...base, estado: "pendiente", nec };
+}
+
+/** Nota mínima en cada evaluación de una categoría (las que no cuentan, ×0, no se exigen). */
+function condicionCada(c: Categoria, min: number): Condicion {
+  const base = { texto: `cada nota de ${c.nombre || "la categoría"} ≥ ${fmtNota(min)}`, cada: true, nec: null };
+  const items = c.notas.filter((x) => (x.f ?? 1) > 0);
+  if (items.some((x) => x.n !== null && x.n < min - 0.05 - 1e-9)) return { ...base, estado: "falla" };
+  if (min > 1 && items.some((x) => x.n === null)) return { ...base, estado: "pendiente", nec: min };
+  return { ...base, estado: "cumple" };
+}
+
+function resumen(cs: Condicion[]): EstadoCondicion {
+  if (cs.some((c) => c.estado === "falla")) return "falla";
+  return cs.every((c) => c.estado === "cumple") ? "cumple" : "pendiente";
+}
+
+/** Mínimos de las categorías de la presentación, para eximirse o para tener derecho a examen. */
+function condicionesCategorias(cats: Categoria[], para: "eximir" | "examen"): Condicion[] {
+  return cats.flatMap((c) => {
+    const out: Condicion[] = [];
+    const st = statsCategoria(c);
+    const min = numOpc(c.minimos?.[para], 1, 7);
+    if (min !== null) out.push(condicionPromedio(`${c.nombre || "Categoría"} ≥ ${fmtNota(min)}`, st.sumRend, st.fRend, st.fTot, min));
+    const cada = para === "eximir" ? numOpc(c.minimos?.eximirCada, 1, 7) : null;
+    if (cada !== null) out.push(condicionCada(c, cada));
+    return out;
+  });
+}
+
 /**
  * Nota de un ramo a partir de sus categorías.
  * NF = Σ promedio_categoría × %categoría. "Actual" reescala lo rendido al % evaluado;
  * "Peor caso" cuenta todo lo pendiente como 1,0 (si igual da 4,0, el ramo está salvado).
  *
  * Con examen, las demás categorías forman la nota de presentación (NP). Si NP alcanza la nota
- * de eximición (redondeada a una décima) y cumples la asistencia, la nota final es NP;
- * si no, NF = NP × (100% − %examen) + examen × %examen.
+ * de eximición (redondeada a una décima), cumples los mínimos por categoría y la asistencia,
+ * la nota final es NP; si no, NF = NP × (100% − %examen) + examen × %examen.
+ * Si no cumples los mínimos para dar examen, el ramo se reprueba.
  */
 export function calcularRamo(e: Entrada): CalculoRamo {
   if (e.notaFinal !== null && e.notaFinal !== undefined) {
@@ -230,30 +295,36 @@ export function calcularRamo(e: Entrada): CalculoRamo {
   const We = Math.min(ex.peso, 100) / 100;
   const Wp = 1 - We;
   const factor = cfg.escala === "presentacion" ? Wp : 1;
-  const pares = cats.filter((c) => c !== ex).map((c) => ({ c, w: (c.peso / 100) * factor }));
+  const presCats = cats.filter((c) => c !== ex);
+  const pares = presCats.map((c) => ({ c, w: (c.peso / 100) * factor }));
   const pres = acumular(pares);
   const basePres = Math.max(pres.W, Wp);
   const pendPres = basePres - pres.R;
   const presentacionCompleta = pendPres < 1e-9;
   const np = pres.R > 0 ? pres.S / pres.R : null;
   const npPeor = pres.R > 0 && basePres > 0 ? (pres.S + pendPres) / basePres : null;
+  const condicionNP = (min: number) => condicionPromedio(`nota de presentación ≥ ${fmtNota(min)}`, pres.S, pres.R, basePres, min);
 
   const umbral = cfg.eximicion;
-  const corte = umbral !== null ? umbral - 0.05 : Infinity; // 4,95 se redondea a 5,0
+  const condicionesEximir = umbral !== null ? [condicionNP(umbral), ...condicionesCategorias(presCats, "eximir")] : [];
   let estado: EstadoEximicion = "sin-eximicion";
   let motivo: InfoExamen["motivo"] = null;
-  let necesariaEximir: number | null = null;
   if (umbral !== null) {
+    const cumple = resumen(condicionesEximir);
     if (cfg.asistenciaMin !== null && cfg.asistencia !== null && cfg.asistencia < cfg.asistenciaMin) [estado, motivo] = ["no-eximido", "asistencia"];
     else if (pres.reqFallidos.length) [estado, motivo] = ["no-eximido", "requisito"];
-    else if (presentacionCompleta) [estado, motivo] = np !== null && np >= corte - 1e-9 ? ["eximido", null] : ["no-eximido", "nota"];
-    else if (npPeor !== null && npPeor >= corte - 1e-9 && pres.reqMetas.length === 0) estado = "asegurada";
-    else {
-      const nec = (corte * basePres - pres.S) / pendPres;
-      if (nec > 7) [estado, motivo] = ["no-eximido", "nota"];
-      else [estado, necesariaEximir] = ["posible", Math.max(1, nec)];
-    }
+    else if (cumple === "falla") [estado, motivo] = ["no-eximido", "condicion"];
+    else if (cumple === "cumple" && presentacionCompleta) estado = "eximido";
+    else if (cumple === "cumple" && pres.reqMetas.length === 0) estado = "asegurada";
+    else estado = "posible";
   }
+  const seExime = estado === "eximido" || estado === "asegurada";
+
+  const minNP = cfg.minPresentacion ?? null;
+  const condicionesExamen = seExime ? [] : [...(minNP !== null ? [condicionNP(minNP)] : []), ...condicionesCategorias(presCats, "examen")];
+  const habilitacion: HabilitacionExamen | null = !condicionesExamen.length
+    ? null
+    : ({ cumple: "habilitado", pendiente: "pendiente", falla: "no-habilitado" } as const)[resumen(condicionesExamen)];
 
   const info: InfoExamen = {
     peso: Math.round(We * 1000) / 10,
@@ -265,13 +336,16 @@ export function calcularRamo(e: Entrada): CalculoRamo {
     pesoPresentacionEsperado: cfg.escala === "presentacion" ? 100 : Math.round(Wp * 1000) / 10,
     eximicion: umbral,
     estado,
-    necesariaEximir,
+    necesariaEximir: estado === "posible" && condicionesEximir[0]?.estado === "pendiente" ? condicionesEximir[0].nec : null,
+    condicionesEximir,
     motivo,
+    habilitacion,
+    condicionesExamen,
     asistenciaPendiente: cfg.asistenciaMin !== null && cfg.asistencia === null,
     necesariaExamen: null,
   };
 
-  if (estado === "eximido" || estado === "asegurada") {
+  if (seExime) {
     // Te eximes: la nota final es la de presentación y el examen no cuenta.
     const k = basePres > 0 ? 1 / basePres : 0;
     const r = armar(e, { ...pres, S: pres.S * k, R: pres.R * k, W: pres.W * k }, info);
@@ -279,22 +353,23 @@ export function calcularRamo(e: Entrada): CalculoRamo {
   }
   const r = armar(e, acumular([...pares, { c: ex, w: We }]), info);
   const st = statsCategoria(ex);
-  if (presentacionCompleta && st.fRend < st.fTot) info.necesariaExamen = r.necesaria;
+  if (presentacionCompleta && st.fRend < st.fTot && habilitacion !== "no-habilitado") info.necesariaExamen = r.necesaria;
   return r;
 }
 
-/** El ramo ya no puede reprobar (peor caso ≥ 4,0 y sin requisitos pendientes o perdidos). */
+/** El ramo ya no puede reprobar (peor caso ≥ 4,0, sin requisitos pendientes o perdidos y con derecho a examen si lo necesitas). */
 export function ramoAsegurado(c: CalculoRamo): boolean {
   if (c.cerrado) return (c.nf ?? 0) >= NOTA_APROB;
-  return c.nfPeor !== null && c.nfPeor >= NOTA_APROB && c.reqFallidos.length === 0 && c.reqMetas.length === 0;
+  const habilitacion = c.examen?.habilitacion;
+  return c.nfPeor !== null && c.nfPeor >= NOTA_APROB && c.reqFallidos.length === 0 && c.reqMetas.length === 0 && (habilitacion === null || habilitacion === undefined || habilitacion === "habilitado");
 }
 
-/** Cómo vas en un ramo abierto: "perdido" = ya no alcanzas el 4,0 ni con 7,0 en lo que queda. */
+/** Cómo vas en un ramo abierto: "perdido" = ya no alcanzas el 4,0 ni con 7,0 en lo que queda, o no tienes derecho a examen. */
 export type RendimientoRamo = "sin-notas" | "asegurado" | "aprobando" | "reprobando" | "perdido";
 
 export function rendimientoRamo(c: CalculoRamo): RendimientoRamo {
   if (ramoAsegurado(c)) return "asegurado";
-  if (c.reqFallidos.length || (c.necesaria !== null && c.necesaria > 7)) return "perdido";
+  if (c.reqFallidos.length || c.examen?.habilitacion === "no-habilitado" || (c.necesaria !== null && c.necesaria > 7)) return "perdido";
   if (c.nfActual === null) return "sin-notas";
   if (c.nfActual >= NOTA_APROB) return "aprobando";
   return c.restante > 0 ? "reprobando" : "perdido";

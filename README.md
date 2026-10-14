@@ -38,7 +38,7 @@ Toda la lógica vive en `src/core/` y está cubierta por tests:
 - El planificador es voraz: calcula el mínimo de semestres (créditos, tope de ramos y profundidad de la cadena de prerrequisitos) y llena cada semestre poniendo primero los ramos críticos.
 - **Nota necesaria:** se calcula como `(3,95 − lo asegurado) ÷ fracción pendiente`, y las categorías que aún no suman 100% cuentan como pendientes. Hay un test que lo cubre.
 - En el peor caso, las categorías sin casillas también cuentan como 1,0.
-- **Examen y eximición:** si una categoría es el examen, las demás forman la nota de presentación (NP). Sus % pueden escribirse sobre la presentación (suman 100%) o sobre el ramo (suman 100% − examen, y se normalizan). Con NP ≥ nota de eximición (redondeada a una décima) y la asistencia exigida, la nota final es NP; si no, NF = NP × (1 − %examen) + examen × %examen.
+- **Examen y eximición:** si una categoría es el examen, las demás forman la nota de presentación (NP). Sus % pueden escribirse sobre la presentación (suman 100%) o sobre el ramo (suman 100% − examen, y se normalizan). Con NP ≥ nota de eximición (redondeada a una décima) y la asistencia exigida, la nota final es NP; si no, NF = NP × (1 − %examen) + examen × %examen. Cada categoría puede exigir mínimos para eximirse (promedio y/o cada nota) y para dar examen (promedio), y se puede exigir una NP mínima para dar examen; sin derecho a examen, el ramo queda reprobado.
 
 ## Stack
 

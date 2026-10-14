@@ -13,7 +13,7 @@ import {
   type Ctx,
 } from "./academic";
 import { construirCurriculum, evaluarReglaPractica, rutaCritica, semestreCalendario } from "./curriculum";
-import { calcularRamo, notaDesdePuntaje, puntajeParaNota, statsCategoria } from "./grades";
+import { calcularRamo, notaDesdePuntaje, puntajeParaNota, rendimientoRamo, statsCategoria } from "./grades";
 import { generarICS } from "./calendar";
 import { generarPlanes, idsPendientes, moverRamo, puedeMoverRamo } from "./planner";
 import { estadoInicial, nuevoUid, normalizarEstado, type Entrada, type Periodo, type PlannerState } from "./state";
@@ -147,6 +147,58 @@ describe("examen y eximición", () => {
     }));
     expect(asegurada.examen?.estado).toBe("asegurada");
     expect(asegurada.nfPeor).toBeCloseTo(5.5, 5);
+  });
+
+  describe("mínimos por categoría (NP = 0,3·S1 + 0,3·S2 + 0,2·NT + 0,2·NC)", () => {
+    // Eximición: NP ≥ 5,0, NT ≥ 5,5 y cada tarea ≥ 4,0. Para dar examen: NT ≥ 4,0 y NP ≥ 3,5.
+    const ramo = (tareas: (number | null)[], s = 5) => entrada("X", null, {
+      examen: { escala: "presentacion", eximicion: 5, asistenciaMin: null, asistencia: null, minPresentacion: 3.5 },
+      categorias: [
+        { nombre: "S1", peso: 30, notas: [{ n: s, f: 1 }] },
+        { nombre: "S2", peso: 30, notas: [{ n: s, f: 1 }] },
+        { nombre: "Tareas", peso: 20, minimos: { eximir: 5.5, eximirCada: 4, examen: 4 }, notas: tareas.map((n) => ({ n, f: 1 })) },
+        { nombre: "Controles", peso: 20, notas: [{ n: 5, f: 1 }] },
+        examen(null),
+      ],
+    });
+
+    it("se exime si cumple la presentación y los mínimos de tareas", () => {
+      const r = calcularRamo(ramo([6, 6, 5], 5.5));
+      expect(r.examen?.np).toBeCloseTo(0.6 * 5.5 + 0.2 * (17 / 3) + 0.2 * 5, 5);
+      expect(r.examen?.estado).toBe("eximido");
+    });
+
+    it("una tarea bajo 4,0 impide la eximición aunque NP y NT alcancen", () => {
+      const r = calcularRamo(ramo([7, 7, 3.5], 5.5));
+      expect(r.examen?.estado).toBe("no-eximido");
+      expect(r.examen?.motivo).toBe("condicion");
+      expect(r.examen?.condicionesEximir.find((c) => c.estado === "falla")?.texto).toBe("cada nota de Tareas ≥ 4,0");
+      expect(r.examen?.habilitacion).toBe("habilitado");
+    });
+
+    it("con NT bajo 4,0 no hay derecho a examen y el ramo queda perdido", () => {
+      const r = calcularRamo(ramo([3, 3, 4]));
+      expect(r.examen?.habilitacion).toBe("no-habilitado");
+      expect(r.examen?.necesariaExamen).toBeNull();
+      expect(rendimientoRamo(r)).toBe("perdido");
+    });
+
+    it("con presentación bajo 3,5 no hay derecho a examen", () => {
+      const r = calcularRamo(ramo([6, 6, 6], 2));
+      expect(r.examen?.np).toBeCloseTo(0.6 * 2 + 0.2 * 6 + 0.2 * 5, 5); // 3,4
+      expect(r.examen?.condicionesExamen.find((c) => c.estado === "falla")?.texto).toBe("nota de presentación ≥ 3,5");
+      expect(r.examen?.habilitacion).toBe("no-habilitado");
+    });
+
+    it("con tareas pendientes dice cuánto falta para eximirse", () => {
+      const r = calcularRamo(ramo([6, 6, null], 6));
+      expect(r.examen?.estado).toBe("posible");
+      const tareas = r.examen?.condicionesEximir.find((c) => c.texto === "Tareas ≥ 5,5");
+      expect(tareas?.nec).toBeCloseTo(5.45 * 3 - 12, 5);
+      expect(r.examen?.condicionesEximir.find((c) => c.cada)?.estado).toBe("pendiente");
+      // NT peor caso (6+6+1)/3 = 4,33 ≥ 4,0 y NP peor caso ≥ 3,5: ya tiene derecho a examen
+      expect(r.examen?.habilitacion).toBe("habilitado");
+    });
   });
 });
 

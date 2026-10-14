@@ -672,7 +672,8 @@ function AvisosParaTi() {
     .forEach((e) => {
       const c = calcularRamo(e);
       if (c.cerrado) return;
-      if (c.reqFallidos.length) avisos.push({ icono: <TriangleAlert />, tono: "warn", texto: <><strong>{nombreEntrada(ctx, e)}:</strong> {c.reqFallidos.join(", ")} ya quedó bajo 4,0 y es requisito para aprobar.</> });
+      if (c.examen?.habilitacion === "no-habilitado") avisos.push({ icono: <TriangleAlert />, tono: "warn", texto: <><strong>{nombreEntrada(ctx, e)}:</strong> no cumples {c.examen.condicionesExamen.find((x) => x.estado === "falla")?.texto ?? "los mínimos"} para dar examen.</> });
+      else if (c.reqFallidos.length) avisos.push({ icono: <TriangleAlert />, tono: "warn", texto: <><strong>{nombreEntrada(ctx, e)}:</strong> {c.reqFallidos.join(", ")} ya quedó bajo 4,0 y es requisito para aprobar.</> });
       else if (c.necesaria !== null && c.necesaria > 7) avisos.push({ icono: <TriangleAlert />, tono: "warn", texto: <><strong>{nombreEntrada(ctx, e)}:</strong> con lo que queda ya no alcanza el 4,0.</> });
       else if (c.necesaria !== null && c.necesaria > 5.5)
         avisos.push({ icono: <BellRing />, tono: "warn", texto: <><strong>{nombreEntrada(ctx, e)}:</strong> necesitas {fmtNota(c.necesaria, 1)} en el {fmtNota(c.restante, 0)}% restante para aprobar.</> });

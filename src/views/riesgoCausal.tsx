@@ -17,7 +17,8 @@ export function textoRendimiento({ calculo: c, rendimiento }: Pick<RiesgoRamoUDP
     case "asegurado":
       return { tono: "ok", texto: "Ya aseguraste el 4,0: este ramo no te deja en causal." };
     case "perdido":
-      return { tono: "danger", texto: c.reqFallidos.length ? `Reprobaste el requisito ${c.reqFallidos.join(", ")}: ya no alcanzas el 4,0.` : "Con tus notas actuales ya no alcanzas el 4,0, ni con 7,0 en lo que queda." };
+      if (c.examen?.habilitacion === "no-habilitado") return { tono: "danger", texto: `No cumples ${c.examen.condicionesExamen.find((x) => x.estado === "falla")?.texto ?? "los mínimos"} para dar examen: repruebas el ramo.` };
+      return { tono: "danger", texto: c.reqFallidos.length ?`Reprobaste el requisito ${c.reqFallidos.join(", ")}: ya no alcanzas el 4,0.` : "Con tus notas actuales ya no alcanzas el 4,0, ni con 7,0 en lo que queda." };
     case "aprobando":
     case "reprobando": {
       const vas = `Vas con ${fmtNota(c.nfActual)} (${pct(c.pesoEvaluado)}% evaluado)`;
