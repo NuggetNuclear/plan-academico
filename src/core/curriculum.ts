@@ -14,6 +14,7 @@ export interface Curriculum {
   semestresObjetivo: number;
   maxCreditosSemestre: number;
   tipos: Record<string, string>;
+  areas: Record<string, string>;
 }
 
 /** Electivos cuyo nombre real lo define la persona. */
@@ -72,6 +73,7 @@ export function construirCurriculum(malla: MallaDef): Curriculum {
     semestresObjetivo: malla.semestresObjetivo,
     maxCreditosSemestre: malla.maxCreditosSemestre,
     tipos: malla.tipos ?? {},
+    areas: malla.areas ?? {},
   };
 }
 

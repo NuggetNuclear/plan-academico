@@ -313,6 +313,39 @@ export function calcularPPA(ctx: Ctx, periodos: Periodo[] = ctx.st.periodos): { 
   return { ppa: cred > 0 ? suma / cred : null, creditos: cred };
 }
 
+export interface RendimientoArea {
+  area: string;
+  /** Promedio ponderado por créditos de las notas finales del área (cada intento cuenta). */
+  prom: number;
+  n: number;
+  aprobados: number;
+}
+
+/** Rendimiento por área de conocimiento, de mejor a peor. Los ramos sin área (prácticas, titulación) no cuentan. */
+export function rendimientoPorArea(ctx: Ctx): RendimientoArea[] {
+  const acc: Record<string, { suma: number; cred: number; notas: number[] }> = {};
+  ctx.st.periodos.forEach((p) =>
+    p.ramos.forEach((e) => {
+      const area = ramoCatalogo(ctx, e.id)?.area;
+      const n = notaEntrada(ctx, e);
+      if (!area || n === null) return;
+      const a = (acc[area] ??= { suma: 0, cred: 0, notas: [] });
+      const c = creditosEntrada(ctx, e);
+      a.suma += n * c;
+      a.cred += c;
+      a.notas.push(n);
+    }),
+  );
+  return Object.entries(acc)
+    .map(([area, a]) => ({
+      area,
+      prom: a.cred > 0 ? a.suma / a.cred : a.notas.reduce((s, x) => s + x, 0) / a.notas.length,
+      n: a.notas.length,
+      aprobados: a.notas.filter((x) => x >= NOTA_APROB).length,
+    }))
+    .sort((a, b) => b.prom - a.prom);
+}
+
 export interface PuntoPPA {
   numero: number;
   etiqueta: string;

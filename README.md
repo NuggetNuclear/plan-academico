@@ -10,7 +10,7 @@ Malla interactiva, notas con ponderaciones, simulador de PPA, planificación de 
 - **Mi malla:** estados aprobado / cursando / puedo tomar / bloqueado, menú por ramo (aprobado con semestre o convalidado, cursando, desmarcar), marcado rápido, marcar semestres completos, resaltado de prerrequisitos y de lo que desbloquea, búsqueda y filtros, notas en la malla, inglés eximido y congelaciones.
 - **Notas:** periodos regulares, de verano/TAV y convalidaciones; categorías con %, notas con peso relativo (×), categorías con requisito de 4,0, examen con nota de presentación y eximición (nota y asistencia), modo *actual* o *peor caso*, nota necesaria, nota final con décimas, reabrir, ventana por semestre, simulador de PPA y exportación a PDF.
 - **Planificación:** seis estrategias que se filtran por las que terminan en el mínimo de semestres, ramos críticos primero, tope de créditos, reglas de práctica (dentro de la carga, sobrecupo, verano o fuera del plan), arrastrar y soltar con validación, ajustes sugeridos (intercambios), guardar el plan y PDF.
-- **Estadísticas:** PPA, créditos inscritos/aprobados/reprobados/de avance, evolución del PPA (gráfico o tabla), aprobación de créditos por semestre, rendimiento por tipo de ramo y distribución de notas por ramo o por evaluación.
+- **Estadísticas:** PPA, créditos inscritos/aprobados/reprobados/de avance, evolución del PPA (gráfico o tabla), aprobación de créditos por semestre, fortalezas por área (Matemáticas, Ciencias básicas, Programación, Software/datos/IA, Sistemas y redes, Telecomunicaciones, Gestión, Comunicación y formación general, Electivos) y distribución de notas por ramo o por evaluación.
 - **Asistente de inicio, modo oscuro, exportar/importar, sincronización opcional con Google.**
 - **Ayuda:** cómo funciona, reglas de la carrera (prácticas y causales), cómo se calcula cada dato y enlace para reportar errores o ideas en los [issues de GitHub](https://github.com/NuggetNuclear/plan-academico/issues).
 
@@ -90,15 +90,18 @@ La malla vive en `public/carreras/inf.json`. Para corregir un ramo, sus crédito
   "semestresObjetivo": 11,
   "nivelesIngles": ["CIG-1012", "CIG-1013", "CIG-1014"],
   "tipos": { "PC": "Plan común", "FI": "Formación ingeniería" },
+  "areas": { "MAT": "Matemáticas", "PRG": "Programación y algoritmos" },
   "ramos": [
-    { "id": "CBM-1001", "nombre": "Cálculo I", "creditos": 7, "semestre": 1, "req": [], "tipo": "PC" },
+    { "id": "CBM-1001", "nombre": "Cálculo I", "creditos": 7, "semestre": 1, "req": [], "tipo": "PC", "area": "MAT" },
     { "id": "CIT-4000", "nombre": "Práctica Profesional I", "creditos": 7, "semestre": 5, "req": [], "tipo": "ELEC",
       "reglaPractica": { "hastaSemestre": 4, "maxDeuda": 1 } }
   ]
 }
 ```
 
-   Campos opcionales por ramo: `sigla`, `equivalentes` (otros códigos con que los reportes de la UDP informan el ramo), `reglaPractica` y `aviso`.
+   `tipo` es la clasificación oficial de la malla (colores en Mi malla). `area` es el área de conocimiento que usa Estadísticas para medir fortalezas; las prácticas y la titulación no tienen área y no cuentan.
+
+   Campos opcionales por ramo: `sigla`, `equivalentes` (otros códigos con que los reportes de la UDP informan el ramo), `area`, `reglaPractica` y `aviso`.
 
 La app está hecha solo para esta carrera: las causales, las prácticas, el importador de reportes y los respaldos asumen la UDP y `inf.json`. Agregar otra carrera no es solo agregar un JSON.
 

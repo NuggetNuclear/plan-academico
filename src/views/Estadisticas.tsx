@@ -1,11 +1,11 @@
 import { ArrowRight, BarChart3, BookOpen, CircleCheck, CircleX, Clock, Layers, LineChart, Percent, Route, Star, Table2, TrendingDown, TrendingUp, ArrowLeftRight, PenSquare } from "lucide-react";
 import { useMemo, useState } from "react";
-import { calcularPPA, evolucionPPA, notaEntrada, ramoCatalogo, resumenCreditos, resumenPeriodos } from "../core/academic";
+import { calcularPPA, evolucionPPA, notaEntrada, rendimientoPorArea, resumenCreditos, resumenPeriodos } from "../core/academic";
 import { NOTA_APROB, fmtNota } from "../core/format";
 import { useCtx } from "../store/app";
 import { useUI } from "../store/ui";
-import { colorTipo, etiquetaTipo } from "../ui/comun";
-import { Boton, CabeceraTarjeta, Segmentado, Tarjeta, Vacio, cx } from "../ui/primitives";
+import { colorArea } from "../ui/comun";
+import { Boton, CabeceraTarjeta, Insignia, Segmentado, Tarjeta, Vacio, cx } from "../ui/primitives";
 import { GraficoPPA, Histograma, LeyendaPPA } from "./estadisticas/Graficos";
 
 function Tile({ icono, etiqueta, valor, tono, ayuda }: { icono: React.ReactNode; etiqueta: string; valor: React.ReactNode; tono?: "acento" | "ok" | "danger" | "info"; ayuda?: string }) {
@@ -27,6 +27,7 @@ export function Estadisticas() {
   const [tabla, setTabla] = useState(false);
   const [modo, setModo] = useState<"ramo" | "evaluacion">("ramo");
   const cred = useMemo(() => resumenCreditos(ctx), [ctx]);
+  const areas = useMemo(() => rendimientoPorArea(ctx), [ctx]);
   const evo = useMemo(() => evolucionPPA(ctx), [ctx]);
   const periodos = useMemo(() => resumenPeriodos(ctx, { incluirVerano: true }), [ctx]);
   const { ppa } = calcularPPA(ctx);
@@ -70,15 +71,11 @@ export function Estadisticas() {
   const reales = evo.filter((p) => p.numero > 0);
   const tendencia = reales.length >= 2 ? reales.at(-1)!.ppa - reales.at(-2)!.ppa : null;
 
-  const porTipo = Object.entries(
-    finales.reduce<Record<string, number[]>>((acc, f) => {
-      const t = ramoCatalogo(ctx, f.id)?.tipo ?? "ESP";
-      (acc[t] ??= []).push(f.nota);
-      return acc;
-    }, {}),
-  )
-    .map(([tipo, notas]) => ({ tipo, prom: notas.reduce((a, b) => a + b, 0) / notas.length, n: notas.length }))
-    .sort((a, b) => b.prom - a.prom);
+  // Fuerte y a reforzar solo entre áreas con 2+ notas y si la diferencia es de al menos 3 décimas.
+  const comparables = areas.filter((a) => a.n >= 2);
+  const hayContraste = comparables.length >= 2 && comparables[0].prom - comparables.at(-1)!.prom >= 0.3;
+  const fuerte = hayContraste ? comparables[0].area : null;
+  const reforzar = hayContraste ? comparables.at(-1)!.area : null;
 
   return (
     <div className="space-y-4">
@@ -185,25 +182,31 @@ export function Estadisticas() {
         </Tarjeta>
 
         <Tarjeta>
-          <CabeceraTarjeta icono={<Layers className="size-[18px]" />} titulo="Rendimiento por tipo de ramo" descripcion="Tu promedio simple en cada tipo de ramo de la malla." />
-          <ul className="space-y-3">
-            {porTipo.map((t) => (
-              <li key={t.tipo} className="grid grid-cols-[minmax(0,140px)_1fr_auto] items-center gap-3 text-[13px]">
-                <span className="min-w-0">
-                  <strong className="block truncate">{etiquetaTipo(ctx.cur, t.tipo)}</strong>
-                  <span className="text-[11.5px] text-fg-3">
-                    {t.n} {t.n === 1 ? "ramo" : "ramos"}
+          <CabeceraTarjeta icono={<Layers className="size-[18px]" />} titulo="Fortalezas por área" descripcion="Tu promedio en cada área de la carrera, ponderado por créditos." />
+          {areas.length === 0 ? (
+            <p className="text-[13px] text-fg-2">Aún no tienes notas finales en ramos con área.</p>
+          ) : (
+            <ul className="space-y-3">
+              {areas.map((a) => (
+                <li key={a.area} className="grid grid-cols-[minmax(0,170px)_1fr_auto] items-center gap-3 text-[13px]">
+                  <span className="min-w-0">
+                    <strong className="block leading-snug">{ctx.cur.areas[a.area] ?? a.area}</strong>
+                    <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11.5px] text-fg-3">
+                      {a.n} {a.n === 1 ? "nota" : "notas"} · {Math.round((a.aprobados / a.n) * 100)}% aprob.
+                      {a.area === fuerte && <Insignia tono="ok">Tu fuerte</Insignia>}
+                      {a.area === reforzar && <Insignia tono="warn">A reforzar</Insignia>}
+                    </span>
                   </span>
-                </span>
-                <span className="relative h-2.5 rounded-full bg-surface-3">
-                  <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${((t.prom - 1) / 6) * 100}%`, background: colorTipo(ctx.cur, t.tipo) }} />
-                  <span className="absolute -inset-y-1 w-px bg-fg-3" style={{ left: "50%" }} title="4,0" />
-                </span>
-                <span className={cx("w-9 text-right font-mono font-bold", t.prom < NOTA_APROB && "text-danger")}>{fmtNota(t.prom)}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-[11.5px] text-fg-3">La línea vertical marca el 4,0.</p>
+                  <span className="relative h-2.5 rounded-full bg-surface-3">
+                    <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${((a.prom - 1) / 6) * 100}%`, background: colorArea(ctx.cur, a.area) }} />
+                    <span className="absolute -inset-y-1 w-px bg-fg-3" style={{ left: "50%" }} title="4,0" />
+                  </span>
+                  <span className={cx("w-9 text-right font-mono font-bold", a.prom < NOTA_APROB && "text-danger")}>{fmtNota(a.prom)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-[11.5px] text-fg-3">La línea vertical marca el 4,0. Cada intento cuenta; prácticas y titulación no entran.</p>
         </Tarjeta>
       </div>
 

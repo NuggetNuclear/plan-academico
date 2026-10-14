@@ -9,6 +9,7 @@ import {
   situacionSemestreUDP,
   estadoRamo,
   evolucionPPA,
+  rendimientoPorArea,
   resumenCreditos,
   type Ctx,
 } from "./academic";
@@ -283,6 +284,27 @@ describe("PPA y créditos", () => {
     expect(r.aprobados).toBe(14);
     expect(r.reprobados).toBe(7);
     expect(r.avance).toBe(14);
+  });
+
+  it("agrupa por área ponderando por créditos y deja fuera prácticas", () => {
+    const ctx = ctxCon({
+      periodos: [
+        // Química (6 cr) y Mecánica (7 cr) son Ciencias básicas; Programación (6 cr) es PRG; la práctica no tiene área.
+        { tipo: "regular", numero: 1, ramos: [entrada("CBQ-1000", 4), entrada("CBF-1000", 6), entrada("CIT-1000", 6.5), entrada("CIT-4000", 7)] },
+        { tipo: "regular", numero: 2, ramos: [entrada("CIT-1000", 3)] },
+      ],
+    });
+    const r = rendimientoPorArea(ctx);
+    expect(r.map((a) => a.area)).toEqual(["CIE", "PRG"]);
+    expect(r[0].prom).toBeCloseTo((4 * 6 + 6 * 7) / 13, 6);
+    expect(r[1]).toMatchObject({ n: 2, aprobados: 1 });
+    expect(r[1].prom).toBeCloseTo(4.75, 6);
+  });
+
+  it("todos los ramos de la malla tienen un área definida, salvo prácticas y titulación", () => {
+    const sinArea = inf.ramos.filter((r) => !r.area).map((r) => r.id);
+    expect(sinArea).toEqual(["CIT-4000", "CIT-4001", "CIT-4002"]);
+    inf.ramos.forEach((r) => r.area && expect(inf.areas).toHaveProperty(r.area));
   });
 });
 

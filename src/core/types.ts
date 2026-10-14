@@ -19,6 +19,8 @@ export interface RamoDef {
   semestre: number;
   req?: string[];
   tipo?: string;
+  /** Área de conocimiento para medir fortalezas en Estadísticas (sin área no se cuenta). */
+  area?: string;
   reglaPractica?: ReglaPractica;
   aviso?: string;
 }
@@ -33,6 +35,7 @@ export interface MallaDef {
   semestresObjetivo: number;
   nivelesIngles?: string[];
   tipos?: Record<string, string>;
+  areas?: Record<string, string>;
   ramos: RamoDef[];
 }
 

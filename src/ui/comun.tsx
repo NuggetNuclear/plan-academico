@@ -9,6 +9,12 @@ export function colorTipo(cur: Curriculum, tipo: string): string {
   return i >= 0 && i < 8 ? `var(--s${i + 1})` : "var(--fg-3)";
 }
 
+/** Las áreas usan la misma paleta que los tipos; desde la novena (Electivos) quedan en gris. */
+export function colorArea(cur: Curriculum, area: string): string {
+  const i = Object.keys(cur.areas).indexOf(area);
+  return i >= 0 && i < 8 ? `var(--s${i + 1})` : "var(--fg-3)";
+}
+
 export function etiquetaTipo(cur: Curriculum, tipo: string): string {
   return cur.tipos[tipo] ?? tipo;
 }
