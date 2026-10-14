@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useApp } from "../store/app";
 import { marcarSemestres } from "../store/mutaciones";
 import { escribirLocal, leerLocal, toast, useUI } from "../store/ui";
+import { CampoNumero } from "../ui/CampoNumero";
 import { CabeceraModal, Modal } from "../ui/overlays";
 import { Boton, cx } from "../ui/primitives";
 
@@ -102,7 +103,7 @@ export function Wizard() {
                   <label className="label" htmlFor="wz-sem">
                     Semestre actual
                   </label>
-                  <input id="wz-sem" type="number" min={1} max={20} className="input" value={semestre} onChange={(e) => setSemestre(Math.max(1, Math.min(20, Math.trunc(Number(e.target.value) || 1))))} />
+                  <CampoNumero id="wz-sem" min={1} max={20} decimales={0} vacioPermitido={false} aria-label="Semestre actual" className="input" valor={semestre} onGuardar={(v) => setSemestre(v!)} />
                 </div>
                 {niveles.length > 0 && (
                   <div>
@@ -128,11 +129,11 @@ export function Wizard() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="label" htmlFor="wz-cong-desde">Semestre que quedó pendiente</label>
-                    <input id="wz-cong-desde" type="number" min={1} max={20} className="input" value={cong.desde} onChange={(e) => setCong({ ...cong, desde: Math.max(1, Number(e.target.value) || 1) })} />
+                    <CampoNumero id="wz-cong-desde" min={1} max={20} decimales={0} vacioPermitido={false} aria-label="Semestre que quedó pendiente" className="input" valor={cong.desde} onGuardar={(v) => setCong((c) => ({ ...c, desde: v! }))} />
                   </div>
                   <div>
                     <label className="label" htmlFor="wz-cong-dur">Semestres que duró</label>
-                    <input id="wz-cong-dur" type="number" min={1} max={20} className="input" value={cong.duracion} onChange={(e) => setCong({ ...cong, duracion: Math.max(1, Number(e.target.value) || 1) })} />
+                    <CampoNumero id="wz-cong-dur" min={1} max={20} decimales={0} vacioPermitido={false} aria-label="Semestres que duró" className="input" valor={cong.duracion} onGuardar={(v) => setCong((c) => ({ ...c, duracion: v! }))} />
                   </div>
                 </div>
               )}

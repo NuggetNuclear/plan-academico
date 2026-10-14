@@ -188,10 +188,10 @@ export function normalizarEstado(raw: unknown): PlannerState {
         tipo: p.tipo === "verano" || p.tipo === "convalidaciones" ? p.tipo : "regular",
         numero: p.tipo === "convalidaciones" ? 0 : Math.max(1, Math.trunc(num(p.numero, 1))),
         ventana: typeof p.ventana === "string" ? p.ventana : undefined,
-        ramos: (Array.isArray(p.ramos) ? p.ramos : []).map((e) => ({
+        ramos: (Array.isArray(p.ramos) ? p.ramos : []).filter((e) => typeof e?.id === "string").map((e) => ({
           ...e,
           uid: e.uid || nuevoUid(),
-          categorias: (Array.isArray(e.categorias) ? e.categorias : []).map((c) => ({
+          categorias: (Array.isArray(e.categorias) ? e.categorias : []).filter((c) => c && typeof c === "object").map((c) => ({
             ...c,
             nombre: c.nombre ?? "",
             peso: num(c.peso, 0),

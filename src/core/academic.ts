@@ -295,6 +295,25 @@ export function calcularPPA(ctx: Ctx, periodos: Periodo[] = ctx.st.periodos): { 
   return { ppa: cred > 0 ? suma / cred : null, creditos: cred };
 }
 
+/** PPA como quedaría si los ramos en curso cerraran hoy con su promedio actual. */
+export function ppaConEnCurso(ctx: Ctx): { ppa: number | null; ramos: number } {
+  const { ppa, creditos } = calcularPPA(ctx);
+  let suma = (ppa ?? 0) * creditos;
+  let cred = creditos;
+  let ramos = 0;
+  ctx.st.periodos
+    .find((p) => esPeriodoActual(ctx.st, p))
+    ?.ramos.forEach((e) => {
+      const n = notaEntrada(ctx, e) === null && !esEximido(ctx, e.id) ? calcularRamo(e).nfActual : null;
+      if (n === null) return;
+      const c = creditosEntrada(ctx, e);
+      suma += n * c;
+      cred += c;
+      ramos++;
+    });
+  return { ppa: cred > 0 ? suma / cred : null, ramos };
+}
+
 interface RendimientoArea {
   area: string;
   /** Promedio ponderado por créditos de las notas finales del área (cada intento cuenta). */

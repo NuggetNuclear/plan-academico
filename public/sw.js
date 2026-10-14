@@ -33,6 +33,18 @@ async function primeroRed(req) {
   }
 }
 
+// Tras un deploy, los bundles con hash del anterior ya no los pide nadie: se borran.
+// ponytail: también caen los chunks diferidos (pdf); se vuelven a bajar al usarlos con conexión.
+async function podarAssets(res) {
+  const vivos = [...(await res.text()).matchAll(/(?:src|href)="\.\/(assets\/[^"]+)"/g)].map((m) => m[1]);
+  const cache = await caches.open(CACHE);
+  const assets = (await cache.keys()).filter((r) => r.url.includes("/assets/"));
+  const vigente = (r) => vivos.some((v) => r.url.endsWith("/" + v));
+  // Si todo lo que pide el index ya está guardado, es el mismo deploy.
+  if (!vivos.length || vivos.every((v) => assets.some((r) => r.url.endsWith("/" + v)))) return;
+  await Promise.all(assets.filter((r) => !vigente(r)).map((r) => cache.delete(r)));
+}
+
 async function primeroCache(req) {
   const enCache = await caches.match(req);
   if (enCache) return enCache;
@@ -50,6 +62,7 @@ self.addEventListener("fetch", (e) => {
     if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") e.respondWith(primeroCache(req));
     return;
   }
-  if (req.mode === "navigate" || url.pathname.endsWith(".json")) e.respondWith(primeroRed(req));
+  if (req.mode === "navigate") e.respondWith(primeroRed(req).then((res) => (res?.ok && e.waitUntil(podarAssets(res.clone())), res)));
+  else if (url.pathname.endsWith(".json")) e.respondWith(primeroRed(req));
   else e.respondWith(primeroCache(req));
 });

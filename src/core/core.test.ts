@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   aprobadosSet,
   calcularPPA,
+  ppaConEnCurso,
   causalesEliminacionUDP,
   evaluacionesCausalC,
   incidentesUDP,
@@ -285,6 +286,16 @@ describe("PPA y créditos", () => {
     expect(evo[1].acumulado).toBeCloseTo(98 / 21, 6);
   });
 
+  it("el PPA actual suma los ramos en curso con su promedio, sin tocar el confirmado", () => {
+    const enCurso = entrada("CBM-1002", null, { categorias: [{ nombre: "Pruebas", peso: 100, notas: [{ n: 7, f: 1 }, { n: null, f: 1 }] }] });
+    const sinNotas = entrada("CBM-1003", null);
+    const ctx = ctxCon({ ...st, periodos: [...st.periodos!, { tipo: "regular", numero: 3, ramos: [enCurso, sinNotas] }] });
+    const cred = ctx.cur.map["CBM-1002"].creditos;
+    expect(calcularPPA(ctx).ppa).toBeCloseTo(98 / 21, 6);
+    expect(ppaConEnCurso(ctx)).toEqual({ ppa: expect.closeTo((98 + 7 * cred) / (21 + cred), 6), ramos: 1 });
+    expect(ppaConEnCurso(ctxCon(st))).toEqual({ ppa: expect.closeTo(98 / 21, 6), ramos: 0 });
+  });
+
   it("separa créditos inscritos, aprobados, reprobados y de avance", () => {
     const r = resumenCreditos(ctxCon(st));
     expect(r.inscritos).toBe(21);
@@ -423,6 +434,9 @@ describe("causales de eliminación UDP (art. 38)", () => {
     expect(normalizarEstado({ planFijado: { etiqueta: "x" } }).planFijado).toBeNull();
     expect(normalizarEstado({ planFijado: { etiqueta: "x", semestres: [{ numero: 2 }] } }).planFijado).toBeNull();
     expect(normalizarEstado({ marcas: ["CIT-1000"] }).marcas).toEqual({});
+    const st = normalizarEstado({ periodos: [{ tipo: "regular", numero: 1, ramos: [null, { uid: "x" }, { id: "CBM-1000", categorias: [null, { nombre: "P", peso: 50, notas: [null] }] }] }] });
+    expect(st.periodos[0].ramos.map((e) => e.id)).toEqual(["CBM-1000"]);
+    expect(st.periodos[0].ramos[0].categorias).toMatchObject([{ nombre: "P", notas: [{ n: null, f: 1 }] }]);
   });
 });
 

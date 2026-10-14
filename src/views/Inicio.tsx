@@ -22,6 +22,7 @@ import { useMemo } from "react";
 import {
   aprobadosSet,
   calcularPPA,
+  ppaConEnCurso,
   causalesEliminacionUDP,
   esPeriodoActual,
   estadoRamo,
@@ -169,6 +170,7 @@ function Resumen() {
   const cred = useMemo(() => resumenCreditos(ctx), [ctx]);
   const evo = useMemo(() => evolucionPPA(ctx), [ctx]);
   const { ppa } = calcularPPA(ctx);
+  const actual = ppaConEnCurso(ctx);
   const { planes, guardado } = usePlanes();
   const restante = semestresRestantes(planes, guardado);
   const pct = cred.total > 0 ? Math.round((cred.avance / cred.total) * 100) : 0;
@@ -201,7 +203,12 @@ function Resumen() {
       <Tarjeta className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[13px] font-semibold text-fg-2">PPA acumulado</p>
-          <p className="mt-1 text-[40px] leading-none font-extrabold tracking-tight tabular">{ppa !== null ? fmtNota(ppa, 2) : "—"}</p>
+          <p className="mt-1 text-[40px] leading-none font-extrabold tracking-tight tabular">{actual.ppa !== null ? fmtNota(actual.ppa, 2) : "—"}</p>
+          {actual.ramos > 0 && (
+            <p className="mt-1.5 text-[12px] text-fg-3">
+              Con tus promedios en curso · confirmado <strong className="tabular font-semibold text-fg-2">{ppa !== null ? fmtNota(ppa, 2) : "—"}</strong>
+            </p>
+          )}
           {delta !== null ? (
             <p className={cx("mt-2 flex items-center gap-1 text-[12.5px] font-semibold", delta > 0.005 ? "text-ok" : delta < -0.005 ? "text-danger" : "text-fg-3")}>
               {delta > 0.005 ? <TrendingUp className="size-4" /> : delta < -0.005 ? <TrendingDown className="size-4" /> : <Minus className="size-4" />}
