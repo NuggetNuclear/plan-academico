@@ -14,7 +14,7 @@ import {
   type Ctx,
 } from "./academic";
 import { construirCurriculum, evaluarReglaPractica, rutaCritica, semestreCalendario } from "./curriculum";
-import { calcularRamo, notaDesdePuntaje, puntajeParaNota, rendimientoRamo, statsCategoria } from "./grades";
+import { PLANTILLAS, aplicarPlantilla, calcularRamo, inferirEscala, notaDesdePuntaje, plantillaDesdeEntrada, puntajeParaNota, rendimientoRamo, statsCategoria } from "./grades";
 import { generarICS } from "./calendar";
 import { generarPlanes, idsPendientes, moverRamo, puedeMoverRamo } from "./planner";
 import { estadoInicial, nuevoUid, normalizarEstado, type Entrada, type Periodo, type PlannerState } from "./state";
@@ -469,5 +469,45 @@ describe("persistencia y calendario", () => {
     expect(ics).toContain("DTSTART;VALUE=DATE:20261103");
     expect(ics).toContain("DTEND;VALUE=DATE:20261104");
     expect(ics.startsWith("BEGIN:VCALENDAR")).toBe(true);
+  });
+});
+
+describe("plantillas de evaluación", () => {
+  it("deduce si los % de la presentación son de la presentación o del ramo", () => {
+    const ex = { peso: 30, examen: true };
+    expect(inferirEscala([{ peso: 50 }, { peso: 50 }, ex])).toBe("presentacion");
+    expect(inferirEscala([{ peso: 50 }, { peso: 20 }, ex])).toBe("ramo");
+    expect(inferirEscala([{ peso: 50 }, { peso: 10 }, ex])).toBeNull();
+    expect(inferirEscala([{ peso: 100 }])).toBeNull();
+  });
+
+  it("las plantillas con examen suman bien y calculan presentación", () => {
+    PLANTILLAS.forEach((p) => {
+      const tieneExamen = p.categorias.some((c) => c.examen);
+      if (tieneExamen) expect(inferirEscala(p.categorias)).toBe(p.examen?.escala);
+      else expect(p.categorias.reduce((s, c) => s + c.peso, 0)).toBe(100);
+    });
+    const e: Entrada = { uid: "x", id: "x", notaFinal: null, categorias: [] };
+    aplicarPlantilla(e, PLANTILLAS.find((p) => p.categorias.some((c) => c.minimos))!);
+    expect(e.categorias.find((c) => c.minimos)?.minimos?.examen).toBe(4);
+    expect(calcularRamo(e).examen?.pesoPresentacionEsperado).toBe(100);
+  });
+
+  it("copia la estructura de otro ramo sin sus notas", () => {
+    const origen: Entrada = {
+      uid: "a", id: "a", notaFinal: null,
+      categorias: [
+        { nombre: "Solemne", peso: 70, notas: [{ n: 5, f: 1 }, { n: null, f: 1 }] },
+        { nombre: "Tarea", peso: 30, req: true, minimos: { examen: 4 }, notas: [{ n: 6, f: 1 }] },
+        { nombre: "Examen", peso: 30, examen: true, notas: [{ n: null, f: 1 }] },
+      ],
+      examen: { escala: "presentacion", eximicion: 5, asistenciaMin: 75, asistencia: 80, minPresentacion: 3.5 },
+    };
+    const destino: Entrada = { uid: "b", id: "b", notaFinal: null, categorias: [] };
+    aplicarPlantilla(destino, plantillaDesdeEntrada("Origen", origen));
+    expect(destino.categorias.map((c) => [c.nombre, c.peso, c.notas.length])).toEqual([["Solemne", 70, 2], ["Tarea", 30, 1], ["Examen", 30, 1]]);
+    expect(destino.categorias.every((c) => c.notas.every((n) => n.n === null))).toBe(true);
+    expect(destino.categorias[1]).toMatchObject({ req: true, minimos: { examen: 4 } });
+    expect(destino.examen).toMatchObject({ eximicion: 5, minPresentacion: 3.5, asistenciaMin: 75, asistencia: null });
   });
 });

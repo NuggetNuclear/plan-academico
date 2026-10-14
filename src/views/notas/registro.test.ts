@@ -69,4 +69,13 @@ describe("registro rápido de notas", () => {
     expect(guardarRegistro(ramo, registro())).not.toBeNull();
     expect(ramo.categorias).toEqual([]);
   });
+
+  it("cambia cuánto vale una evaluación dentro de su categoría", () => {
+    const ramo = entrada();
+    ramo.categorias = [{ nombre: "Controles", peso: 100, notas: [{ n: 4, f: 1 }, { n: null, f: 1 }] }];
+    expect(guardarRegistro(ramo, registro({ categoria: 0, evaluacion: 1, nota: "7", factor: "2" }))).toBeNull();
+    expect(ramo.categorias[0].notas[1]).toMatchObject({ n: 7, f: 2 });
+    expect(calcularRamo(ramo).nfActual).toBeCloseTo(6);
+    expect(guardarRegistro(ramo, registro({ categoria: 0, evaluacion: 1, factor: "-1" }))).not.toBeNull();
+  });
 });

@@ -9,6 +9,8 @@ export interface Registro {
   nota: string;
   porcentaje: string;
   fecha: string;
+  /** Cuánto vale dentro de su categoría (×1 por defecto). Vacío o ausente = no se cambia. */
+  factor?: string;
 }
 
 export function validarRegistro(entrada: Entrada, datos: Registro): string | null {
@@ -24,6 +26,10 @@ export function validarRegistro(entrada: Entrada, datos: Registro): string | nul
     const total = pesoAsignado(entrada);
     if (total + peso > 100.05) return `Ya tienes ${total}% asignado. Queda ${Math.max(0, 100 - total)}% disponible.`;
   }
+  if (datos.factor?.trim()) {
+    const f = leerNumero(datos.factor);
+    if (!Number.isFinite(f) || f < 0 || f > 100) return "El peso dentro de la categoría debe estar entre 0 y 100.";
+  }
   if (datos.fecha && (!/^\d{4}-\d{2}-\d{2}$/.test(datos.fecha) || Number.isNaN(Date.parse(`${datos.fecha}T12:00:00`)))) return "Revisa la fecha de la evaluación.";
   return null;
 }
@@ -32,11 +38,16 @@ export function validarRegistro(entrada: Entrada, datos: Registro): string | nul
 export function guardarRegistro(entrada: Entrada, datos: Registro): string | null {
   const error = validarRegistro(entrada, datos);
   if (error) return error;
-  const nota = { n: Math.round(leerNumero(datos.nota) * 100) / 100, etiqueta: datos.nombre.trim(), fecha: datos.fecha || null };
+  const nota = {
+    n: Math.round(leerNumero(datos.nota) * 100) / 100,
+    etiqueta: datos.nombre.trim(),
+    fecha: datos.fecha || null,
+    ...(datos.factor?.trim() ? { f: leerNumero(datos.factor) } : {}),
+  };
   if (datos.categoria === null) {
-    entrada.categorias.push({ nombre: datos.nombre.trim(), peso: datos.porcentaje.trim() ? leerNumero(datos.porcentaje) : 0, notas: [{ ...nota, f: 1 }] });
+    entrada.categorias.push({ nombre: datos.nombre.trim(), peso: datos.porcentaje.trim() ? leerNumero(datos.porcentaje) : 0, notas: [{ f: 1, ...nota }] });
   } else if (datos.evaluacion === null) {
-    entrada.categorias[datos.categoria].notas.push({ ...nota, f: 1 });
+    entrada.categorias[datos.categoria].notas.push({ f: 1, ...nota });
   } else {
     Object.assign(entrada.categorias[datos.categoria].notas[datos.evaluacion], nota);
   }

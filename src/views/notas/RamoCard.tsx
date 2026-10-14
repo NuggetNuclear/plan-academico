@@ -1,35 +1,17 @@
-import {
-  Asterisk,
-  Calculator,
-  CalendarDays,
-  CircleCheck,
-  CircleX,
-  Flag,
-  GraduationCap,
-  LayoutTemplate,
-  MoreHorizontal,
-  Plus,
-  RotateCcw,
-  Settings2,
-  Target,
-  Trash2,
-  X,
-} from "lucide-react";
-import { useId, useRef, useState } from "react";
-import { creditosEntrada, esPeriodoActual, nombreEntrada, ramoCatalogo, siglaEntrada, siglaRamo, situacionSemestreUDP, type Ctx } from "../../core/academic";
-import { esPersonalizable } from "../../core/curriculum";
+import { Asterisk, ChevronDown, CircleCheck, CircleX, ClipboardList, Flag, GraduationCap, MoreHorizontal, Plus, RotateCcw, Target, Trash2, TrendingDown } from "lucide-react";
+import { useRef, useState } from "react";
+import { clavePeriodo, creditosEntrada, esPeriodoActual, nombreEntrada, siglaEntrada, situacionSemestreUDP, type Ctx } from "../../core/academic";
 import { NOTA_APROB, fmtNota, leerNumero, numeroConComa } from "../../core/format";
-import { aplicarPlantilla, calcularRamo, configExamen, indiceExamen, notaDesdePuntaje, PLANTILLAS, ramoAsegurado, statsCategoria, type Condicion, type InfoExamen } from "../../core/grades";
-import type { Categoria, ConfigExamen, Entrada, Nota, Periodo } from "../../core/state";
+import { calcularRamo, configExamen, indiceExamen, ramoAsegurado, statsCategoria, type Condicion, type InfoExamen } from "../../core/grades";
+import type { ConfigExamen, Entrada, Periodo } from "../../core/state";
 import { useApp } from "../../store/app";
 import { cerrarEntrada, periodoPorClave, quitarEntrada, reabrirEntrada } from "../../store/mutaciones";
-import { clavePeriodo } from "../../core/academic";
 import { confirmar, pedirTexto, toast } from "../../store/ui";
-import { CampoNumero, CampoTexto } from "../../ui/CampoNumero";
 import { OpcionMenu, Popover } from "../../ui/overlays";
-import { Boton, BotonIcono, Insignia, Segmentado, cx } from "../../ui/primitives";
+import { Boton, BotonIcono, Insignia, cx } from "../../ui/primitives";
 
 import { AvisoCausalRamo, letrasCausal } from "../riesgoCausal";
+import { EditorEvaluacion } from "./EditorEvaluacion";
 import type { SeleccionNota } from "./RegistroNota";
 
 type Editor = (etiqueta: string | null, fn: (e: Entrada, ctx: Ctx, p: Periodo) => void) => void;
@@ -46,450 +28,103 @@ function useEditor(clave: string, uid: string): Editor {
 
 const claseNota = (n: number | null) => (n === null ? "text-fg-3" : n >= NOTA_APROB ? "text-ok" : "text-danger");
 
-// ── Casilla de una evaluación ──
-function CasillaNota({ nota, etiqueta, onEditar, onBorrar, soloLectura, modoActual }: { etiqueta: string; nota: Nota; onEditar: (n: Partial<Nota>) => void; onBorrar: () => void; soloLectura: boolean; modoActual: boolean }) {
-  const ref = useRef<HTMLButtonElement>(null);
-  const [abierto, setAbierto] = useState(false);
-  const [puntaje, setPuntaje] = useState({ obtenido: "", max: "", exigencia: "60" });
-  const campoId = useId();
-  const nombre = nota.etiqueta?.trim() || etiqueta;
-  const fechaCorta = nota.fecha ? new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short" }).format(new Date(nota.fecha + "T12:00:00")) : null;
-  const notaPuntaje = (() => {
-    const o = leerNumero(puntaje.obtenido);
-    const m = leerNumero(puntaje.max);
-    const ex = leerNumero(puntaje.exigencia);
-    if (Number.isNaN(o) || Number.isNaN(m) || Number.isNaN(ex) || m <= 0 || o < 0 || o > m || ex <= 0 || ex >= 100) return null;
-    return notaDesdePuntaje(o, { puntajeMax: m, exigencia: ex / 100 });
-  })();
-
-  return (
-    <div className="group/nota relative flex flex-col items-center">
-      <div
-        className={cx(
-          "flex items-stretch overflow-hidden rounded-lg border bg-surface transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent-soft",
-          nota.n === null ? "border-dashed border-line-strong" : "border-line-strong",
-          nota.f === 0 && "opacity-50",
-        )}
-      >
-        <CampoNumero
-          valor={nota.n}
-          min={1}
-          max={7}
-          minDecimales={1}
-          onGuardar={(v) => onEditar({ n: v })}
-          disabled={soloLectura}
-          placeholder="—"
-          aria-label={nombre ? `Nota de ${nombre}` : "Nota"}
-          title={nota.n === null ? (modoActual ? "Pendiente: no cuenta hasta que pongas la nota" : "Pendiente: cuenta como 1,0") : undefined}
-          className={cx("w-11 bg-transparent px-1 py-1.5 text-center font-mono text-[13px] font-semibold outline-none", claseNota(nota.n))}
-        />
-        {!soloLectura && (
-          <button
-            ref={ref}
-            type="button"
-            onClick={() => setAbierto((v) => !v)}
-            aria-label={`Opciones de ${nombre}`}
-            aria-expanded={abierto}
-            aria-haspopup="dialog"
-            className={cx(
-              "grid min-w-8 place-items-center border-l border-line text-fg-3 hover:bg-surface-2 hover:text-fg",
-              nota.f !== 1 && "w-auto px-1 font-mono text-[10px] font-bold text-accent",
-            )}
-          >
-            {nota.f !== 1 ? `×${numeroConComa(nota.f)}` : <MoreHorizontal className="size-3" />}
-          </button>
-        )}
-      </div>
-      {(nombre || fechaCorta) && (
-        <span className="mt-0.5 max-w-[76px] truncate text-[10px] leading-tight text-fg-3" title={[nombre, fechaCorta].filter(Boolean).join(" · ")}>
-          {fechaCorta ?? nombre}
-        </span>
-      )}
-      <Popover ancla={ref} abierto={abierto} onCerrar={() => setAbierto(false)} ancho={260} className="p-3">
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="col-span-2">
-              <label className="label" htmlFor={`${campoId}-nombre`}>Nombre</label>
-              <CampoTexto id={`${campoId}-nombre`} className="input !py-1.5" valor={nota.etiqueta ?? ""} placeholder="Ej. Solemne 2" onGuardar={(v) => onEditar({ etiqueta: v || undefined })} />
-            </div>
-            <div>
-              <label className="label" htmlFor={`${campoId}-fecha`}>Fecha</label>
-              <input id={`${campoId}-fecha`} type="date" className="input !px-2 !py-1.5" value={nota.fecha ?? ""} onChange={(e) => onEditar({ fecha: e.target.value || null })} />
-            </div>
-            <div>
-              <label htmlFor={`${campoId}-factor`} className="label" title="Cuánto vale frente a las demás de su categoría (0 = no cuenta)">
-                Peso ×
-              </label>
-              <CampoNumero id={`${campoId}-factor`} className="input !py-1.5" valor={nota.f} min={0} max={100} vacioPermitido={false} onGuardar={(v) => onEditar({ f: v ?? 1 })} />
-            </div>
-          </div>
-          <div className="rounded-xl bg-surface-2 p-2.5">
-            <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-bold">
-              <Calculator className="size-3.5 text-accent" /> Desde puntaje
-            </p>
-            <div className="grid grid-cols-3 gap-1.5">
-              <input className="input !px-2 !py-1 text-center" inputMode="decimal" placeholder="Pts" aria-label="Puntaje obtenido" value={puntaje.obtenido} onChange={(e) => setPuntaje({ ...puntaje, obtenido: e.target.value })} />
-              <input className="input !px-2 !py-1 text-center" inputMode="decimal" placeholder="Máx" aria-label="Puntaje máximo" value={puntaje.max} onChange={(e) => setPuntaje({ ...puntaje, max: e.target.value })} />
-              <div className="relative">
-                <input className="input !px-2 !py-1 pr-5 text-center" inputMode="numeric" aria-label="Exigencia" value={puntaje.exigencia} onChange={(e) => setPuntaje({ ...puntaje, exigencia: e.target.value })} />
-                <span className="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[10px] text-fg-3">%</span>
-              </div>
-            </div>
-            <Boton
-              tamano="sm"
-              variante="suave"
-              className="mt-2 w-full"
-              disabled={notaPuntaje === null}
-              onClick={() => {
-                onEditar({ n: notaPuntaje });
-                setAbierto(false);
-              }}
-            >
-              {notaPuntaje !== null ? `Usar nota ${fmtNota(notaPuntaje)}` : "Escribe puntaje y máximo"}
-            </Boton>
-          </div>
-          <OpcionMenu icono={<Trash2 />} peligro onClick={() => (onBorrar(), setAbierto(false))}>
-            Eliminar evaluación
-          </OpcionMenu>
-        </div>
-      </Popover>
-    </div>
-  );
-}
-
-// ── Fila de una categoría ──
-function FilaCategoria({ cat, ci, editar, soloLectura, modoActual, dePresentacion }: { cat: Categoria; ci: number; editar: Editor; soloLectura: boolean; modoActual: boolean; dePresentacion: boolean }) {
-  const st = statsCategoria(cat);
-  const prom = modoActual ? st.promRendido : st.prom;
-  const editarCat = (et: string | null, fn: (c: Categoria) => void) => editar(et, (e) => fn(e.categorias[ci]));
-  return (
-    <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface-2/50 p-3">
-      <div className="flex items-center gap-1.5">
-        <CampoTexto
-          valor={cat.nombre}
-          disabled={soloLectura}
-          placeholder="Categoría"
-          aria-label="Nombre de la categoría"
-          onGuardar={(v) => editarCat("Renombrar categoría", (c) => (c.nombre = v))}
-          className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-[13px] font-semibold outline-none hover:border-line focus:border-accent focus:bg-surface"
-        />
-        <div className="flex items-center rounded-lg border border-line-strong bg-surface pr-1.5 focus-within:border-accent">
-          <CampoNumero
-            valor={cat.peso || null}
-            min={0}
-            max={100}
-            decimales={1}
-            disabled={soloLectura}
-            placeholder="0"
-            aria-label={dePresentacion ? "Porcentaje de la nota de presentación" : "Porcentaje de la categoría"}
-            title={dePresentacion ? "% de la nota de presentación" : "% del ramo"}
-            onGuardar={(v) => editarCat("Cambiar porcentaje", (c) => (c.peso = v ?? 0))}
-            className="w-10 bg-transparent px-1 py-1 text-right text-[13px] font-semibold outline-none"
-          />
-          <span className="text-[12px] text-fg-3">%</span>
-        </div>
-      </div>
-      <div className="flex min-w-0 flex-1 flex-wrap items-start gap-1.5">
-        {cat.notas.map((n, ni) => (
-          <CasillaNota
-            key={ni}
-            nota={n}
-            etiqueta={`${cat.nombre || "Evaluación"} ${ni + 1}`}
-            soloLectura={soloLectura}
-            modoActual={modoActual}
-            onEditar={(cambio) => editarCat("Editar nota", (c) => Object.assign(c.notas[ni], cambio))}
-            onBorrar={() => editarCat("Eliminar evaluación", (c) => c.notas.splice(ni, 1))}
-          />
-        ))}
-        {!soloLectura && (
-          <button
-            type="button"
-            onClick={() => editarCat("Agregar evaluación", (c) => c.notas.push({ n: null, f: 1 }))}
-            className="grid h-[34px] w-9 place-items-center rounded-lg border border-dashed border-line-strong text-fg-3 transition-colors hover:border-accent hover:text-accent"
-            aria-label={`Agregar evaluación a ${cat.nombre || "esta categoría"}`}
-            title="Agregar evaluación"
-          >
-            <Plus className="size-4" />
-          </button>
-        )}
-      </div>
-      <div className="flex items-center gap-1 self-end sm:self-start">
-        <button
-          type="button"
-          disabled={soloLectura}
-          onClick={() => editarCat(cat.req ? "Quitar requisito" : "Marcar requisito", (c) => (c.req = !c.req))}
-          title={cat.req ? "Requisito aprobatorio: debe promediar 4,0 por sí sola (clic para quitar)" : "Marcar como requisito aprobatorio (debe promediar 4,0)"}
-          aria-label={`Exigir promedio 4,0 en ${cat.nombre || "esta categoría"}`}
-          aria-pressed={!!cat.req}
-          className={cx(
-            "grid size-7 place-items-center rounded-lg transition-colors",
-            cat.req ? (prom !== null && prom < NOTA_APROB ? "bg-danger-soft text-danger" : "bg-accent-soft text-accent") : "text-fg-3 hover:bg-surface-3",
-            soloLectura && !cat.req && "invisible",
-          )}
-        >
-          <Asterisk className="size-3.5" />
-        </button>
-        <button
-          type="button"
-          disabled={soloLectura}
-          onClick={() =>
-            editar(cat.examen ? "Quitar examen" : "Marcar examen", (e) =>
-              e.categorias.forEach((c, i) => {
-                if (i === ci && !cat.examen) c.examen = true;
-                else delete c.examen;
-              }),
-            )
-          }
-          title={cat.examen ? "Es el examen: lo demás forma la nota de presentación (clic para quitar)" : "Marcar como examen (nota de presentación y eximición)"}
-          aria-label={`${cat.nombre || "Esta categoría"} es el examen`}
-          aria-pressed={!!cat.examen}
-          className={cx(
-            "grid size-7 place-items-center rounded-lg transition-colors",
-            cat.examen ? "bg-accent-soft text-accent" : "text-fg-3 hover:bg-surface-3",
-            soloLectura && !cat.examen && "invisible",
-          )}
-        >
-          <GraduationCap className="size-3.5" />
-        </button>
-        <span className={cx("w-11 text-right font-mono text-[13px] font-bold tabular", claseNota(prom))} title={modoActual ? "Promedio de lo rendido" : "Promedio con 1,0 en lo pendiente"}>
-          {fmtNota(prom, 2)}
-        </span>
-        {!soloLectura && (
-          <BotonIcono tamano="sm" etiqueta={`Eliminar categoría ${cat.nombre || ci + 1}`} onClick={async () => {
-            if (cat.notas.some((n) => n.n !== null) && !(await confirmar({ titulo: "Eliminar categoría", mensaje: `Se quitarán ${cat.nombre || "esta categoría"} y sus notas. Puedes deshacerlo.`, aceptar: "Eliminar", peligro: true }))) return;
-            editar("Eliminar categoría", (e) => e.categorias.splice(ci, 1));
-            toast("Categoría eliminada", "info", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
-          }}>
-            <Trash2 className="size-3.5" />
-          </BotonIcono>
-        )}
-      </div>
-    </div>
-  );
-}
-
 const pct = (n: number) => fmtNota(n, n % 1 ? 1 : 0);
 
-// ── Nota de presentación, examen y eximición ──
-function PanelExamen({ entrada, info, editar }: { entrada: Entrada; info: InfoExamen; editar: Editor }) {
-  const id = useId();
-  const cfg = configExamen(entrada);
-  const pres = 100 - info.peso;
-  const editarCfg = (etiqueta: string, cambio: Partial<ConfigExamen>) => editar(etiqueta, (e) => (e.examen = { ...configExamen(e), ...cambio }));
-  const categorias = entrada.categorias.map((c, ci) => ({ c, ci })).filter(({ c }) => !c.examen);
-  return (
-    <div className="space-y-3 rounded-xl border border-accent-line bg-accent-soft/40 p-3">
-      <p className="flex items-center gap-1.5 text-[13px] font-semibold">
-        <GraduationCap className="size-4 text-accent" /> Nota de presentación y examen
-      </p>
-      <div className="space-y-1.5">
-        <p className="text-xs font-semibold text-fg-2">Los % de las demás categorías son…</p>
-        <Segmentado
-          tamano="xs"
-          etiqueta="Los porcentajes de las demás categorías son"
-          valor={cfg.escala}
-          onChange={(escala) => editarCfg("Escala de la presentación", { escala })}
-          opciones={[
-            { valor: "presentacion", etiqueta: "De la presentación", title: `Suman 100% y esa nota vale ${pct(pres)}% del ramo` },
-            { valor: "ramo", etiqueta: "Del ramo", title: `Suman ${pct(pres)}%, junto al ${pct(info.peso)}% del examen` },
-          ]}
-        />
-        <p className="text-xs text-fg-2">
-          {cfg.escala === "presentacion"
-            ? `Suman 100% y dan tu nota de presentación, que vale ${pct(pres)}% del ramo (el examen, ${pct(info.peso)}%).`
-            : `Suman ${pct(pres)}% del ramo; tu nota de presentación es ese aporte dividido por ${fmtNota(pres / 100, 2)}.`}
-        </p>
-      </div>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-2">
-        <div>
-          <label className="label" htmlFor={`${id}-exime`}>Te eximes con</label>
-          <CampoNumero id={`${id}-exime`} aria-label="Nota de presentación para eximirse" className="input !py-1.5" valor={cfg.eximicion} min={1} max={7} decimales={1} minDecimales={1} placeholder="No exime" onGuardar={(v) => editarCfg("Nota de eximición", { eximicion: v })} />
-        </div>
-        <div>
-          <label className="label" htmlFor={`${id}-asis-min`}>Asistencia exigida</label>
-          <CampoNumero id={`${id}-asis-min`} aria-label="Asistencia exigida para eximirse (%)" className="input !py-1.5" valor={cfg.asistenciaMin} min={0} max={100} decimales={0} placeholder="No exige" disabled={cfg.eximicion === null} onGuardar={(v) => editarCfg("Asistencia exigida", { asistenciaMin: v })} />
-        </div>
-        <div>
-          <label className="label" htmlFor={`${id}-asis`}>Tu asistencia</label>
-          <CampoNumero id={`${id}-asis`} aria-label="Tu asistencia (%)" className="input !py-1.5" valor={cfg.asistencia} min={0} max={100} decimales={0} placeholder="%" disabled={cfg.eximicion === null || cfg.asistenciaMin === null} onGuardar={(v) => editarCfg("Tu asistencia", { asistencia: v })} />
-        </div>
-        <div>
-          <label className="label" htmlFor={`${id}-min-np`}>Mínimo para dar examen</label>
-          <CampoNumero id={`${id}-min-np`} aria-label="Nota de presentación mínima para dar examen" className="input !py-1.5" valor={cfg.minPresentacion ?? null} min={1} max={7} decimales={1} minDecimales={1} placeholder="Sin mínimo" onGuardar={(v) => editarCfg("Mínimo para dar examen", { minPresentacion: v })} />
-        </div>
-      </div>
-      <p className="text-xs text-fg-2">
-        {cfg.eximicion === null
-          ? "Si el ramo exime, escribe la nota de presentación con la que te eximes (ej. 5,0). Déjalo vacío si siempre se rinde examen."
-          : `Con presentación ${fmtNota(cfg.eximicion)} o más${cfg.asistenciaMin !== null ? ` y ${cfg.asistenciaMin}% de asistencia` : ""}, no rindes examen y tu nota final es la de presentación.`}
-        {cfg.minPresentacion ? ` Con presentación bajo ${fmtNota(cfg.minPresentacion)} no puedes dar examen y repruebas.` : ""}
-      </p>
-      {categorias.length > 0 && (
-        <div className="space-y-1.5">
-          <p className="text-xs font-semibold text-fg-2">Mínimos por categoría (opcional)</p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="text-left align-bottom text-fg-3">
-                  <th scope="col" className="pr-2 pb-1 font-semibold">Categoría</th>
-                  {COLUMNAS_MINIMOS.map((col) => (
-                    <th key={col.clave} scope="col" className="pr-1 pb-1 font-semibold">{col.titulo}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {categorias.map(({ c, ci }) => {
-                  const nombre = c.nombre || `Categoría ${ci + 1}`;
-                  return (
-                    <tr key={ci}>
-                      <th scope="row" className="max-w-24 pr-2 py-0.5 text-left text-[12px] font-medium break-words">{nombre}</th>
-                      {COLUMNAS_MINIMOS.map((col) => (
-                        <td key={col.clave} className="pr-1 py-0.5">
-                          <CampoNumero
-                            aria-label={`${col.etiqueta} en ${nombre}`}
-                            className="input w-full min-w-14 !px-2 !py-1 text-center"
-                            valor={c.minimos?.[col.clave] ?? null}
-                            min={1}
-                            max={7}
-                            decimales={1}
-                            minDecimales={1}
-                            placeholder="—"
-                            disabled={col.clave !== "examen" && cfg.eximicion === null}
-                            onGuardar={(v) =>
-                              editar(col.etiqueta, (e) => {
-                                const cat = e.categorias[ci];
-                                cat.minimos = { ...cat.minimos, [col.clave]: v };
-                              })
-                            }
-                          />
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-xs text-fg-2">Ej.: tareas ≥ 5,5 y cada tarea ≥ 4,0 para eximirse, y tareas ≥ 4,0 para dar examen. Sin derecho a examen, repruebas el ramo.</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const COLUMNAS_MINIMOS = [
-  { clave: "eximir", titulo: "Eximirse: promedio ≥", etiqueta: "Promedio mínimo para eximirse" },
-  { clave: "eximirCada", titulo: "Eximirse: cada nota ≥", etiqueta: "Nota mínima de cada evaluación para eximirse" },
-  { clave: "examen", titulo: "Dar examen: promedio ≥", etiqueta: "Promedio mínimo para dar examen" },
-] as const;
+type Tono = "ok" | "warn" | "danger" | "acento" | "neutro";
+interface Ayuda { k: string; tono: Tono; icono: React.ReactNode; texto: string }
+const TONO_TEXTO: Record<Tono, string> = { ok: "text-ok", warn: "text-warn", danger: "text-danger", acento: "text-accent", neutro: "text-fg-2" };
+const PRIORIDAD: Record<Tono, number> = { danger: 0, warn: 1, acento: 2, ok: 3, neutro: 4 };
 
 /** Mensajes sobre la nota de presentación, la eximición y el derecho a examen. */
-function ayudasExamen(ex: InfoExamen, cfg: ConfigExamen): React.ReactNode[] {
-  const out: React.ReactNode[] = [];
-  if (ex.np !== null)
-    out.push(
-      <span key="np" className="flex items-center gap-1 font-semibold text-fg-2">
-        <GraduationCap className="size-3.5" />
-        Nota de presentación {fmtNota(ex.np, 2)}{ex.presentacionCompleta ? "" : " con lo rendido"}
-      </span>,
-    );
+function ayudasExamen(ex: InfoExamen, cfg: ConfigExamen): Ayuda[] {
+  const out: Ayuda[] = [];
+  const ic = <GraduationCap className="size-3.5" />;
+  if (ex.np !== null) out.push({ k: "np", tono: "neutro", icono: ic, texto: `Nota de presentación ${fmtNota(ex.np, 2)}${ex.presentacionCompleta ? "" : " con lo rendido"}` });
   const asistencia = ex.asistenciaPendiente ? ` (y ${cfg.asistenciaMin}% de asistencia)` : "";
   const lo = (c: Condicion) => (c.cada ? `saca al menos ${fmtNota(c.nec, 1)} en cada una de las que quedan` : `necesitas ${fmtNota(c.nec, 2)} en lo que queda`);
-  if (ex.estado === "eximido") out.push(<span key="ex" className="flex items-center gap-1 font-semibold text-ok"><CircleCheck className="size-3.5" />Eximido del examen{asistencia}: tu nota final es la de presentación</span>);
-  else if (ex.estado === "asegurada") out.push(<span key="ex" className="flex items-center gap-1 font-semibold text-ok"><CircleCheck className="size-3.5" />Eximición asegurada aunque saques 1,0 antes del examen{asistencia}</span>);
+  if (ex.estado === "eximido") out.push({ k: "ex", tono: "ok", icono: <CircleCheck className="size-3.5" />, texto: `Eximido del examen${asistencia}: tu nota final es la de presentación` });
+  else if (ex.estado === "asegurada") out.push({ k: "ex", tono: "ok", icono: <CircleCheck className="size-3.5" />, texto: `Eximición asegurada aunque saques 1,0 antes del examen${asistencia}` });
   else if (ex.estado === "posible")
     ex.condicionesEximir
       .filter((c) => c.estado === "pendiente")
-      .forEach((c, i) => out.push(<span key={"ex" + i} className="flex items-center gap-1 font-semibold text-accent"><GraduationCap className="size-3.5" />Para eximirte, {c.texto}: {lo(c)}{i === 0 ? asistencia : ""}</span>));
+      .forEach((c, i) => out.push({ k: "ex" + i, tono: "acento", icono: ic, texto: `Para eximirte, ${c.texto}: ${lo(c)}${i === 0 ? asistencia : ""}` }));
   else if (ex.estado === "no-eximido") {
     const falla = ex.condicionesEximir.find((c) => c.estado === "falla");
-    out.push(
-      <span key="ex" className="flex items-center gap-1 font-semibold text-warn">
-        <GraduationCap className="size-3.5" />
-        {ex.motivo === "asistencia" ? `Sin eximición: tu asistencia está bajo ${cfg.asistenciaMin}%` : ex.motivo === "requisito" ? "Sin eximición: tienes un requisito bajo 4,0" : `Sin eximición: no cumples ${falla?.texto ?? "lo exigido"}`}
-        {ex.habilitacion !== "no-habilitado" && `. Vas a examen (${pct(ex.peso)}%)`}
-      </span>,
-    );
+    const motivo = ex.motivo === "asistencia" ? `tu asistencia está bajo ${cfg.asistenciaMin}%` : ex.motivo === "requisito" ? "tienes un requisito bajo 4,0" : `no cumples ${falla?.texto ?? "lo exigido"}`;
+    out.push({ k: "ex", tono: "warn", icono: ic, texto: `Sin eximición: ${motivo}${ex.habilitacion !== "no-habilitado" ? `. Vas a examen (${pct(ex.peso)}%)` : ""}` });
   }
   if (ex.habilitacion === "no-habilitado") {
     const falla = ex.condicionesExamen.find((c) => c.estado === "falla");
-    out.push(<span key="hab" className="flex items-center gap-1 font-semibold text-danger"><CircleX className="size-3.5" />Sin derecho a examen: no cumples {falla?.texto ?? "los mínimos"}. Repruebas el ramo</span>);
+    out.push({ k: "hab", tono: "danger", icono: <CircleX className="size-3.5" />, texto: `Sin derecho a examen: no cumples ${falla?.texto ?? "los mínimos"}. Repruebas el ramo` });
   } else if (ex.habilitacion === "pendiente")
     ex.condicionesExamen
       .filter((c) => c.estado === "pendiente")
-      .forEach((c, i) => out.push(<span key={"hab" + i} className="flex items-center gap-1 font-semibold text-warn"><GraduationCap className="size-3.5" />Para dar examen, {c.texto}: {lo(c)}</span>));
+      .forEach((c, i) => out.push({ k: "hab" + i, tono: "warn", icono: ic, texto: `Para dar examen, ${c.texto}: ${lo(c)}` }));
   return out;
 }
 
+const fechaCorta = (f: string) => new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short" }).format(new Date(f + "T12:00:00"));
+
 // ── Tarjeta del ramo ──
 export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; periodo: Periodo; entrada: Entrada; onRegistrar: (seleccion?: SeleccionNota) => void }) {
-  const [configurando, setConfigurando] = useState(false);
-  const panelId = useId();
+  const [editando, setEditando] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const [verTodo, setVerTodo] = useState(false);
+  const refMenu = useRef<HTMLButtonElement>(null);
   const clave = clavePeriodo(periodo);
   const editar = useEditor(clave, entrada.uid);
-  const mutar = useApp((s) => s.mutar);
-  const refPlantilla = useRef<HTMLButtonElement>(null);
-  const [plantillas, setPlantillas] = useState(false);
   const r = calcularRamo(entrada);
-  const ramo = ramoCatalogo(ctx, entrada.id);
   const conv = periodo.tipo === "convalidaciones";
   const actual = esPeriodoActual(ctx.st, periodo);
   const cursando = actual && ctx.st.cursando.includes(entrada.id);
   const asegurado = ramoAsegurado(r);
   const reqMal = r.reqFallidos.length > 0 || r.examen?.habilitacion === "no-habilitado";
   const notaMostrada = r.nf !== null ? Math.min(7, r.nf + (r.cerrado ? r.decimas : 0)) : null;
-  const personalizable = esPersonalizable(ramo) && !r.cerrado;
   const ex = r.examen;
   const cfgExamen = configExamen(entrada);
   const iExamen = indiceExamen(entrada);
   const escalaPresentacion = iExamen >= 0 && cfgExamen.escala === "presentacion";
   const eximido = ex?.estado === "eximido" || ex?.estado === "asegurada";
+  const nombre = nombreEntrada(ctx, entrada);
+  const sinConfigurar = entrada.categorias.length === 0;
+  const hayNotas = entrada.categorias.some((c) => c.notas.some((n) => n.n !== null));
 
   const chip = r.cerrado ? (
     <Insignia tono={notaMostrada! >= NOTA_APROB ? "ok" : "danger"}>{conv ? "Convalidado" : notaMostrada! >= NOTA_APROB ? "Aprobado" : "Reprobado"}</Insignia>
   ) : asegurado ? (
     <Insignia tono="ok" icono={<CircleCheck className="size-3" />}>4,0 asegurado</Insignia>
+  ) : eximido ? (
+    <Insignia tono="ok" icono={<GraduationCap className="size-3" />}>Eximido</Insignia>
   ) : conv ? (
     <Insignia tono="acento">Convalidado</Insignia>
   ) : cursando ? (
     <Insignia tono="info">Cursando</Insignia>
   ) : null;
 
-  // Mensajes de lo que necesitas (sin redundancias).
-  const ayudas: React.ReactNode[] = [];
-  if (!r.cerrado) {
-    if (r.nf === null && !entrada.categorias.some((c) => c.notas.some((n) => n.n !== null))) ayudas.push(<span key="v" className="text-fg-3">Registra tu primera nota para empezar</span>);
-    else {
-      const maxReq = r.reqMetas.length ? Math.max(...r.reqMetas.map((m) => m.nec)) : null;
-      const generalManda = r.reqMetas.length === 0 || r.pendienteNoReq > 0 || (r.necesaria !== null && r.necesaria > (maxReq ?? 0));
-      if (r.restante > 0 && r.necesaria !== null && generalManda && ex?.habilitacion !== "no-habilitado") {
-        if (r.necesaria <= 1 && !r.reqMetas.length) ayudas.push(<span key="a" className="flex items-center gap-1 font-semibold text-ok"><CircleCheck className="size-3.5" />4,0 asegurado aunque saques 1,0</span>);
-        else if (r.necesaria > 7) ayudas.push(<span key="a" className="flex items-center gap-1 font-semibold text-danger"><CircleX className="size-3.5" />Ya no alcanza el 4,0</span>);
-        else
-          ayudas.push(
-            <span key="a" className={cx("flex items-center gap-1 font-semibold", r.necesaria <= 4 ? "text-ok" : "text-warn")}>
-              <Target className="size-3.5" />
-              Necesitas {fmtNota(r.necesaria, 2)} {ex?.necesariaExamen != null ? "en el examen" : `en el ${pct(r.restante)}% restante`}
-            </span>,
-          );
-      }
-      if (ex) ayudas.push(...ayudasExamen(ex, cfgExamen));
-      r.reqMetas.forEach((m) => ayudas.push(<span key={m.nombre} className="flex items-center gap-1 font-semibold text-warn"><Asterisk className="size-3.5" />{m.nombre}: ≥ {fmtNota(m.nec, 2)} en lo que queda</span>));
-      r.reqFallidos.forEach((n) => ayudas.push(<span key={"f" + n} className="flex items-center gap-1 font-semibold text-danger"><Asterisk className="size-3.5" />{n}: bajo 4,0</span>));
-      if (r.necesariaMeta !== null && entrada.meta)
-        ayudas.push(
-          <span key="m" className="flex items-center gap-1 font-semibold text-accent">
-            <Flag className="size-3.5" />
-            Meta {fmtNota(entrada.meta)}: {r.necesariaMeta > 7 ? "ya no alcanza" : r.necesariaMeta <= 1 ? "asegurada" : `necesitas ${fmtNota(r.necesariaMeta, 2)}`}
-          </span>,
-        );
+  // Lo que necesitas, de lo más urgente a lo informativo.
+  const ayudas: Ayuda[] = [];
+  if (!r.cerrado && hayNotas) {
+    const maxReq = r.reqMetas.length ? Math.max(...r.reqMetas.map((m) => m.nec)) : null;
+    const generalManda = r.reqMetas.length === 0 || r.pendienteNoReq > 0 || (r.necesaria !== null && r.necesaria > (maxReq ?? 0));
+    if (r.restante > 0 && r.necesaria !== null && generalManda && ex?.habilitacion !== "no-habilitado") {
+      if (r.necesaria <= 1 && !r.reqMetas.length) ayudas.push({ k: "a", tono: "ok", icono: <CircleCheck className="size-3.5" />, texto: "4,0 asegurado aunque saques 1,0" });
+      else if (r.necesaria > 7) ayudas.push({ k: "a", tono: "danger", icono: <CircleX className="size-3.5" />, texto: "Ya no alcanza el 4,0" });
+      else ayudas.push({ k: "a", tono: r.necesaria <= 4 ? "ok" : "warn", icono: <Target className="size-3.5" />, texto: `Para aprobar necesitas ${fmtNota(r.necesaria, 2)} ${ex?.necesariaExamen != null ? "en el examen" : `en lo que queda (${pct(r.restante)}%)`}` });
     }
+    if (ex) ayudas.push(...ayudasExamen(ex, cfgExamen));
+    r.reqMetas.forEach((m) => ayudas.push({ k: "r" + m.nombre, tono: "warn", icono: <Asterisk className="size-3.5" />, texto: `${m.nombre} debe aprobarse: ≥ ${fmtNota(m.nec, 2)} en lo que queda` }));
+    r.reqFallidos.forEach((n) => ayudas.push({ k: "f" + n, tono: "danger", icono: <Asterisk className="size-3.5" />, texto: `${n} quedó bajo 4,0 y debía aprobarse` }));
+    if (r.necesariaMeta !== null && entrada.meta)
+      ayudas.push({ k: "m", tono: "acento", icono: <Flag className="size-3.5" />, texto: `Meta ${fmtNota(entrada.meta)}: ${r.necesariaMeta > 7 ? "ya no alcanza" : r.necesariaMeta <= 1 ? "asegurada" : `necesitas ${fmtNota(r.necesariaMeta, 2)}`}` });
   }
+  // El aviso principal va primero; la nota de presentación es información, no urgencia.
+  const ordenadas = [...ayudas].sort((a, b) => (a.k === "a" ? -1 : b.k === "a" ? 1 : PRIORIDAD[a.tono] - PRIORIDAD[b.tono]));
+  const visibles = verTodo ? ordenadas : ordenadas.slice(0, 2);
 
   const registrarFinal = async () => {
     const v = await pedirTexto({
       titulo: "Registrar nota final",
-      mensaje: `${nombreEntrada(ctx, entrada)}. Al registrarla, el ramo se actualiza en la malla y entra a tu PPA.`,
+      mensaje: `${nombre}. Al registrarla, el ramo se actualiza en la malla y entra a tu PPA.`,
       etiqueta: "Cierre del ramo",
       aceptar: "Registrar",
       campo: {
@@ -508,311 +143,223 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
     if (v === null) return;
     const nota = leerNumero(v);
     const causales = (actual && situacionSemestreUDP(ctx).ramos.find((x) => x.entrada.uid === entrada.uid)?.causales) || [];
-    editar(`Nota final de ${nombreEntrada(ctx, entrada)}`, (e, c, p) => cerrarEntrada(c, p, e, nota));
-    if (nota >= NOTA_APROB) toast(`${nombreEntrada(ctx, entrada)} ${conv ? "convalidado" : "aprobado"} con ${fmtNota(nota)} 🎉`);
-    else if (causales.length) toast(`${nombreEntrada(ctx, entrada)} reprobado con ${fmtNota(nota)}: quedas en ${letrasCausal(causales)} de eliminación. Revisa Inicio › Tu situación académica.`, "error");
-    else toast(`${nombreEntrada(ctx, entrada)} reprobado con ${fmtNota(nota)}. La nota queda en tu PPA y el ramo vuelve a estar disponible.`, "error");
+    editar(`Nota final de ${nombre}`, (e, c, p) => cerrarEntrada(c, p, e, nota));
+    if (nota >= NOTA_APROB) toast(`${nombre} ${conv ? "convalidado" : "aprobado"} con ${fmtNota(nota)} 🎉`);
+    else if (causales.length) toast(`${nombre} reprobado con ${fmtNota(nota)}: quedas en ${letrasCausal(causales)} de eliminación. Revisa Inicio › Tu situación académica.`, "error");
+    else toast(`${nombre} reprobado con ${fmtNota(nota)}. La nota queda en tu PPA y el ramo vuelve a estar disponible.`, "error");
   };
 
+  const definirMeta = async () => {
+    const v = await pedirTexto({
+      titulo: "Meta para este ramo",
+      mensaje: "¿Qué nota te gustaría sacar? Te diremos cuánto necesitas en lo que queda. Déjalo vacío para quitarla.",
+      aceptar: "Guardar meta",
+      campo: {
+        etiqueta: "Nota objetivo",
+        valor: entrada.meta ? numeroConComa(entrada.meta) : "",
+        placeholder: "Ej. 5,5",
+        inputMode: "decimal",
+        validar: (x) => {
+          if (!x.trim()) return null;
+          const n = leerNumero(x);
+          return Number.isNaN(n) || n < 1 || n > 7 ? "Escribe una nota entre 1,0 y 7,0." : null;
+        },
+      },
+    });
+    if (v === null) return;
+    editar("Meta del ramo", (e) => (e.meta = v.trim() ? Math.round(leerNumero(v) * 10) / 10 : null));
+  };
+
+  const agregarDecimas = async () => {
+    const v = await pedirTexto({
+      titulo: "Agregar décimas",
+      mensaje: nombre,
+      aceptar: "Guardar",
+      campo: {
+        etiqueta: "Décimas (0 a 1,0)",
+        valor: numeroConComa(entrada.decimas || 0),
+        inputMode: "decimal",
+        validar: (x) => {
+          const n = x.trim() === "" ? 0 : leerNumero(x);
+          return Number.isNaN(n) || n < 0 || n > 1 ? "Escribe un número entre 0 y 1,0." : null;
+        },
+      },
+    });
+    if (v === null) return;
+    const d = v.trim() === "" ? 0 : Math.round(leerNumero(v) * 10) / 10;
+    editar("Décimas", (e) => (e.decimas = d));
+  };
+
+  const quitar = async () => {
+    const tieneDatos = entrada.notaFinal !== null || hayNotas;
+    if (tieneDatos && !(await confirmar({ titulo: "Quitar ramo", mensaje: `¿Quitar ${nombre} de este periodo? Se perderán sus notas (puedes deshacerlo).`, aceptar: "Quitar", peligro: true }))) return;
+    editar(`Quitar ${nombre}`, (e, c, p) => quitarEntrada(c, p, e));
+    toast(`${nombre} quitado`, "info", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
+  };
+
+  const opcion = (fn: () => void) => () => (setMenu(false), fn());
+
   return (
-    <article aria-label={nombreEntrada(ctx, entrada)}
+    <article
+      aria-label={nombre}
       className={cx(
-        "card min-w-0 flex flex-col overflow-hidden !rounded-2xl transition-colors",
+        "card flex min-w-0 flex-col overflow-hidden !rounded-2xl transition-colors",
         r.cerrado ? (notaMostrada! >= NOTA_APROB ? "border-ok/30" : "border-danger/30") : asegurado ? "border-ok/30" : reqMal ? "border-danger/30" : "",
       )}
     >
-      <header className="flex items-start gap-3 border-b border-line p-4">
+      <header className="flex items-start gap-3 p-4 pb-3">
         <div className="min-w-0 flex-1">
-          {personalizable && configurando ? (
-            <div className="flex flex-wrap gap-1.5">
-              <CampoTexto
-                className="input w-28 !px-2 !py-1 font-mono !text-[12px]"
-                valor={ctx.st.alias[entrada.id]?.sigla ?? ""}
-                placeholder={siglaRamo(ctx, entrada.id)}
-                aria-label="Sigla real"
-                onGuardar={(v) =>
-                  mutar("Cambiar sigla", ({ st }) => {
-                    st.alias[entrada.id] = { ...st.alias[entrada.id], sigla: v || undefined };
-                  })
-                }
-              />
-              <CampoTexto
-                className="input min-w-0 flex-1 !px-2 !py-1 !text-[13px] font-semibold"
-                valor={ctx.st.alias[entrada.id]?.nombre ?? ""}
-                placeholder={ramo?.nombre ?? entrada.id}
-                aria-label="Nombre real del curso"
-                onGuardar={(v) =>
-                  mutar("Cambiar nombre", ({ st }) => {
-                    st.alias[entrada.id] = { ...st.alias[entrada.id], nombre: v || undefined };
-                  })
-                }
-              />
-            </div>
-          ) : (
-            <>
-              <p className="font-mono text-[11px] font-semibold text-fg-3">{siglaEntrada(ctx, entrada)}</p>
-              <h3 className="text-[14.5px] leading-snug font-bold">{nombreEntrada(ctx, entrada)}</h3>
-            </>
-          )}
+          <p className="font-mono text-[11px] font-semibold text-fg-3">{siglaEntrada(ctx, entrada)}</p>
+          <h3 className="text-[15px] leading-snug font-bold">{nombre}</h3>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <Insignia>{creditosEntrada(ctx, entrada)} cr</Insignia>
             {chip}
-            {!r.cerrado && eximido && <Insignia tono="ok" icono={<GraduationCap className="size-3" />}>Eximido</Insignia>}
           </div>
         </div>
-        <div className="flex w-20 shrink-0 flex-col items-end gap-1.5 sm:w-28">
+        <div className="flex shrink-0 flex-col items-end">
           <div className="flex items-baseline gap-1.5">
-            <span className={cx("text-[30px] leading-none font-extrabold tracking-tight tabular", claseNota(notaMostrada))}>{fmtNota(notaMostrada)}</span>
             {r.cerrado && (
-              <button
-                type="button"
-                className="rounded-md border border-line px-1.5 py-0.5 text-[11px] font-bold text-fg-2 hover:border-accent hover:text-accent"
-                title="Agregar décimas"
-                onClick={async () => {
-                  const v = await pedirTexto({
-                    titulo: "Agregar décimas",
-                    mensaje: nombreEntrada(ctx, entrada),
-                    aceptar: "Guardar",
-                    campo: {
-                      etiqueta: "Décimas (0 a 1,0)",
-                      valor: numeroConComa(entrada.decimas || 0),
-                      inputMode: "decimal",
-                      validar: (x) => {
-                        const n = x.trim() === "" ? 0 : leerNumero(x);
-                        return Number.isNaN(n) || n < 0 || n > 1 ? "Escribe un número entre 0 y 1,0." : null;
-                      },
-                    },
-                  });
-                  if (v === null) return;
-                  const d = v.trim() === "" ? 0 : Math.round(leerNumero(v) * 10) / 10;
-                  editar("Décimas", (e) => (e.decimas = d));
-                }}
-              >
+              <button type="button" className="rounded-md border border-line px-1.5 py-0.5 text-[11px] font-bold text-fg-2 hover:border-accent hover:text-accent" title="Agregar décimas" onClick={agregarDecimas}>
                 {entrada.decimas ? `+${fmtNota(entrada.decimas)}` : "+ déc."}
               </button>
             )}
+            <span className={cx("text-[32px] leading-none font-extrabold tracking-tight tabular", claseNota(notaMostrada))}>{fmtNota(notaMostrada)}</span>
           </div>
-          <span className="max-w-28 text-right text-[11px] font-medium text-fg-3">
-            {r.cerrado ? "Nota final" : ex?.estado === "eximido" ? "Nota de presentación" : r.modo === "peor" ? "Si sacas 1,0 en lo que falta" : r.pesoEvaluado > 0 && r.pesoEvaluado < 100 ? `Promedio · ${fmtNota(r.pesoEvaluado, r.pesoEvaluado % 1 ? 1 : 0)}% evaluado` : "Promedio actual"}
+          <span className="mt-1 max-w-32 text-right text-[11px] font-medium text-fg-3">
+            {r.cerrado ? "Nota final" : !hayNotas ? "Sin notas aún" : ex?.estado === "eximido" ? "Nota de presentación" : r.modo === "peor" ? "Peor caso" : r.pesoEvaluado > 0 && r.pesoEvaluado < 100 ? `Promedio · ${pct(r.pesoEvaluado)}% evaluado` : "Promedio"}
           </span>
         </div>
-
       </header>
 
-      {!configurando && (
-        <div id={`${panelId}-notas`} className="space-y-3 p-4">
-          {actual && !r.cerrado && <AvisoCausalRamo ctx={ctx} entrada={entrada} />}
-          {entrada.categorias.length === 0 ? <p className="text-sm leading-relaxed text-fg-2">¿Te entregaron una nota? Regístrala ahora. Puedes definir los porcentajes después.</p> :
-            <div className="space-y-3">
-              {entrada.categorias.map((cat, ci) => <div key={ci}>
-                <p className="mb-1.5 flex flex-wrap justify-between gap-1 text-xs font-semibold text-fg-2">
-                  <span>{cat.nombre || `Categoría ${ci + 1}`}</span>
-                  <span>{!cat.peso ? "Porcentaje por definir" : ci === iExamen ? `Examen · ${cat.peso}% del ramo` : escalaPresentacion ? `${cat.peso}% de la presentación` : `${cat.peso}% del ramo`}</span>
-                </p>
-                <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
-                  {cat.notas.map((n, ni) => {
-                    const nombre = n.etiqueta || `${cat.nombre || "Evaluación"} ${ni + 1}`;
-                    const contenido = <><span className="min-w-0 flex-1"><span className="block break-words text-[13px] font-medium">{nombre}</span><span className="block text-xs text-fg-2">{ci === iExamen && eximido ? "No lo rindes: eximido" : n.n === null ? "Pendiente" : n.f === 0 ? "No cuenta" : "Registrada"}{n.fecha ? ` · ${new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short" }).format(new Date(n.fecha + "T12:00:00"))}` : ""}</span></span><span className={cx("text-lg font-bold tabular", claseNota(n.n))}>{n.n === null ? "+" : fmtNota(n.n)}</span></>;
-                    return r.cerrado ? <div key={ni} className="flex items-center gap-2 rounded-xl bg-surface-2 p-3">{contenido}</div> : <button key={ni} type="button" className="flex min-h-16 items-center gap-2 rounded-xl border border-line bg-surface-2 p-3 text-left transition-colors hover:border-accent" onClick={() => onRegistrar({ ci, ni })}>{contenido}<span className="sr-only">{n.n === null ? ". Toca para registrar la nota" : ". Toca para editar"}</span></button>;
-                  })}
-                </div>
-              </div>)}
-            </div>}
-          {entrada.categorias.some((c) => c.peso === 0 && c.notas.some((n) => n.n !== null)) && <p className="text-xs text-warn">Hay notas sin porcentaje: aún no cuentan en tu promedio. Puedes asignarlo en «Configurar ramo».</p>}
-          {entrada.categorias.length > 0 && <div className="space-y-1 text-xs">{ayudas}</div>}
-        </div>
-      )}
-      <div className="flex flex-wrap gap-2 border-t border-line p-3">
-        {!r.cerrado && <Boton variante="suave" icono={<Plus className="size-4" />} onClick={() => onRegistrar()}>Registrar nota</Boton>}
-        <Boton variante="fantasma" className="ml-auto" icono={<Settings2 className="size-4" />} aria-expanded={configurando} aria-controls={`${panelId}-config`} onClick={() => setConfigurando((v) => !v)}>{configurando ? "Cerrar ajustes" : r.cerrado ? "Ver opciones" : "Configurar ramo"}</Boton>
-      </div>
-      {configurando && <div id={`${panelId}-config`}>
-      {(
-        <div className="flex flex-1 flex-col gap-2 p-4">
-          <p className="text-sm font-semibold">Evaluaciones y porcentajes</p>
-          <p className="mb-2 text-xs text-fg-2">Cada categoría agrupa evaluaciones y aporta un porcentaje de la nota final. Los porcentajes deben sumar 100%. Si hay examen, márcalo con el birrete para calcular tu nota de presentación y la eximición. Los cambios se guardan al salir del campo.</p>
-          {!r.cerrado && entrada.categorias.length > 0 && (
-            <Segmentado
-              tamano="xs"
-              etiqueta="Cómo calcular el promedio"
-              valor={r.modo}
-              onChange={(m) => editar(null, (e) => (e.modo = m))}
-              opciones={[
-                { valor: "actual", etiqueta: "Actual", title: "Solo lo que ya rendiste, ponderado por el % evaluado" },
-                { valor: "peor", etiqueta: "Peor caso", title: "Lo pendiente cuenta como 1,0: si igual da 4,0, ya aprobaste" },
-              ]}
-            />
-          )}
-          {entrada.categorias.map((c, ci) => (
-            <FilaCategoria key={ci} cat={c} ci={ci} editar={editar} soloLectura={r.cerrado} modoActual={r.modo === "actual"} dePresentacion={escalaPresentacion && ci !== iExamen} />
-          ))}
-          {!r.cerrado && ex && <PanelExamen entrada={entrada} info={ex} editar={editar} />}
-          {!r.cerrado && entrada.categorias.length === 0 && (
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line-strong px-4 py-5 text-center">
-              <p className="text-[13px] text-fg-2">¿Cómo se evalúa este ramo? Parte de una plantilla o agrega categorías a mano.</p>
-              <div className="flex flex-wrap justify-center gap-1.5">
-                {PLANTILLAS.map((p) => (
-                  <Boton
-                    key={p.nombre}
-                    tamano="sm"
-                    variante="suave"
-                    onClick={() =>
-                      editar(`Plantilla ${p.nombre}`, (e) => {
-                        aplicarPlantilla(e, p);
-                      })
-                    }
-                  >
-                    {p.nombre}
-                  </Boton>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[12px]">
-            {!r.cerrado && ex ? (
-              <span className={cx("font-semibold", ex.pesoPresentacion > ex.pesoPresentacionEsperado + 0.05 ? "text-danger" : Math.abs(ex.pesoPresentacion - ex.pesoPresentacionEsperado) < 0.05 ? "text-fg-3" : "text-warn")}>
-                Presentación {pct(ex.pesoPresentacion)}% de {pct(ex.pesoPresentacionEsperado)}% · Examen {pct(ex.peso)}%
-              </span>
-            ) : !r.cerrado && entrada.categorias.length > 0 && (
-              <span className={cx("font-semibold", r.avisoPorcentaje ? "text-danger" : Math.abs(r.pesoTotal - 100) < 0.05 ? "text-fg-3" : "text-warn")}>
-                Ponderación {fmtNota(r.pesoTotal, r.pesoTotal % 1 ? 1 : 0)}%{r.avisoPorcentaje ? " · supera el 100%" : r.pesoTotal < 99.95 ? " · falta definir" : ""}
-              </span>
-            )}
-            {ayudas}
-          </div>
-        </div>
-      )}
+      <div className="flex-1 space-y-3 px-4 pb-4">
+        {actual && !r.cerrado && <AvisoCausalRamo ctx={ctx} entrada={entrada} />}
 
-      <footer className="flex flex-wrap items-center gap-1.5 border-t border-line bg-surface-2/50 px-3 py-2.5">
-        {!r.cerrado ? (
-          <>
-            <Boton tamano="sm" variante="fantasma" icono={<Plus className="size-4" />} onClick={() => editar("Agregar categoría", (e) => e.categorias.push({ nombre: "", peso: 0, notas: [{ n: null, f: 1 }] }))}>
-              Agregar categoría
-            </Boton>
-            {entrada.categorias.length > 0 && (
-              <>
-                <Boton ref={refPlantilla} tamano="sm" variante="fantasma" icono={<LayoutTemplate className="size-4" />} onClick={() => setPlantillas((v) => !v)}>
-                  Plantilla
-                </Boton>
-                <Popover ancla={refPlantilla} abierto={plantillas} onCerrar={() => setPlantillas(false)} ancho={240}>
-                  <p className="px-2.5 py-1 text-[11.5px] font-bold text-fg-3">Reemplaza las categorías actuales</p>
-                  {PLANTILLAS.map((p) => (
-                    <OpcionMenu
-                      key={p.nombre}
-                      descripcion={p.categorias.map((c) => `${c.nombre} ${c.peso}%`).join(" · ")}
-                      onClick={async () => {
-                        setPlantillas(false);
-                        if (!(await confirmar({ titulo: `Usar «${p.nombre}»`, mensaje: "Se reemplazarán las categorías y notas actuales de este ramo.", aceptar: "Reemplazar", peligro: true }))) return;
-                        editar(`Plantilla ${p.nombre}`, (e) => {
-                          aplicarPlantilla(e, p);
-                        });
-                      }}
-                    >
-                      {p.nombre}
-                    </OpcionMenu>
-                  ))}
-                </Popover>
-              </>
-            )}
-            <Boton
-              tamano="sm"
-              variante="fantasma"
-              icono={<Target className="size-4" />}
-              onClick={async () => {
-                const v = await pedirTexto({
-                  titulo: "Meta para este ramo",
-                  mensaje: "¿Qué nota te gustaría sacar? Te diremos cuánto necesitas en lo que queda. Déjalo vacío para quitarla.",
-                  aceptar: "Guardar meta",
-                  campo: {
-                    etiqueta: "Nota objetivo",
-                    valor: entrada.meta ? numeroConComa(entrada.meta) : "",
-                    placeholder: "Ej. 5,5",
-                    inputMode: "decimal",
-                    validar: (x) => {
-                      if (!x.trim()) return null;
-                      const n = leerNumero(x);
-                      return Number.isNaN(n) || n < 1 || n > 7 ? "Escribe una nota entre 1,0 y 7,0." : null;
-                    },
-                  },
-                });
-                if (v === null) return;
-                editar("Meta del ramo", (e) => (e.meta = v.trim() ? Math.round(leerNumero(v) * 10) / 10 : null));
-              }}
-            >
-              {entrada.meta ? `Meta ${fmtNota(entrada.meta)}` : "Meta"}
-            </Boton>
-            <Boton tamano="sm" variante="secundario" className="ml-auto" icono={<Flag className="size-4" />} onClick={registrarFinal}>
-              Cerrar ramo con nota final
-            </Boton>
-          </>
+        {sinConfigurar && !r.cerrado ? (
+          <div className="rounded-xl border border-dashed border-line-strong p-4 text-center">
+            <p className="text-sm font-semibold">¿Cómo se evalúa este ramo?</p>
+            <p className="mx-auto mt-1 max-w-xs text-xs text-fg-2">Elige una plantilla o copia la de otro ramo. Toma un minuto y después solo anotas tus notas.</p>
+            <Boton tamano="sm" variante="suave" className="mt-3" icono={<ClipboardList className="size-4" />} onClick={() => setEditando(true)}>Configurar evaluaciones</Boton>
+          </div>
         ) : (
-          <Boton tamano="sm" variante="fantasma" icono={<RotateCcw className="size-4" />} onClick={() => editar(`Reabrir ${nombreEntrada(ctx, entrada)}`, (e, c, p) => reabrirEntrada(c, p, e))}>
+          entrada.categorias.length > 0 && (
+            <ul className="divide-y divide-line rounded-xl border border-line">
+              {entrada.categorias.map((cat, ci) => {
+                const st = statsCategoria(cat);
+                const prom = r.modo === "actual" ? st.promRendido : st.prom;
+                const esExamen = ci === iExamen;
+                const etiquetaPeso = !cat.peso ? "sin %" : escalaPresentacion && !esExamen ? `${pct(cat.peso)}% de la presentación` : `${pct(cat.peso)}%`;
+                return (
+                  <li key={ci} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:flex-nowrap">
+                    <div className="min-w-0 basis-full sm:w-32 sm:basis-auto sm:shrink-0">
+                      <p className="flex items-center gap-1 truncate text-[13px] font-semibold">
+                        {esExamen && <GraduationCap aria-hidden="true" className="size-3.5 shrink-0 text-accent" />}
+                        {cat.nombre || `Categoría ${ci + 1}`}
+                      </p>
+                      <p className={cx("text-[11px] leading-tight", cat.peso ? "text-fg-3" : "font-semibold text-warn")}>
+                        {etiquetaPeso}
+                        {cat.req && " · debe aprobarse"}
+                      </p>
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+                      {cat.notas.map((n, ni) => {
+                        const etiqueta = n.etiqueta || `${cat.nombre || "Evaluación"} ${ni + 1}`;
+                        const saltado = esExamen && eximido && n.n === null;
+                        const titulo = [etiqueta, n.fecha ? fechaCorta(n.fecha) : null, n.f !== 1 ? `vale ×${numeroConComa(n.f)}` : null, saltado ? "no lo rindes" : null].filter(Boolean).join(" · ");
+                        const contenido = n.n === null ? (saltado ? "—" : n.fecha ? fechaCorta(n.fecha) : <Plus aria-hidden="true" className="size-3.5" />) : fmtNota(n.n);
+                        const clase = cx(
+                          "inline-flex h-9 min-w-11 items-center justify-center rounded-lg border px-2 font-mono text-[13px] font-bold tabular transition-colors",
+                          n.n === null ? "border-dashed border-line-strong text-fg-3" : cx("border-line-strong bg-surface-2", claseNota(n.n)),
+                          n.f === 0 && "opacity-50",
+                          n.n === null && n.fecha && "font-sans text-[11px] font-semibold",
+                        );
+                        return r.cerrado ? (
+                          <span key={ni} className={clase} title={titulo}>{contenido}</span>
+                        ) : (
+                          <button key={ni} type="button" className={cx(clase, "hover:border-accent hover:text-accent")} title={titulo} aria-label={`${etiqueta}: ${n.n === null ? "pendiente, registrar nota" : `${fmtNota(n.n)}, editar`}`} onClick={() => onRegistrar({ ci, ni })}>
+                            {contenido}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <span className={cx("w-10 shrink-0 text-right font-mono text-[13px] font-bold tabular", claseNota(prom))} title={r.modo === "actual" ? "Promedio de lo rendido" : "Promedio con 1,0 en lo pendiente"}>
+                      {prom === null ? "" : fmtNota(prom, 1)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        )}
+
+        {entrada.categorias.some((c) => c.peso === 0 && c.notas.some((n) => n.n !== null)) && (
+          <p className="text-xs text-warn">
+            Hay notas sin porcentaje: aún no cuentan en tu promedio.{" "}
+            <button type="button" className="font-semibold underline" onClick={() => setEditando(true)}>Asignar porcentajes</button>
+          </p>
+        )}
+
+        {ordenadas.length > 0 && (
+          <div className="space-y-1 text-xs">
+            {visibles.map((a) => (
+              <p key={a.k} className={cx("flex items-start gap-1.5 font-semibold [&>svg]:mt-px [&>svg]:shrink-0", TONO_TEXTO[a.tono])}>
+                {a.icono}
+                {a.texto}
+              </p>
+            ))}
+            {ordenadas.length > 2 && (
+              <button type="button" className="flex items-center gap-1 pt-0.5 font-semibold text-fg-3 hover:text-fg" aria-expanded={verTodo} onClick={() => setVerTodo((v) => !v)}>
+                <ChevronDown className={cx("size-3.5 transition-transform", verTodo && "rotate-180")} />
+                {verTodo ? "Ver menos" : `Ver ${ordenadas.length - 2} más`}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <footer className="flex items-center gap-2 border-t border-line px-3 py-2.5">
+        {r.cerrado ? (
+          <Boton tamano="sm" variante="fantasma" icono={<RotateCcw className="size-4" />} onClick={() => editar(`Reabrir ${nombre}`, (e, c, p) => reabrirEntrada(c, p, e))}>
             Reabrir
           </Boton>
+        ) : (
+          <Boton tamano="sm" variante="suave" icono={<Plus className="size-4" />} onClick={() => onRegistrar()}>
+            Registrar nota
+          </Boton>
         )}
-        <Boton
-          tamano="sm"
-          variante="fantasma"
-          className={cx("text-fg-3 hover:!text-danger", r.cerrado && "ml-auto")}
-          icono={<X className="size-4" />}
-          onClick={async () => {
-            const tieneDatos = entrada.notaFinal !== null || entrada.categorias.some((c) => c.notas.some((n) => n.n !== null));
-            if (tieneDatos && !(await confirmar({ titulo: "Quitar ramo", mensaje: `¿Quitar ${nombreEntrada(ctx, entrada)} de este periodo? Se perderán sus notas (puedes deshacerlo).`, aceptar: "Quitar", peligro: true })))
-              return;
-            editar(`Quitar ${nombreEntrada(ctx, entrada)}`, (e, c, p) => quitarEntrada(c, p, e));
-            toast(`${nombreEntrada(ctx, entrada)} quitado`, "info", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
-          }}
-        >
-          Quitar
-        </Boton>
+        {!r.cerrado && !sinConfigurar && (
+          <Boton tamano="sm" variante="fantasma" icono={<ClipboardList className="size-4" />} onClick={() => setEditando(true)}>
+            Evaluaciones
+          </Boton>
+        )}
+        <BotonIcono ref={refMenu} tamano="sm" className="ml-auto" etiqueta={`Más opciones de ${nombre}`} aria-expanded={menu} aria-haspopup="dialog" onClick={() => setMenu((v) => !v)}>
+          <MoreHorizontal className="size-4" />
+        </BotonIcono>
+        <Popover ancla={refMenu} abierto={menu} onCerrar={() => setMenu(false)} ancho={250}>
+          {!r.cerrado && (
+            <>
+              <OpcionMenu icono={<Target />} onClick={opcion(definirMeta)} descripcion="Te decimos cuánto necesitas para lograrla">
+                {entrada.meta ? `Meta: ${fmtNota(entrada.meta)}` : "Ponerme una meta"}
+              </OpcionMenu>
+              {!sinConfigurar && (
+                <OpcionMenu
+                  icono={<TrendingDown />}
+                  onClick={opcion(() => editar(null, (e) => (e.modo = r.modo === "peor" ? "actual" : "peor")))}
+                  descripcion={r.modo === "peor" ? "Volver al promedio de lo rendido" : "Lo pendiente cuenta como 1,0"}
+                >
+                  {r.modo === "peor" ? "Ver promedio actual" : "Ver peor caso"}
+                </OpcionMenu>
+              )}
+              <OpcionMenu icono={<Flag />} onClick={opcion(registrarFinal)} descripcion="Cuando ya tienes la nota oficial">
+                Cerrar con nota final
+              </OpcionMenu>
+            </>
+          )}
+          <OpcionMenu icono={<Trash2 />} peligro onClick={opcion(quitar)}>
+            Quitar del periodo
+          </OpcionMenu>
+        </Popover>
       </footer>
-      </div>}
-    </article>
-  );
-}
-
-export function RamoEjemplo() {
-  return (
-    <article className="card pointer-events-none relative overflow-hidden !rounded-2xl opacity-80 select-none" aria-hidden="true">
-      <header className="flex items-start gap-3 border-b border-line p-4">
-        <div className="flex-1">
-          <p className="flex items-center gap-2 font-mono text-[11px] font-semibold text-fg-3">
-            CIT-0000 <span className="rounded-full bg-accent px-2 py-0.5 font-sans text-[10.5px] font-bold text-accent-fg">Ejemplo</span>
-          </p>
-          <h3 className="text-[14.5px] font-bold">Ramo de ejemplo</h3>
-          <div className="mt-1.5 flex gap-1.5">
-            <Insignia>6 cr</Insignia>
-            <Insignia tono="ok">4,0 asegurado</Insignia>
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-[30px] leading-none font-extrabold text-ok">5,3</p>
-          <p className="text-[11px] text-fg-3">Llevas · 70% evaluado</p>
-        </div>
-      </header>
-      <div className="space-y-2 p-4 text-[13px]">
-        {[
-          { n: "Solemnes", p: 60, notas: ["4,5", "5,8", "—"], prom: "5,15", f: [1, 2, 1] },
-          { n: "Laboratorios", p: 40, notas: ["6,2", "5,3"], prom: "5,75", f: [1, 1] },
-        ].map((c) => (
-          <div key={c.n} className="flex items-center gap-2 rounded-xl border border-line bg-surface-2/50 p-2.5">
-            <span className="w-28 font-semibold">{c.n}</span>
-            <span className="w-10 text-fg-3">{c.p}%</span>
-            <span className="flex flex-1 gap-1.5">
-              {c.notas.map((x, i) => (
-                <span key={i} className={cx("rounded-lg border px-2 py-1 font-mono text-[12.5px] font-semibold", x === "—" ? "border-dashed border-line-strong text-fg-3" : "border-line-strong text-ok")}>
-                  {x}
-                  {c.f[i] !== 1 && <span className="ml-1 text-[10px] text-accent">×{c.f[i]}</span>}
-                </span>
-              ))}
-            </span>
-            <span className="font-mono font-bold text-ok">{c.prom}</span>
-          </div>
-        ))}
-        <p className="flex items-center gap-1 pt-1 text-[12px] font-semibold text-ok">
-          <CalendarDays className="size-3.5" /> Pon fechas a tus evaluaciones y te avisamos en Inicio.
-        </p>
-      </div>
+      {editando && <EditorEvaluacion ctx={ctx} periodo={periodo} entrada={entrada} onCerrar={() => setEditando(false)} />}
     </article>
   );
 }

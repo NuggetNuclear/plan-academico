@@ -1,5 +1,5 @@
-import { Calculator, CalendarPlus, FileDown, FolderPlus, Search, Target, Trash2, Gauge, Plus, NotebookPen } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Calculator, CalendarPlus, FileDown, FolderPlus, Search, Target, Trash2, Gauge, Plus, NotebookPen, MoreHorizontal } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import {
   calcularPPA,
   clavePeriodo,
@@ -21,8 +21,8 @@ import { useApp, useCtx } from "../store/app";
 import { agregarRamoAPeriodo, eliminarPeriodo, obtenerPeriodo, periodoPorClave } from "../store/mutaciones";
 import { confirmar, toast } from "../store/ui";
 import { CampoNumero } from "../ui/CampoNumero";
-import { CabeceraModal, Modal, PieModal } from "../ui/overlays";
-import { Boton, BotonIcono, Tarjeta, cx } from "../ui/primitives";
+import { CabeceraModal, Modal, OpcionMenu, PieModal, Popover } from "../ui/overlays";
+import { Boton, BotonIcono, cx } from "../ui/primitives";
 import { RegistroNota, type SeleccionNota } from "./notas/RegistroNota";
 import { RamoCard } from "./notas/RamoCard";
 
@@ -43,7 +43,7 @@ function Simulador() {
   const necesariaMeta = meta !== null && porCursar > 0 ? ((meta - 0.0005) * (creditos + porCursar) - suma) / porCursar : null;
 
   return (
-    <Tarjeta className="lg:col-span-2">
+    <div>
       <div className="grid gap-5 md:grid-cols-2">
         <div>
           <p className="flex items-center gap-2 text-[13px] font-semibold text-fg-2">
@@ -116,7 +116,7 @@ function Simulador() {
           </p>
         </div>
       </div>
-    </Tarjeta>
+    </div>
   );
 }
 
@@ -320,13 +320,21 @@ export function Notas() {
   const [agregando, setAgregando] = useState(false);
   const [modalPeriodo, setModalPeriodo] = useState(false);
   const [modalEscala, setModalEscala] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const refMenu = useRef<HTMLButtonElement>(null);
   const verano = ctx.cur.malla.periodoVerano ?? "Semestre de verano";
   const ordenados = periodosOrdenados(ctx.st);
   const claveSel = sel && ordenados.some((p) => clavePeriodo(p) === sel) ? sel : `s${ctx.st.semestreActual}`;
   const periodo = ordenados.find((p) => clavePeriodo(p) === claveSel) ?? ordenados.at(-1);
   const promedio = periodo ? calcularPPA(ctx, [periodo]).ppa : null;
-  const ramosVisibles = periodo?.ramos.filter((e) => normalizarTexto(`${nombreEntrada(ctx, e)} ${siglaEntrada(ctx, e)}`).includes(normalizarTexto(buscar.trim()))) ?? [];
+  const muchos = (periodo?.ramos.length ?? 0) > 8;
+  const ramosVisibles = periodo?.ramos.filter((e) => !muchos || normalizarTexto(`${nombreEntrada(ctx, e)} ${siglaEntrada(ctx, e)}`).includes(normalizarTexto(buscar.trim()))) ?? [];
   const pendientes = periodo?.ramos.filter((e) => e.notaFinal === null).reduce((n, e) => n + e.categorias.reduce((s, c) => s + c.notas.filter((x) => x.n === null).length, 0), 0) ?? 0;
+  const abiertos = periodo?.ramos.some((e) => e.notaFinal === null) ?? false;
+  const abrirAgregar = () => {
+    setAgregando(true);
+    setTimeout(() => document.getElementById("agregar-ramo")?.scrollIntoView({ block: "center" }), 0);
+  };
 
   const exportarPDF = () => {
     let cuerpo = "";
@@ -353,95 +361,100 @@ export function Notas() {
     toast(`${plural(evs.length, "evaluación exportada", "evaluaciones exportadas")}. Ábrelo con Google Calendar o tu app de calendario.`);
   };
 
+  const eliminarEstePeriodo = async () => {
+    if (!periodo) return;
+    const ok = await confirmar({
+      titulo: `Eliminar ${nombrePeriodo(periodo, verano)}`,
+      mensaje: periodo.ramos.length ? `Tiene ${plural(periodo.ramos.length, "ramo")} con sus notas. Puedes deshacerlo justo después.` : "Está vacío.",
+      aceptar: "Eliminar",
+      peligro: true,
+    });
+    if (!ok) return;
+    mutar(`Eliminar ${nombrePeriodo(periodo, verano)}`, (c) => {
+      const p = periodoPorClave(c.st, claveSel);
+      if (p) eliminarPeriodo(c, p);
+    });
+    setSel(null);
+  };
+  const opcion = (fn: () => void) => () => (setMenu(false), fn());
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-extrabold tracking-tight">Tus notas, al día</h2>
-          <p className="mt-1 text-sm text-fg-2">Registra una nota o toca una evaluación para actualizarla.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <label htmlFor="notas-periodo" className="sr-only">Periodo</label>
+          <select id="notas-periodo" className="input !w-auto max-w-full !py-2 !text-base font-bold" value={periodo ? clavePeriodo(periodo) : ""} onChange={(e) => { setSel(e.target.value); setBuscar(""); setAgregando(false); }}>
+            {ordenados.map((p) => <option key={clavePeriodo(p)} value={clavePeriodo(p)}>{nombrePeriodo(p, verano)}{esPeriodoActual(ctx.st, p) ? " · En curso" : ""}</option>)}
+          </select>
+          <p className="mt-1 text-sm text-fg-2">
+            {plural(periodo?.ramos.length ?? 0, "ramo")}
+            {pendientes > 0 && ` · ${plural(pendientes, "evaluación pendiente", "evaluaciones pendientes")}`}
+            {promedio !== null && <> · promedio <strong className={cx("tabular", promedio < NOTA_APROB ? "text-danger" : "text-fg")}>{fmtNota(promedio, 2)}</strong></>}
+          </p>
         </div>
-        {periodo?.ramos.some((e) => e.notaFinal === null) ? (
-          <Boton variante="primario" icono={<Plus className="size-5" />} onClick={() => setRegistro({})}>Registrar nota</Boton>
-        ) : (
-          <Boton variante="primario" icono={<Plus className="size-5" />} onClick={() => { setAgregando(true); setTimeout(() => document.getElementById("agregar-ramo")?.scrollIntoView({ block: "center" }), 0); }}>{periodo?.ramos.length ? "Agregar otro ramo" : "Agregar tu primer ramo"}</Boton>
-        )}
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <BotonIcono ref={refMenu} etiqueta="Más herramientas" aria-expanded={menu} aria-haspopup="dialog" className="border border-line-strong" onClick={() => setMenu((v) => !v)}>
+            <MoreHorizontal className="size-5" />
+          </BotonIcono>
+          <Popover ancla={refMenu} abierto={menu} onCerrar={() => setMenu(false)} ancho={260}>
+            <OpcionMenu icono={<Calculator />} onClick={opcion(() => setModalEscala(true))} descripcion="Convierte puntaje en nota">Escala de notas</OpcionMenu>
+            <OpcionMenu icono={<CalendarPlus />} onClick={opcion(exportarICS)} descripcion="Fechas de evaluaciones a tu calendario">Exportar calendario</OpcionMenu>
+            <OpcionMenu icono={<FileDown />} onClick={opcion(exportarPDF)} descripcion="Todas tus notas finales y PPA">Exportar PDF</OpcionMenu>
+            <OpcionMenu icono={<FolderPlus />} onClick={opcion(() => setModalPeriodo(true))} descripcion="Semestre pasado, verano o convalidaciones">Crear periodo</OpcionMenu>
+            {periodo && !esPeriodoActual(ctx.st, periodo) && (
+              <OpcionMenu icono={<Trash2 />} peligro onClick={opcion(eliminarEstePeriodo)}>Eliminar {nombrePeriodo(periodo, verano)}</OpcionMenu>
+            )}
+          </Popover>
+          {abiertos ? (
+            <Boton variante="primario" className="flex-1 sm:flex-none" icono={<Plus className="size-5" />} onClick={() => setRegistro({})}>Registrar nota</Boton>
+          ) : (
+            <Boton variante="primario" className="flex-1 sm:flex-none" icono={<Plus className="size-5" />} onClick={abrirAgregar}>{periodo?.ramos.length ? "Agregar otro ramo" : "Agregar tu primer ramo"}</Boton>
+          )}
+        </div>
       </div>
-      <Tarjeta>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-full min-w-0 sm:max-w-xs">
-            <label htmlFor="notas-periodo" className="label">Periodo</label>
-            <select id="notas-periodo" className="input font-semibold" value={periodo ? clavePeriodo(periodo) : ""} onChange={(e) => { setSel(e.target.value); setBuscar(""); setAgregando(false); }}>
-              {ordenados.map((p) => <option key={clavePeriodo(p)} value={clavePeriodo(p)}>{nombrePeriodo(p, verano)}{esPeriodoActual(ctx.st, p) ? " · En curso" : ""}</option>)}
-            </select>
-          </div>
-          <p className="pb-2 text-sm text-fg-2">{plural(periodo?.ramos.length ?? 0, "ramo")} · {plural(pendientes, "evaluación pendiente", "evaluaciones pendientes")}</p>
-        </div>
 
-        {periodo && (
-          <div className="mt-5 space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-0 flex-1 basis-48">
-                <label className="sr-only" htmlFor="filtrar-ramos">Buscar en mis ramos</label>
-                <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-fg-3" />
-                <input id="filtrar-ramos" className="input !pl-9" type="search" placeholder="Buscar en mis ramos" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
+      {periodo && (
+        <section aria-labelledby="titulo-ramos" className="space-y-4">
+          <h2 id="titulo-ramos" className="sr-only">Ramos de {nombrePeriodo(periodo, verano)}</h2>
+          {muchos && (
+            <div className="relative">
+              <label className="sr-only" htmlFor="filtrar-ramos">Buscar en mis ramos</label>
+              <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-fg-3" />
+              <input id="filtrar-ramos" className="input !pl-9" type="search" placeholder="Buscar en mis ramos" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
+            </div>
+          )}
+          {periodo.ramos.length > 0 && ramosVisibles.length === 0 && <p role="status" className="py-6 text-center text-sm text-fg-2">No hay ramos que coincidan con «{buscar}».</p>}
+          <div className="grid items-start gap-4 xl:grid-cols-2">
+            {ramosVisibles.map((e) => (
+              <RamoCard key={e.uid} ctx={ctx} periodo={periodo} entrada={e} onRegistrar={(seleccion) => setRegistro({ uid: e.uid, ...seleccion })} />
+            ))}
+            {agregando ? (
+              <div id="agregar-ramo" className="card space-y-2 !rounded-2xl p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">Busca un ramo de tu malla</p>
+                  <Boton tamano="sm" variante="fantasma" onClick={() => setAgregando(false)}>Listo</Boton>
+                </div>
+                <BuscadorRamo periodo={periodo} />
+                <p className="text-xs text-fg-3">También puedes marcar ramos como Cursando en Mi malla.</p>
               </div>
-              <Boton icono={<Plus className="size-4" />} variante="secundario" aria-expanded={agregando} aria-controls="agregar-ramo" onClick={() => setAgregando((v) => !v)}>Agregar ramo</Boton>
-              {!esPeriodoActual(ctx.st, periodo) && (
-                <BotonIcono
-                  etiqueta={`Eliminar ${nombrePeriodo(periodo, verano)}`}
-                  className="hover:!text-danger"
-                  onClick={async () => {
-                    const ok = await confirmar({
-                      titulo: `Eliminar ${nombrePeriodo(periodo, verano)}`,
-                      mensaje: periodo.ramos.length ? `Tiene ${plural(periodo.ramos.length, "ramo")} con sus notas. Puedes deshacerlo justo después.` : "Está vacío.",
-                      aceptar: "Eliminar",
-                      peligro: true,
-                    });
-                    if (!ok) return;
-                    mutar(`Eliminar ${nombrePeriodo(periodo, verano)}`, (c) => {
-                      const p = periodoPorClave(c.st, claveSel);
-                      if (p) eliminarPeriodo(c, p);
-                    });
-                    setSel(null);
-                  }}
-                >
-                  <Trash2 className="size-4" />
-                </BotonIcono>
-              )}
-            </div>
-            {agregando && <div id="agregar-ramo" className="rounded-xl border border-line bg-surface-2 p-3">
-              <p className="mb-2 text-sm font-semibold">Busca un ramo de tu malla para agregarlo</p>
-              <BuscadorRamo periodo={periodo} />
-            </div>}
-            {periodo.ramos.length === 0 && <div className="rounded-2xl border border-dashed border-line-strong px-5 py-8 text-center">
-              <NotebookPen aria-hidden="true" className="mx-auto mb-3 size-7 text-accent" />
-              <h3 className="font-bold">Empieza con tu primer ramo</h3>
-              <p className="mx-auto mt-2 max-w-sm text-sm text-fg-2">Usa «Agregar ramo» o marca lo que estás cursando en Mi malla. Después podrás registrar tus notas aquí.</p>
-            </div>}
-            {periodo.ramos.length > 0 && ramosVisibles.length === 0 && <p role="status" className="py-6 text-center text-sm text-fg-2">No hay ramos que coincidan con «{buscar}».</p>}
-            <div className="grid items-start gap-4 xl:grid-cols-2">
-              {ramosVisibles.map((e) => (
-                <RamoCard key={e.uid} ctx={ctx} periodo={periodo} entrada={e} onRegistrar={(seleccion) => setRegistro({ uid: e.uid, ...seleccion })} />
-              ))}
-            </div>
+            ) : (
+              <button type="button" onClick={abrirAgregar} className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-line-strong p-4 text-fg-2 transition-colors hover:border-accent hover:text-accent">
+                {periodo.ramos.length === 0 ? <NotebookPen aria-hidden="true" className="size-6 text-accent" /> : <Plus aria-hidden="true" className="size-5" />}
+                <span className="text-sm font-semibold">{periodo.ramos.length === 0 ? "Agrega tu primer ramo para registrar notas" : "Agregar ramo"}</span>
+              </button>
+            )}
           </div>
-        )}
-      </Tarjeta>
+        </section>
+      )}
 
       <details className="card p-4 sm:p-5">
-        <summary className="font-semibold text-fg-2">Promedios, simulador y herramientas</summary>
+        <summary className="cursor-pointer font-semibold text-fg-2">Simulador de PPA y ventana del semestre</summary>
         <div className="mt-4 space-y-4">
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Tarjeta className="flex flex-col justify-between gap-4">
-          <div>
-            <p className="text-[13px] font-semibold text-fg-2">Promedio · {periodo ? nombrePeriodo(periodo, verano) : "—"}</p>
-            <p className={cx("mt-1 text-[40px] leading-none font-extrabold tracking-tight tabular", promedio === null ? "text-fg-3" : promedio >= NOTA_APROB ? "text-fg" : "text-danger")}>{fmtNota(promedio, 2)}</p>
-            <p className="mt-1 text-[12px] text-fg-3">Ponderado por créditos, solo ramos con nota final.</p>
-          </div>
+          <Simulador />
           {periodo && periodo.tipo === "regular" && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <label className="text-[12.5px] font-semibold text-fg-2" htmlFor="ventana">
-                Ventana del semestre
+                Ventana de {nombrePeriodo(periodo, verano)}
               </label>
               <input
                 id="ventana"
@@ -465,16 +478,6 @@ export function Notas() {
               />
             </div>
           )}
-        </Tarjeta>
-        <Simulador />
-      </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Boton icono={<Calculator className="size-4" />} onClick={() => setModalEscala(true)}>Escala de notas</Boton>
-            <Boton icono={<CalendarPlus className="size-4" />} onClick={exportarICS}>Exportar calendario</Boton>
-            <Boton icono={<FileDown className="size-4" />} onClick={exportarPDF}>Exportar PDF</Boton>
-            <Boton icono={<FolderPlus className="size-4" />} onClick={() => setModalPeriodo(true)}>Crear periodo</Boton>
-          </div>
         </div>
       </details>
       {registro && periodo && <RegistroNota ctx={ctx} periodo={periodo} seleccion={registro} onCerrar={() => setRegistro(null)} />}

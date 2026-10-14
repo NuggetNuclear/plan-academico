@@ -13,6 +13,7 @@ import { Shell } from "./Shell";
 import { Modal } from "./overlays";
 import { PaletaComandos } from "./PaletaComandos";
 import { RegistroNota } from "../views/notas/RegistroNota";
+import { EditorEvaluacion } from "../views/notas/EditorEvaluacion";
 import { Wizard } from "../views/Wizard";
 
 let root: Root;
@@ -69,6 +70,23 @@ describe("accesibilidad de las vistas", () => {
   it("el registro rápido etiqueta todos los campos", async () => {
     const { cur, st } = useApp.getState();
     await act(async () => root.render(createElement(RegistroNota, { ctx: { cur: cur!, st }, periodo: st.periodos[1], seleccion: { uid: "actual", ci: 0, ni: 1 }, onCerrar() {} })));
+    await auditar();
+  });
+
+  it("el editor de evaluaciones etiqueta todos los campos", async () => {
+    const { cur, st } = useApp.getState();
+    const periodo = st.periodos[1];
+    periodo.ramos[0].categorias.push({ nombre: "Examen", peso: 30, examen: true, notas: [{ n: null, f: 1 }] });
+    await act(async () => root.render(createElement(EditorEvaluacion, { ctx: { cur: cur!, st }, periodo, entrada: periodo.ramos[0], onCerrar() {} })));
+    await auditar();
+  });
+
+  it("el editor de un ramo sin configurar ofrece plantillas", async () => {
+    const { cur, st } = useApp.getState();
+    const periodo = st.periodos[1];
+    const entrada = { ...periodo.ramos[0], categorias: [] };
+    await act(async () => root.render(createElement(EditorEvaluacion, { ctx: { cur: cur!, st }, periodo, entrada, onCerrar() {} })));
+    expect(document.body.textContent).toContain("Plantillas comunes");
     await auditar();
   });
 

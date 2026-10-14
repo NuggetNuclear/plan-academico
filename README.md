@@ -21,7 +21,7 @@ Malla interactiva, notas con ponderaciones, simulador de PPA, planificación de 
 - **Calendario de evaluaciones:** fecha y nombre por evaluación, «Próximas evaluaciones» en Inicio y exportación `.ics` (Google Calendar, Apple, Outlook) con recordatorio un día antes.
 - **Escala de notas:** puntaje → nota con cualquier exigencia, como herramienta y dentro de cada casilla.
 - **Metas:** nota objetivo por ramo y PPA objetivo de egreso, con lo que necesitas en lo que queda.
-- **Plantillas de evaluación** (cátedra + laboratorio, solemnes + examen, proyecto…).
+- **Plantillas de evaluación** basadas en los ramos UDP (solemnes + examen, con laboratorio, con tareas, sin examen, proyecto) o copiadas de otro de tus ramos.
 - **Ramos en riesgo** en Avisos (requisito perdido, ya no alcanza, necesitas más de 5,5).
 - **Deshacer** cualquier cambio (`Ctrl/⌘ Z` o el botón del encabezado).
 - **Paleta de comandos** (`Ctrl/⌘ K`): busca ramos y acciones.

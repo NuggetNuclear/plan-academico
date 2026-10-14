@@ -1,5 +1,5 @@
 import { NOTA_APROB, clamp, fmtNota } from "./format";
-import type { Categoria, ConfigExamen, Entrada, EscalaPresentacion, ModoPromedio } from "./state";
+import type { Categoria, ConfigExamen, Entrada, EscalaPresentacion, MinimosCategoria, ModoPromedio } from "./state";
 
 export interface StatsCategoria {
   /** Promedio con lo pendiente como 1,0 (null si no hay casillas). */
@@ -410,41 +410,120 @@ export function puntajeParaNota(nota: number, esc: Escala): number {
 
 // ── Plantillas rápidas de evaluación ──
 
+export interface CategoriaPlantilla {
+  nombre: string;
+  peso: number;
+  casillas: number;
+  req?: boolean;
+  examen?: boolean;
+  minimos?: MinimosCategoria;
+}
+
 export interface Plantilla {
   nombre: string;
-  categorias: { nombre: string; peso: number; casillas: number; req?: boolean; examen?: boolean }[];
+  /** Una línea que explica cuándo usarla. */
+  descripcion?: string;
+  categorias: CategoriaPlantilla[];
   examen?: ConfigExamen;
 }
 
 /** Reemplaza las categorías de un ramo por las de una plantilla. */
 export function aplicarPlantilla(e: Entrada, p: Plantilla) {
-  e.categorias = p.categorias.map((c) => ({ nombre: c.nombre, peso: c.peso, req: c.req, examen: c.examen, notas: Array.from({ length: c.casillas }, () => ({ n: null, f: 1 })) }));
-  if (p.examen) e.examen = { ...p.examen };
+  e.categorias = p.categorias.map((c) => ({
+    nombre: c.nombre,
+    peso: c.peso,
+    ...(c.req ? { req: true } : {}),
+    ...(c.examen ? { examen: true } : {}),
+    ...(c.minimos ? { minimos: { ...c.minimos } } : {}),
+    notas: Array.from({ length: c.casillas }, () => ({ n: null, f: 1 })),
+  }));
+  if (p.examen) e.examen = { ...p.examen, asistencia: null };
   else delete e.examen;
 }
 
+/** Estructura de evaluación de un ramo, sin sus notas, para reutilizarla en otro. */
+export function plantillaDesdeEntrada(nombre: string, e: Pick<Entrada, "categorias" | "examen">): Plantilla {
+  return {
+    nombre,
+    categorias: e.categorias.map((c) => ({
+      nombre: c.nombre,
+      peso: c.peso,
+      casillas: Math.max(1, c.notas.length),
+      req: c.req,
+      examen: c.examen,
+      minimos: c.minimos && Object.values(c.minimos).some((v) => v != null) ? { ...c.minimos } : undefined,
+    })),
+    examen: indiceExamen(e) >= 0 ? { ...configExamen(e), asistencia: null } : undefined,
+  };
+}
+
+/**
+ * Deduce cómo están escritos los % de la presentación: si suman 100% son "de la presentación";
+ * si suman lo que no vale el examen (ej. 70%), son "del ramo". null si no calza con ninguno.
+ */
+export function inferirEscala(categorias: Pick<Categoria, "peso" | "examen">[]): EscalaPresentacion | null {
+  const ex = categorias.find((c) => c.examen && c.peso > 0);
+  if (!ex) return null;
+  const suma = categorias.reduce((s, c) => s + (c === ex ? 0 : c.peso), 0);
+  if (Math.abs(suma - 100) < 0.05) return "presentacion";
+  if (Math.abs(suma - (100 - ex.peso)) < 0.05) return "ramo";
+  return null;
+}
+
+const EXAMEN_UDP: ConfigExamen = { escala: "presentacion", eximicion: 5, asistenciaMin: null, asistencia: null, minPresentacion: 3.5 };
+
+/** Plantillas basadas en cómo se evalúan los ramos de Informática y Telecomunicaciones UDP. */
 export const PLANTILLAS: Plantilla[] = [
-  { nombre: "Cátedra + Laboratorio", categorias: [
-    { nombre: "Solemnes", peso: 60, casillas: 3 },
-    { nombre: "Laboratorios", peso: 25, casillas: 4, req: true },
-    { nombre: "Controles", peso: 15, casillas: 4 },
-  ] },
-  { nombre: "Solemnes + Examen", categorias: [
-    { nombre: "Solemnes", peso: 70, casillas: 3 },
-    { nombre: "Examen", peso: 30, casillas: 1, examen: true },
-  ] },
-  { nombre: "Presentación + Examen", categorias: [
-    { nombre: "Solemnes", peso: 70, casillas: 3 },
-    { nombre: "Controles", peso: 30, casillas: 3 },
-    { nombre: "Examen", peso: 30, casillas: 1, examen: true },
-  ], examen: { escala: "presentacion", eximicion: 5, asistenciaMin: null, asistencia: null } },
-  { nombre: "Proyecto", categorias: [
-    { nombre: "Entregas", peso: 60, casillas: 3 },
-    { nombre: "Presentación final", peso: 25, casillas: 1 },
-    { nombre: "Coevaluación", peso: 15, casillas: 1 },
-  ] },
-  { nombre: "Pruebas + Tareas", categorias: [
-    { nombre: "Pruebas", peso: 60, casillas: 3 },
-    { nombre: "Tareas", peso: 40, casillas: 4 },
-  ] },
+  {
+    nombre: "Solemnes + Examen",
+    descripcion: "2 solemnes y controles. Examen 30%, te eximes con 5,0.",
+    categorias: [
+      { nombre: "Solemne", peso: 70, casillas: 2 },
+      { nombre: "Control", peso: 30, casillas: 3 },
+      { nombre: "Examen", peso: 30, casillas: 1, examen: true },
+    ],
+    examen: EXAMEN_UDP,
+  },
+  {
+    nombre: "Con laboratorio + Examen",
+    descripcion: "Solemnes, controles y laboratorios (≥ 4,0 para dar examen).",
+    categorias: [
+      { nombre: "Solemne", peso: 50, casillas: 2 },
+      { nombre: "Control", peso: 20, casillas: 2 },
+      { nombre: "Laboratorio", peso: 30, casillas: 4, minimos: { examen: 4 } },
+      { nombre: "Examen", peso: 30, casillas: 1, examen: true },
+    ],
+    examen: EXAMEN_UDP,
+  },
+  {
+    nombre: "Con tareas + Examen",
+    descripcion: "Solemnes, tareas y controles. Examen 30%, te eximes con 5,0.",
+    categorias: [
+      { nombre: "Solemne", peso: 60, casillas: 2 },
+      { nombre: "Tarea", peso: 20, casillas: 3 },
+      { nombre: "Control", peso: 20, casillas: 4 },
+      { nombre: "Examen", peso: 30, casillas: 1, examen: true },
+    ],
+    examen: EXAMEN_UDP,
+  },
+  {
+    nombre: "Sin examen",
+    descripcion: "Pruebas y tareas, sin examen final. Sirve para los CFG.",
+    categorias: [
+      { nombre: "Prueba", peso: 60, casillas: 3 },
+      { nombre: "Tarea", peso: 40, casillas: 3 },
+    ],
+  },
+  {
+    nombre: "Proyecto",
+    descripcion: "Entregas, presentación final y coevaluación.",
+    categorias: [
+      { nombre: "Entrega", peso: 60, casillas: 3 },
+      { nombre: "Presentación final", peso: 25, casillas: 1 },
+      { nombre: "Coevaluación", peso: 15, casillas: 1 },
+    ],
+  },
 ];
+
+/** Nombres de categoría frecuentes, para agregarlas con un toque. */
+export const CATEGORIAS_SUGERIDAS = ["Solemne", "Control", "Tarea", "Laboratorio", "Proyecto", "Taller", "Quiz"];

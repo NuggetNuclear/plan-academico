@@ -193,9 +193,9 @@ export function Ayuda() {
               <li><strong>Actual:</strong> promedia solo lo rendido, reescalado al % evaluado.</li>
               <li><strong>Peor caso:</strong> todo lo pendiente cuenta como 1,0. Si igual da 4,0, ya aprobaste.</li>
               <li><strong>Lo que necesitas:</strong> (3,95 − lo asegurado) ÷ % que falta. Si las categorías aún no suman 100%, lo no definido también cuenta como pendiente.</li>
-              <li><strong>Requisito (✱):</strong> la categoría debe promediar 4,0 por sí sola, aunque el promedio general apruebe.</li>
-              <li><strong>Examen (birrete):</strong> lo demás forma tu nota de presentación. Sus % pueden ser de la presentación (suman 100% y esa nota vale, por ejemplo, 70% del ramo) o del ramo (suman 70% y se normalizan). Si el ramo exime y tu presentación alcanza la nota de eximición (ej. 5,0, redondeada a una décima) con la asistencia exigida, tu nota final es la de presentación y no rindes examen.</li>
-              <li><strong>Mínimos:</strong> cada categoría puede exigir un promedio o una nota mínima en cada evaluación para eximirse (ej. tareas ≥ 5,5 y cada tarea ≥ 4,0), y un promedio para dar examen (ej. tareas ≥ 4,0). También puedes exigir una nota de presentación mínima para dar examen (ej. 3,5). Sin derecho a examen, se reprueba el ramo.</li>
+              <li><strong>Hay que aprobarla por separado:</strong> la categoría debe promediar 4,0 por sí sola, aunque el promedio general apruebe. Se activa en «Evaluaciones › Reglas especiales».</li>
+              <li><strong>Examen final:</strong> se activa en «Evaluaciones». Lo demás forma tu nota de presentación. Sus % pueden ser de la presentación (suman 100% y esa nota vale, por ejemplo, 70% del ramo) o del ramo (suman 70% y se normalizan); la app lo deduce según cuánto sumen. Si el ramo exime y tu presentación alcanza la nota de eximición (ej. 5,0, redondeada a una décima) con la asistencia exigida, tu nota final es la de presentación y no rindes examen.</li>
+              <li><strong>Mínimos:</strong> en «Reglas especiales», cada categoría puede exigir un promedio o una nota mínima en cada evaluación para eximirse (ej. tareas ≥ 5,5 y cada tarea ≥ 4,0), y un promedio para dar examen (ej. tareas ≥ 4,0). También puedes exigir una nota de presentación mínima para dar examen (ej. 3,5). Sin derecho a examen, se reprueba el ramo.</li>
               <li>Se aprueba con <strong>3,95</strong>, que se redondea a 4,0.</li>
             </ul>
           </div>
@@ -211,7 +211,7 @@ export function Ayuda() {
               [<CalendarDays key="c" className="size-4 text-accent" />, "Calendario de evaluaciones", "Pon fecha a cada evaluación (botón ··· de la nota), míralas en Inicio y expórtalas a Google Calendar con recordatorio un día antes."],
               [<Calculator key="e" className="size-4 text-accent" />, "Escala de notas", "Convierte puntaje en nota con cualquier exigencia y úsalo directo en una casilla."],
               [<Lightbulb key="m" className="size-4 text-warn" />, "Metas", "Define la nota que quieres en un ramo o el PPA con que quieres egresar, y te decimos cuánto necesitas."],
-              [<Sparkles key="p" className="size-4 text-accent" />, "Plantillas", "Arma la estructura de evaluación de un ramo con un clic (cátedra + laboratorio, solemnes + examen…)."],
+              [<Sparkles key="p" className="size-4 text-accent" />, "Plantillas", "Arma la evaluación de un ramo con un clic: solemnes + examen, con laboratorio, con tareas… o copia la de otro de tus ramos."],
             ].map(([i, t, d]) => (
               <li key={t as string} className="flex gap-3">
                 <span className="mt-0.5">{i}</span>
