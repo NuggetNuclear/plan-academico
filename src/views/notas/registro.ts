@@ -17,7 +17,9 @@ export interface Registro {
 export function validarRegistro(entrada: Entrada, datos: Registro): string | null {
   if (entrada.notaFinal !== null) return "Este ramo está cerrado. Reábrelo para editar sus evaluaciones.";
   const nota = leerNumero(datos.nota);
-  if (!Number.isFinite(nota) || nota < 1 || nota > 7) return "Escribe una nota entre 1,0 y 7,0. Puedes usar coma o punto.";
+  // Una evaluación que ya existe puede quedar sin nota (vuelve a pendiente).
+  const vacia = !datos.nota.trim() && datos.evaluacion !== null;
+  if (!vacia && (!Number.isFinite(nota) || nota < 1 || nota > 7)) return "Escribe una nota entre 1,0 y 7,0. Puedes usar coma o punto.";
   if (!datos.nombre.trim()) return "Escribe un nombre para reconocer la evaluación.";
   if (datos.categoria !== null && !entrada.categorias[datos.categoria]) return "La categoría ya no existe. Cierra y vuelve a abrir el registro.";
   if (datos.evaluacion !== null && (datos.categoria === null || !entrada.categorias[datos.categoria]?.notas[datos.evaluacion])) return "La evaluación ya no existe. Cierra y vuelve a abrir el registro.";
@@ -41,7 +43,7 @@ export function guardarRegistro(entrada: Entrada, datos: Registro): string | nul
   const error = validarRegistro(entrada, datos);
   if (error) return error;
   const nota = {
-    n: Math.round(leerNumero(datos.nota) * 100) / 100,
+    n: datos.nota.trim() ? Math.round(leerNumero(datos.nota) * 100) / 100 : null,
     etiqueta: datos.nombre.trim(),
     fecha: datos.fecha || null,
     ...(datos.factor?.trim() ? { f: leerNumero(datos.factor) } : {}),

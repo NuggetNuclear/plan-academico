@@ -1,4 +1,4 @@
-import { Calculator, Check, ChevronDown, NotebookPen, Trash2 } from "lucide-react";
+import { Calculator, Check, ChevronDown, Eraser, NotebookPen, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { clavePeriodo, nombreEntrada, nombrePeriodo, siglaEntrada, type Ctx } from "../../core/academic";
 import { fmtNota, leerNumero, numeroConComa } from "../../core/format";
@@ -108,14 +108,14 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
     setError(mensaje);
     requestAnimationFrame(() => errorRef.current?.focus());
   };
-  const guardar = (e: React.FormEvent) => {
-    e.preventDefault();
+  /** valorNota vacío deja la evaluación pendiente (solo si ya existe). */
+  const registrar = (valorNota: string) => {
     if (!entrada || guardando.current) return;
     // Las posiciones se resuelven contra el ramo que se modifica: si algo cambió, se ubica por id.
     const datosPara = (e: Entrada): Registro => {
       const [ci, ni] = ubicar(e, destino);
       const cat = categoria === "nueva" ? null : e.categorias.findIndex((c) => c.id === categoria);
-      return { categoria: existente ? ci : cat, evaluacion: existente ? ni : null, nombre, nota, fecha, porcentaje, factor: existente ? factor : "" };
+      return { categoria: existente ? ci : cat, evaluacion: existente ? ni : null, nombre, nota: valorNota, fecha, porcentaje, factor: existente ? factor : "" };
     };
     const err = validarRegistro(entrada, datosPara(entrada));
     if (err) return mostrarError(err);
@@ -128,8 +128,13 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
     if (fallo) { guardando.current = false; return mostrarError(fallo); }
     const { cur, st } = useApp.getState();
     const alerta = cur ? alertaTrasNota({ cur, st }, uid) : null;
-    toast(alerta ?? `${nombre.trim()}: ${nota.replace(".", ",")} guardada`, alerta ? "error" : "ok", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
+    const mensaje = valorNota.trim() ? `${nombre.trim()}: ${valorNota.replace(".", ",")} guardada` : `${nombre.trim()}: nota quitada, queda pendiente`;
+    toast(alerta ?? mensaje, alerta ? "error" : "ok", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
     onCerrar();
+  };
+  const guardar = (e: React.FormEvent) => {
+    e.preventDefault();
+    registrar(nota);
   };
   const eliminar = () => {
     if (!entrada || !existente) return;
@@ -141,7 +146,9 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
     toast(`${nombre.trim() || "Evaluación"} eliminada`, "info", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
     onCerrar();
   };
-  const catActual = existente ? entrada?.categorias[ubicar(entrada, destino)[0]] : null;
+  const [ciActual, niActual] = existente ? ubicar(entrada, destino) : [-1, -1];
+  const catActual = existente ? entrada?.categorias[ciActual] : null;
+  const tieneNota = (catActual?.notas[niActual]?.n ?? null) !== null;
 
   return (
     <Modal abierto onCerrar={onCerrar} etiqueta="Registrar nota" ancho="md">
@@ -179,9 +186,9 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
           </div>}
           <div className="rounded-2xl border border-accent-line bg-accent-soft p-4">
             <label htmlFor="registro-nota" className="label">Tu nota{existente ? ` en ${nombre}` : ""}</label>
-            <input id="registro-nota" data-autofocus={original ? true : undefined} className="input !text-3xl font-bold tabular" inputMode="decimal" autoComplete="off" enterKeyHint="done" placeholder="5,5" value={nota} onChange={(e) => setNota(e.target.value)} aria-invalid={!!error && (!Number.isFinite(leerNumero(nota)) || leerNumero(nota) < 1 || leerNumero(nota) > 7)} aria-describedby={error ? "registro-ayuda registro-error" : "registro-ayuda"} required />
+            <input id="registro-nota" data-autofocus={original ? true : undefined} className="input !text-3xl font-bold tabular" inputMode="decimal" autoComplete="off" enterKeyHint="done" placeholder="5,5" value={nota} onChange={(e) => setNota(e.target.value)} aria-invalid={!!error && (!Number.isFinite(leerNumero(nota)) || leerNumero(nota) < 1 || leerNumero(nota) > 7)} aria-describedby={error ? "registro-ayuda registro-error" : "registro-ayuda"} required={!existente} />
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-              <p id="registro-ayuda" className="text-xs text-fg-2">De 1,0 a 7,0. Acepta coma o punto.</p>
+              <p id="registro-ayuda" className="text-xs text-fg-2">De 1,0 a 7,0. Acepta coma o punto.{existente ? " Vacía, queda pendiente." : ""}</p>
               <button type="button" className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline" aria-expanded={puntaje} onClick={() => setPuntaje((v) => !v)}>
                 <Calculator className="size-3.5" /> Me dieron puntaje
               </button>
@@ -219,6 +226,7 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
         </div>
         <PieModal>
           {existente && <Boton variante="fantasma" className="mr-auto hover:!text-danger" icono={<Trash2 className="size-4" />} onClick={eliminar}>Eliminar</Boton>}
+          {tieneNota && <Boton variante="fantasma" icono={<Eraser className="size-4" />} onClick={() => registrar("")}>Quitar nota</Boton>}
           <Boton variante="fantasma" onClick={onCerrar}>Cancelar</Boton>
           <Boton type="submit" variante="primario" icono={<Check className="size-4" />} disabled={!entrada}>Guardar nota</Boton>
         </PieModal>

@@ -79,6 +79,14 @@ describe("registro rápido de notas", () => {
     expect(guardarRegistro(ramo, registro({ categoria: 0, evaluacion: 1, factor: "-1" }))).not.toBeNull();
   });
 
+  it("quita la nota de una evaluación existente y la deja pendiente", () => {
+    const ramo = entrada();
+    ramo.categorias = [{ nombre: "Controles", peso: 100, notas: [{ n: 4, f: 1 }, { n: 6, f: 1, fecha: "2026-10-13" }] }];
+    expect(guardarRegistro(ramo, registro({ categoria: 0, evaluacion: 1, nota: "" }))).toBeNull();
+    expect(ramo.categorias[0].notas[1]).toMatchObject({ n: null, f: 1 });
+    expect(guardarRegistro(ramo, registro({ nota: "" }))).not.toBeNull();
+  });
+
   it("rechaza días que no existen en vez de pasarlos al mes siguiente", () => {
     expect(guardarRegistro(entrada(), registro({ fecha: "2026-02-31" }))).not.toBeNull();
     expect(guardarRegistro(entrada(), registro({ fecha: "2026-2-3" }))).not.toBeNull();
