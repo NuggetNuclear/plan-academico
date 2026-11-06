@@ -2,7 +2,6 @@ import {
   ArrowRight,
   BellRing,
   Briefcase,
-  CalendarClock,
   ChevronRight,
   Clock,
   Check,
@@ -12,8 +11,11 @@ import {
   Info,
   Minus,
   PenLine,
+  Percent,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
+  Target,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -54,7 +56,7 @@ import { useApp, useCtx } from "../store/app";
 import { avanzarSemestre } from "../store/mutaciones";
 import { confirmar, toast, useUI } from "../store/ui";
 import { colorTipo } from "../ui/comun";
-import { Aviso, Boton, CabeceraTarjeta, Insignia, Tarjeta, cx } from "../ui/primitives";
+import { Aviso, Boton, CabeceraTarjeta, Tarjeta, cx } from "../ui/primitives";
 import { semestresRestantes, usePlanes } from "./plan/usePlanes";
 import { letrasCausal, motivoCausal, textoRendimiento } from "./riesgoCausal";
 import { RegistroNota, type SeleccionNota } from "./notas/RegistroNota";
@@ -176,7 +178,8 @@ const fechaLocal = (iso: string) => {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d);
 };
-const enDias = (d: number) => (d === 0 ? "hoy" : d === 1 ? "mañana" : `en ${d} días`);
+const FMT_MES = new Intl.DateTimeFormat("es-CL", { month: "short" });
+const FMT_DIA = new Intl.DateTimeFormat("es-CL", { weekday: "long" });
 
 /** Lo primero que se ve: la próxima evaluación, o la acción que corresponde si aún no hay datos. */
 function Destacada({ onRegistrar }: { onRegistrar: AbrirRegistro }) {
@@ -190,25 +193,58 @@ function Destacada({ onRegistrar }: { onRegistrar: AbrirRegistro }) {
   const pendientes = abiertos.reduce((n, e) => n + e.categorias.reduce((s, c) => s + c.notas.filter((x) => x.n === null).length, 0), 0);
   const periodoDe = (uid: string) => ctx.st.periodos.find((p) => p.ramos.some((e) => e.uid === uid));
 
-  const boton = "relative z-10 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-5 text-[14px] font-bold text-[#3a28c4] transition-transform hover:-translate-y-px";
-  const secundario = "relative z-10 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white/15 px-5 text-[14px] font-bold text-white hover:bg-white/25";
-  let etiqueta: React.ReactNode, titulo: React.ReactNode, detalle: React.ReactNode, acciones: React.ReactNode, numero: string | null = null;
+  const boton = "inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-5 text-[14px] font-bold text-[#3a28c4] shadow-[0_6px_20px_-6px_rgb(0_0_0/0.35)] transition-transform hover:-translate-y-px";
+  const secundario = "inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white/15 px-5 text-[14px] font-bold text-white hover:bg-white/25";
+  const pastilla = "inline-flex items-center gap-1.5 rounded-full bg-white/[0.14] px-3 py-1.5 text-[12.5px] font-semibold";
 
-  if (proxima && periodoDe(proxima.entrada)) {
+  let etiqueta: React.ReactNode, titulo: React.ReactNode, subtitulo: React.ReactNode = null, pastillas: React.ReactNode = null, acciones: React.ReactNode, lateral: React.ReactNode = null;
+
+  const periodo = proxima ? periodoDe(proxima.entrada) : undefined;
+  if (proxima && periodo) {
     const d = diasHasta(proxima.fecha);
-    numero = String(fechaLocal(proxima.fecha).getDate());
-    etiqueta = <>Próxima evaluación · {enDias(d)}</>;
+    const f = fechaLocal(proxima.fecha);
+    const entrada = periodo.ramos.find((e) => e.uid === proxima.entrada)!;
+    const r = calcularRamo(entrada);
+    etiqueta = "Próxima evaluación";
     titulo = proxima.etiqueta;
-    detalle = <>{proxima.ramo} · {FMT_FECHA.format(fechaLocal(proxima.fecha))}{proxima.peso > 0 && <> · {fmtPct(proxima.peso)}% del ramo</>}</>;
+    subtitulo = <>{proxima.ramo}<span className="sr-only">, {FMT_FECHA.format(f)}</span></>;
+    pastillas = (
+      <>
+        {proxima.peso > 0 && (
+          <span className={pastilla}>
+            <Percent aria-hidden="true" className="size-3.5" /> {fmtPct(proxima.peso)}% del ramo
+          </span>
+        )}
+        {r.necesaria !== null && r.necesaria > 1 && (
+          <span className={pastilla}>
+            <Target aria-hidden="true" className="size-3.5" />
+            {r.necesaria > 7 ? "Ya no alcanza el 4,0 con lo que queda" : <>Para aprobar: {fmtNota(r.necesaria, 1)} en lo que queda</>}
+          </span>
+        )}
+      </>
+    );
+    lateral = (
+      <div aria-hidden="true" className="w-[5.5rem] shrink-0 overflow-clip rounded-[1.4rem] bg-white/[0.14] text-center ring-1 ring-white/20 backdrop-blur-sm sm:w-28">
+        <p className="bg-white/[0.12] py-1.5 text-[11px] font-bold tracking-[0.12em] uppercase">{FMT_MES.format(f).replace(".", "")}</p>
+        <p className="pt-1.5 text-[38px] leading-none font-extrabold tracking-[-0.04em] tabular sm:text-[46px]">{f.getDate()}</p>
+        <p className="pt-1 pb-2.5 text-[11.5px] font-semibold text-white/80 first-letter:uppercase">{FMT_DIA.format(f)}</p>
+      </div>
+    );
     acciones = (
-      <button type="button" className={boton} onClick={() => onRegistrar(periodoDe(proxima.entrada)!, { uid: proxima.entrada, categoria: proxima.categoriaId, nota: proxima.notaId })}>
-        <PenLine className="size-4" /> Registrar nota
-      </button>
+      <>
+        <button type="button" className={boton} onClick={() => onRegistrar(periodo, { uid: proxima.entrada, categoria: proxima.categoriaId, nota: proxima.notaId })}>
+          <PenLine className="size-4" /> Registrar nota
+        </button>
+        <span className={cx("inline-flex items-center gap-1.5 text-[13px] font-bold", d <= 2 ? "text-white" : "text-white/85")}>
+          <Clock aria-hidden="true" className="size-4" />
+          {d === 0 ? "Es hoy" : d === 1 ? "Es mañana" : `Faltan ${d} días`}
+        </span>
+      </>
     );
   } else if (actual && abiertos.length) {
-    etiqueta = <>Semestre {ctx.st.semestreActual}</>;
+    etiqueta = `Semestre ${ctx.st.semestreActual}`;
     titulo = pendientes ? "Mantén tus notas al día" : "Todo registrado por ahora";
-    detalle = pendientes
+    subtitulo = pendientes
       ? <>{plural(pendientes, "evaluación pendiente", "evaluaciones pendientes")} en {plural(abiertos.length, "ramo")}. Agrega fechas para verlas aquí a tiempo.</>
       : <>No tienes evaluaciones pendientes en tus {plural(abiertos.length, "ramo")} en curso.</>;
     acciones = (
@@ -217,47 +253,53 @@ function Destacada({ onRegistrar }: { onRegistrar: AbrirRegistro }) {
       </button>
     );
   } else {
-    etiqueta = <>Para empezar</>;
+    etiqueta = "Para empezar";
     titulo = "Carga lo que ya cursaste";
-    detalle = <>Importa tu avance desde la UDP o márcalo a mano en tu malla. No necesitas cuenta: todo queda en este navegador.</>;
+    subtitulo = <>Importa tu avance desde la UDP o márcalo a mano en tu malla. No necesitas cuenta: todo queda en este navegador.</>;
     acciones = (
-      <div className="relative z-10 flex flex-wrap gap-2">
+      <>
         <button type="button" className={boton} onClick={() => setImportar(true)}>
           <Upload className="size-4" /> Importar avance
         </button>
         <button type="button" className={secundario} onClick={() => irA("malla")}>
           Marcar a mano
         </button>
-      </div>
+      </>
     );
   }
 
   return (
-    <section aria-label="Lo que viene" className="hero relative flex flex-col gap-5 overflow-clip rounded-[1.75rem] p-6 sm:flex-row sm:items-end sm:justify-between sm:p-7">
-      <span aria-hidden="true" className="pointer-events-none absolute -top-20 -right-16 size-64 rounded-full bg-white/[0.08]" />
-      {numero && (
-        <span aria-hidden="true" className="pointer-events-none absolute top-1 right-6 text-[112px] leading-none font-extrabold tracking-[-0.06em] text-white/[0.14] sm:text-[128px]">
-          {numero}
-        </span>
-      )}
-      <div className="relative z-10 min-w-0">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.16] px-3 py-1.5 text-[12px] font-bold">
-          <Clock className="size-3.5" /> {etiqueta}
-        </span>
-        <h2 className="mt-3.5 text-[26px] leading-tight font-extrabold tracking-[-0.03em] sm:text-[30px]">{titulo}</h2>
-        <p className="mt-1.5 max-w-xl text-[14px] text-white/90 first-letter:uppercase">{detalle}</p>
+    <section aria-label="Lo que viene" className="hero relative overflow-clip rounded-[1.75rem] p-5 sm:p-7">
+      <span aria-hidden="true" className="pointer-events-none absolute -top-24 -right-20 size-72 rounded-full bg-white/[0.07]" />
+      <span aria-hidden="true" className="pointer-events-none absolute -bottom-28 left-1/3 size-56 rounded-full bg-white/[0.05]" />
+      <div className="relative flex items-start gap-4 sm:gap-6">
+        <div className="min-w-0 flex-1">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.16] px-3 py-1.5 text-[12px] font-bold">
+            <Sparkles aria-hidden="true" className="size-3.5" /> {etiqueta}
+          </span>
+          <h2 className="mt-3 text-[26px] leading-[1.1] font-extrabold tracking-[-0.03em] break-words sm:text-[32px]">{titulo}</h2>
+          {subtitulo && <p className="mt-1.5 max-w-xl text-[14.5px] font-medium text-white/85">{subtitulo}</p>}
+        </div>
+        {lateral}
       </div>
-      {acciones}
+      {pastillas && <div className="relative mt-4 flex flex-wrap gap-2">{pastillas}</div>}
+      <div className="relative mt-5 flex flex-wrap items-center gap-x-4 gap-y-3">{acciones}</div>
     </section>
   );
 }
 
-function Cifra({ etiqueta, valor, detalle }: { etiqueta: string; valor: React.ReactNode; detalle: React.ReactNode }) {
+/** Una cifra del resumen: los enlaces quedan alineados al pie de cada columna. */
+function Cifra({ etiqueta, valor, detalle, enlace }: { etiqueta: string; valor: React.ReactNode; detalle: React.ReactNode; enlace?: { texto: string; fn: () => void } }) {
   return (
-    <div className="min-w-0 px-5 py-4 sm:px-6">
+    <div className="flex min-w-0 flex-col px-5 py-4 sm:px-6 sm:py-5">
       <p className="text-[12.5px] font-semibold text-fg-2">{etiqueta}</p>
-      <p className="mt-1 text-[28px] leading-none font-extrabold tracking-[-0.03em] tabular">{valor}</p>
-      <div className="mt-1.5 text-[12px] text-fg-3">{detalle}</div>
+      <p className="mt-1.5 flex h-8 items-baseline gap-1.5 text-[28px] leading-none font-extrabold tracking-[-0.03em] tabular">{valor}</p>
+      <div className="mt-2 flex-1 text-[12px] leading-relaxed text-fg-3">{detalle}</div>
+      {enlace && (
+        <button type="button" className="mt-2 inline-flex min-h-9 items-center gap-1 self-start text-[12.5px] font-bold text-accent hover:underline" onClick={enlace.fn}>
+          {enlace.texto} <ArrowRight className="size-3.5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -275,7 +317,7 @@ function Resumen() {
   const pct = cred.total > 0 ? Math.round((cred.avance / cred.total) * 100) : 0;
   const reales = evo.filter((p) => p.numero > 0);
   const delta = reales.length >= 2 ? reales.at(-1)!.acumulado - reales.at(-2)!.acumulado : null;
-  const enlace = "mt-1 inline-flex min-h-9 items-center gap-1 text-[12.5px] font-bold text-accent hover:underline";
+  const estimado = ppa === null && actual.ppa !== null;
 
   return (
     <section aria-label="Resumen de tu carrera" className="card grid divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
@@ -284,51 +326,52 @@ function Resumen() {
         valor={<>{pct}%</>}
         detalle={
           <>
-            <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-surface-3">
+            <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-3">
               <div className="hero h-full rounded-full" style={{ width: `${pct}%` }} />
             </div>
             {cred.avance} de {cred.total} créditos{cred.cursando > 0 && <> · {cred.cursando} cursando</>}
           </>
         }
+        enlace={{ texto: "Ver malla", fn: () => irA("malla") }}
       />
       <Cifra
-        etiqueta="PPA acumulado"
+        etiqueta={estimado ? "PPA estimado" : "PPA acumulado"}
         valor={actual.ppa !== null ? fmtNota(actual.ppa, 2) : "—"}
         detalle={
-          <>
-            {delta !== null ? (
-              <span className={cx("inline-flex items-center gap-1 font-semibold", delta > 0.005 ? "text-ok" : delta < -0.005 ? "text-danger" : "text-fg-3")}>
-                {delta > 0.005 ? <TrendingUp className="size-3.5" /> : delta < -0.005 ? <TrendingDown className="size-3.5" /> : <Minus className="size-3.5" />}
-                {delta > 0 ? "+" : ""}
-                {fmtNota(delta, 2)} vs. semestre anterior
-              </span>
-            ) : (
-              <span>{ppa === null ? "Registra notas finales para verlo" : "Con dos semestres verás la tendencia"}</span>
-            )}
-            {actual.ramos > 0 && <span className="block">Con promedios en curso · confirmado {ppa !== null ? fmtNota(ppa, 2) : "—"}</span>}
-            <button type="button" className={enlace} onClick={() => irA("estadisticas")}>
-              Ver estadísticas <ArrowRight className="size-3.5" />
-            </button>
-          </>
+          estimado ? (
+            <>Según tus promedios en curso. Se confirma cuando cierres tus primeros ramos.</>
+          ) : ppa === null ? (
+            <>Registra tus notas para verlo.</>
+          ) : (
+            <>
+              {delta !== null ? (
+                <span className={cx("inline-flex items-center gap-1 font-semibold", delta > 0.005 ? "text-ok" : delta < -0.005 ? "text-danger" : "text-fg-3")}>
+                  {delta > 0.005 ? <TrendingUp className="size-3.5" /> : delta < -0.005 ? <TrendingDown className="size-3.5" /> : <Minus className="size-3.5" />}
+                  {delta > 0 ? "+" : ""}
+                  {fmtNota(delta, 2)} vs. semestre anterior
+                </span>
+              ) : (
+                <span className="block">Con dos semestres verás la tendencia.</span>
+              )}
+              {actual.ramos > 0 && <span className="block">Incluye ramos en curso · confirmado {fmtNota(ppa, 2)}</span>}
+            </>
+          )
         }
+        enlace={{ texto: "Ver estadísticas", fn: () => irA("estadisticas") }}
       />
       <Cifra
         etiqueta="Para titularte"
-        valor={restante.ultimo !== null ? <>{restante.n} <span className="text-[15px] font-semibold text-fg-3">{restante.n === 1 ? "semestre" : "semestres"}</span></> : "Listo"}
+        valor={restante.ultimo !== null ? <>{restante.n} <span className="text-[15px] font-semibold tracking-normal text-fg-3">{restante.n === 1 ? "semestre" : "semestres"}</span></> : "Listo"}
         detalle={
-          <>
-            {restante.ultimo !== null ? (
-              <span>
-                Egreso estimado: <strong className="font-semibold text-fg-2">{fechaEgreso(ctx.st.semestreActual, restante.ultimo, ctx.st.congelaciones)}</strong>, según tu plan {restante.fuente === "guardado" ? "guardado" : "recomendado"}.
-              </span>
-            ) : (
-              <span>No te quedan ramos por planificar.</span>
-            )}
-            <button type="button" className={enlace} onClick={() => irA("planificacion")}>
-              Ver plan de carrera <ArrowRight className="size-3.5" />
-            </button>
-          </>
+          restante.ultimo !== null ? (
+            <>
+              Egreso estimado: <strong className="font-semibold text-fg-2">{fechaEgreso(ctx.st.semestreActual, restante.ultimo, ctx.st.congelaciones)}</strong>, según tu plan {restante.fuente === "guardado" ? "guardado" : "recomendado"}.
+            </>
+          ) : (
+            <>No te quedan ramos por planificar.</>
+          )
         }
+        enlace={{ texto: "Ver plan de carrera", fn: () => irA("planificacion") }}
       />
     </section>
   );
@@ -676,40 +719,47 @@ function ProximasEvaluaciones() {
   const proximas = evaluacionesConFecha(ctx)
     .filter((e) => e.fecha >= hoy && !e.rendida)
     .slice(0, 6);
-  const fmt = new Intl.DateTimeFormat("es-CL", { weekday: "short", day: "numeric", month: "short" });
   return (
-    <Tarjeta>
-      <CabeceraTarjeta icono={<CalendarClock className="size-[18px]" />} titulo="Próximas evaluaciones" descripcion="Las que tienen fecha, en orden." acciones={<Boton tamano="sm" variante="fantasma" onClick={() => irA("agenda")}>Ver agenda</Boton>} />
+    <section aria-labelledby="titulo-proximas" className="min-w-0">
+      <div className="mb-3 flex items-baseline justify-between gap-3 px-1">
+        <h2 id="titulo-proximas" className="text-[17px] font-bold tracking-tight">Próximas evaluaciones</h2>
+        <button type="button" className="inline-flex min-h-9 shrink-0 items-center gap-1 text-[13px] font-bold text-accent hover:underline" onClick={() => irA("agenda")}>
+          Ver agenda <ChevronRight className="size-4" />
+        </button>
+      </div>
       {proximas.length === 0 ? (
-        <p className="text-[13px] text-fg-2">
+        <div className="card p-5 text-[13.5px] text-fg-2">
           No tienes evaluaciones con fecha.{" "}
-          <button className="font-semibold text-accent hover:underline" onClick={() => irA("notas")}>
+          <button type="button" className="font-semibold text-accent hover:underline" onClick={() => irA("notas")}>
             Agregar fechas
           </button>
-        </p>
+        </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="card grid grid-cols-[minmax(0,1fr)] divide-y divide-line overflow-clip">
           {proximas.map((e) => {
             const d = diasHasta(e.fecha);
-            const [y, m, dia] = e.fecha.split("-").map(Number);
+            const f = fechaLocal(e.fecha);
+            const tono = d <= 2 ? "bg-danger-soft text-danger" : d <= 7 ? "bg-warn-soft text-warn" : "bg-surface-2 text-fg-2";
             return (
-              <li key={e.uid} className="flex items-center gap-3 rounded-2xl bg-surface-2 px-3 py-2.5">
-                <span className={cx("grid w-14 shrink-0 place-items-center rounded-lg py-1 text-center", d <= 2 ? "bg-danger-soft text-danger" : d <= 7 ? "bg-warn-soft text-warn" : "bg-surface-2 text-fg-2")}>
-                  <span className="text-[11px] leading-tight font-bold">{d === 0 ? "Hoy" : d === 1 ? "Mañana" : `${d} días`}</span>
+              <li key={e.uid} className="flex items-center gap-3 px-4 py-3">
+                <span className={cx("grid w-12 shrink-0 place-items-center rounded-2xl py-1.5 text-center", tono)}>
+                  <span className="text-[18px] leading-none font-extrabold tabular">{f.getDate()}</span>
+                  <span className="mt-0.5 text-[10.5px] leading-none font-bold uppercase">{FMT_MES.format(f).replace(".", "")}</span>
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13.5px] font-semibold">{e.etiqueta}</p>
-                  <p className="truncate text-[12px] text-fg-3">
-                    {e.ramo} · {fmt.format(new Date(y, m - 1, dia))}
-                  </p>
+                  <p className="truncate text-[14px] font-semibold">{e.etiqueta}</p>
+                  <p className="truncate text-[12px] text-fg-3">{e.ramo}</p>
                 </div>
-                {e.peso > 0 && <Insignia>{fmtPct(e.peso)}%</Insignia>}
+                <div className="shrink-0 text-right">
+                  <p className={cx("text-[12.5px] font-bold", d <= 2 ? "text-danger" : d <= 7 ? "text-warn" : "text-fg-2")}>{d === 0 ? "Hoy" : d === 1 ? "Mañana" : `${d} días`}</p>
+                  {e.peso > 0 && <p className="text-[11.5px] text-fg-3 tabular">{fmtPct(e.peso)}%</p>}
+                </div>
               </li>
             );
           })}
         </ul>
       )}
-    </Tarjeta>
+    </section>
   );
 }
 
