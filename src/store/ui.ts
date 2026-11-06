@@ -51,7 +51,8 @@ interface UIStore {
   /** Ramo a enfocar al llegar a una vista (desde la paleta de comandos). */
   foco: { vista: Vista; id: string } | null;
   irA: (v: Vista, foco?: string) => void;
-  toast: (mensaje: string, tipo?: TipoToast, accion?: Toast["accion"]) => void;
+  /** `fijo`: no se cierra solo (por ejemplo, el aviso de versión nueva). */
+  toast: (mensaje: string, tipo?: TipoToast, accion?: Toast["accion"], fijo?: boolean) => void;
   cerrarToast: (id: number) => void;
   setPaleta: (v: boolean) => void;
   setCuenta: (v: boolean) => void;
@@ -104,10 +105,10 @@ export const useUI = create<UIStore>((set, get) => ({
     set({ vista: v, foco: foco ? { vista: v, id: foco } : null });
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   },
-  toast(mensaje, tipo = "ok", accion) {
+  toast(mensaje, tipo = "ok", accion, fijo = false) {
     const id = ++idToast;
     set({ toasts: [...get().toasts.slice(-3), { id, mensaje, tipo, accion }] });
-    setTimeout(() => get().cerrarToast(id), accion ? 6500 : 4200);
+    if (!fijo) setTimeout(() => get().cerrarToast(id), accion ? 6500 : 4200);
   },
   cerrarToast(id) {
     set({ toasts: get().toasts.filter((t) => t.id !== id) });

@@ -1,21 +1,28 @@
 {
+  "id": "./",
   "name": "Notas · Planner académico",
   "short_name": "Notas",
-  "description": "Malla interactiva, notas, PPA, planificación de semestres y estadísticas.",
+  "description": "Notas, agenda de evaluaciones, malla, PPA y plan de carrera.",
   "lang": "es-CL",
+  "dir": "ltr",
   "start_url": "./#inicio",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f5f6fa",
-  "theme_color": "#5b47f0",
+  "orientation": "any",
+  "background_color": "#f3f2fa",
+  "theme_color": "#f3f2fa",
+  "categories": ["education", "productivity"],
   "icons": [
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" },
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Notas", "url": "./#notas" },
-    { "name": "Mi malla", "url": "./#malla" },
-    { "name": "Planificación", "url": "./#planificacion" }
+    { "name": "Registrar nota", "short_name": "Notas", "url": "./#notas", "icons": [{ "src": "icon-maskable-192.png", "sizes": "192x192" }] },
+    { "name": "Agenda", "url": "./#agenda", "icons": [{ "src": "icon-maskable-192.png", "sizes": "192x192" }] },
+    { "name": "Mi malla", "url": "./#malla", "icons": [{ "src": "icon-maskable-192.png", "sizes": "192x192" }] },
+    { "name": "Plan de carrera", "url": "./#planificacion", "icons": [{ "src": "icon-maskable-192.png", "sizes": "192x192" }] }
   ]
 }

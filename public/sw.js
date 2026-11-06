@@ -1,11 +1,16 @@
 // Vite inserta la revisión y los chunks del build, incluidas las secciones diferidas.
 const PREFIJO = `notas-planner:${self.registration.scope}:`;
 const CACHE = PREFIJO + "__REVISION__";
-const BASE = ["./", "./index.html", "./carreras/inf.json", "./icon.svg", "./manifest.webmanifest", /* __ASSETS__ */];
+const BASE = ["./", "./index.html", "./carreras/inf.json", "./icon.svg", "./manifest.webmanifest", "./icon-192.png", "./icon-maskable-192.png", /* __ASSETS__ */];
 
 self.addEventListener("install", (e) => {
   // Si falla la descarga, la versión anterior sigue disponible. La actualización espera a que se cierren sus pestañas.
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(BASE)));
+});
+
+// La app pide activar la versión nueva cuando el usuario acepta actualizar.
+self.addEventListener("message", (e) => {
+  if (e.data === "activar") self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {

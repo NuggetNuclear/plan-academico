@@ -300,7 +300,7 @@ function Encabezado() {
 
   return (
     <header className="sticky top-0 z-30 bg-bg/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-[1400px] items-center gap-1 px-3 pt-3 pb-2 sm:gap-3 sm:px-6 lg:px-8 lg:pt-5">
+      <div className="mx-auto flex max-w-[1400px] items-center gap-1 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 sm:gap-3 sm:px-6 lg:px-8 lg:pt-5">
         <div className="lg:hidden">
           <Marca compacta />
         </div>

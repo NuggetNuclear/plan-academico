@@ -1,13 +1,54 @@
-import { DatabaseBackup, IdCard, Laptop, Moon, Palette, Sun } from "lucide-react";
+import { CheckCircle2, DatabaseBackup, Download, IdCard, Laptop, Moon, Palette, Share, SquarePlus, Sun } from "lucide-react";
 import { useState } from "react";
 import { useUI, type Tema } from "../store/ui";
-import { Interruptor, PanelPestana, Pestanas, Tarjeta, cx } from "../ui/primitives";
+import { formaInstalar, instalar, usePWA } from "../pwa";
+import { Boton, Interruptor, PanelPestana, Pestanas, Tarjeta, cx } from "../ui/primitives";
 import { DatosDelDispositivo } from "./Cuenta";
 import { TusDatos } from "./malla/TusDatos";
 
 type Pestana = "datos" | "respaldo" | "apariencia";
 /** La pestaña elegida se conserva al cambiar de sección durante la sesión. */
 let recordada: Pestana = "datos";
+
+/** Instalar como app: botón propio donde el navegador lo permite, pasos para iPhone y el resto. */
+function InstalarApp() {
+  const forma = usePWA(formaInstalar);
+  return (
+    <Tarjeta>
+      <h2 className="text-[15px] font-bold">Instalar la app</h2>
+      {forma === "instalada" ? (
+        <p className="mt-2 flex items-center gap-2 text-[13.5px] text-fg-2">
+          <CheckCircle2 aria-hidden="true" className="size-5 text-ok" />
+          Ya la estás usando como app. Funciona sin conexión y se actualiza sola.
+        </p>
+      ) : (
+        <>
+          <p className="mt-0.5 text-[13px] text-fg-2">Ábrela desde tu pantalla de inicio como cualquier app, a pantalla completa y sin conexión.</p>
+          {forma === "boton" ? (
+            <Boton className="mt-3" variante="primario" icono={<Download className="size-4" />} onClick={() => void instalar()}>
+              Instalar
+            </Boton>
+          ) : forma === "ios" ? (
+            <ol className="mt-3 space-y-2 text-[13.5px]">
+              <li className="flex items-center gap-2">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-accent-soft text-[12px] font-bold text-accent">1</span>
+                Abre esta página en Safari y toca <Share aria-label="Compartir" className="inline size-4" /> Compartir.
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-accent-soft text-[12px] font-bold text-accent">2</span>
+                Elige <SquarePlus aria-hidden="true" className="inline size-4" /> «Agregar a inicio».
+              </li>
+            </ol>
+          ) : (
+            <p className="mt-3 rounded-2xl bg-surface-2 px-4 py-3 text-[13px] text-fg-2">
+              Busca «Instalar app» o «Agregar a la pantalla de inicio» en el menú de tu navegador. En Firefox de escritorio no está disponible.
+            </p>
+          )}
+        </>
+      )}
+    </Tarjeta>
+  );
+}
 
 function Apariencia() {
   const tema = useUI((s) => s.tema);
@@ -77,7 +118,10 @@ export function Configuracion() {
             <DatosDelDispositivo />
           </Tarjeta>
         ) : (
-          <Apariencia />
+          <div className="space-y-4">
+            <InstalarApp />
+            <Apariencia />
+          </div>
         )}
       </PanelPestana>
     </div>

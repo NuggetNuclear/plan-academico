@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
+import { iniciarPWA } from "./pwa";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -10,8 +11,4 @@ createRoot(document.getElementById("root")!).render(
 );
 
 // App instalable y disponible sin conexión.
-if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
-  });
-}
+iniciarPWA();
