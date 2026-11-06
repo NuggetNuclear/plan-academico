@@ -1,4 +1,4 @@
-import { Calculator, CalendarDays, FileDown, FolderPlus, Search, Trash2, Plus, NotebookPen, MoreHorizontal } from "lucide-react";
+import { Calculator, CalendarDays, FileDown, FolderPlus, Search, Ticket, Trash2, Plus, NotebookPen, MoreHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   calcularPPA,
@@ -16,7 +16,7 @@ import type { Periodo, TipoPeriodo } from "../core/state";
 import { escaparHTML, abrirImpresion } from "../lib/imprimir";
 import { useApp, useCtx } from "../store/app";
 import { agregarRamoAPeriodo, eliminarPeriodo, obtenerPeriodo, periodoPorClave } from "../store/mutaciones";
-import { confirmar, toast, useUI } from "../store/ui";
+import { confirmar, pedirTexto, toast, useUI } from "../store/ui";
 import { CampoNumero } from "../ui/CampoNumero";
 import { CabeceraModal, Modal, OpcionMenu, PieModal, Popover } from "../ui/overlays";
 import { Boton, BotonIcono, cx } from "../ui/primitives";
@@ -285,6 +285,28 @@ function RegistroNotas() {
     setSel(null);
   };
   const opcion = (fn: () => void) => () => (setMenu(false), fn());
+  const editarVentana = async () => {
+    if (!periodo) return;
+    const clave = clavePeriodo(periodo);
+    const v = await pedirTexto({
+      titulo: "Ventana de inscripción",
+      mensaje: "La letra y número que te asigna la universidad para inscribir ramos (por ejemplo A5). Solo sirve como recordatorio; déjala vacía para quitarla.",
+      etiqueta: nombrePeriodo(periodo, verano),
+      aceptar: "Guardar",
+      campo: {
+        etiqueta: "Ventana",
+        valor: periodo.ventana ?? "",
+        placeholder: "A5",
+        validar: (x) => (!x.trim() || x.trim() === periodo.ventana || /^[A-E][1-5]$/i.test(x.trim()) ? null : "Usa una letra de A a E y un número de 1 a 5, por ejemplo A5."),
+      },
+    });
+    if (v === null) return;
+    const valor = v.trim() === periodo.ventana ? v.trim() : v.trim().toUpperCase();
+    if (valor !== (periodo.ventana ?? "")) mutar("Ventana del semestre", (c) => {
+      const p = periodoPorClave(c.st, clave);
+      if (p) p.ventana = valor || undefined;
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -299,36 +321,10 @@ function RegistroNotas() {
             {pendientes > 0 && ` · ${plural(pendientes, "evaluación pendiente", "evaluaciones pendientes")}`}
             {promedio !== null && <> · promedio <strong className={cx("tabular", promedio < NOTA_APROB ? "text-danger" : "text-fg")}>{fmtNota(promedio, 2)}</strong></>}
           </p>
-          {periodo && periodo.tipo === "regular" && (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <label className="text-[12.5px] font-semibold text-fg-2" htmlFor="ventana" title="Tu ventana de inscripción de este semestre">
-              Ventana de inscripción
-            </label>
-            <input
-              id="ventana"
-              key={claveSel}
-              className="input !w-20 !py-1 text-center font-bold uppercase placeholder:font-normal placeholder:normal-case"
-              defaultValue={periodo.ventana ?? ""}
-              placeholder="Ej. A5"
-              maxLength={2}
-              title="Letra de A a E y número de 1 a 5, por ejemplo A5"
-              onBlur={(e) => {
-                const v = e.target.value.trim().toUpperCase();
-                if (v && !/^[A-E][1-5]$/.test(v)) {
-                  e.target.value = periodo.ventana ?? "";
-                  return toast("Ventana inválida. Usa una letra de A a E y un número de 1 a 5 (ej. A5).", "error");
-                }
-                if (v !== (periodo.ventana ?? "")) mutar("Ventana del semestre", (c) => {
-                  const p = periodoPorClave(c.st, claveSel);
-                  if (p) p.ventana = v || undefined;
-                });
-              }}
-            />
-          </div>
-        )}
+          {periodo?.ventana && <p className="mt-0.5 text-[12.5px] text-fg-3">{/^ventana/i.test(periodo.ventana) ? periodo.ventana : `Ventana de inscripción ${periodo.ventana}`}</p>}
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
-          <BotonIcono ref={refMenu} etiqueta="Más herramientas" aria-expanded={menu} aria-haspopup="dialog" className="border border-line-strong" onClick={() => setMenu((v) => !v)}>
+          <BotonIcono ref={refMenu} etiqueta="Más opciones" aria-expanded={menu} aria-haspopup="dialog" className="border border-line-strong" onClick={() => setMenu((v) => !v)}>
             <MoreHorizontal className="size-5" />
           </BotonIcono>
           <Popover ancla={refMenu} abierto={menu} onCerrar={() => setMenu(false)} ancho={260}>
@@ -336,6 +332,9 @@ function RegistroNotas() {
             <OpcionMenu icono={<CalendarDays />} onClick={opcion(() => irA("agenda"))} descripcion="Tus evaluaciones por fecha y exportación al calendario">Ver agenda</OpcionMenu>
             <OpcionMenu icono={<FileDown />} onClick={opcion(exportarPDF)} descripcion="Todas tus notas finales y PPA">Exportar PDF</OpcionMenu>
             <OpcionMenu icono={<FolderPlus />} onClick={opcion(() => setModalPeriodo(true))} descripcion="Semestre pasado, verano o convalidaciones">Crear periodo</OpcionMenu>
+            {periodo?.tipo === "regular" && (
+              <OpcionMenu icono={<Ticket />} onClick={opcion(editarVentana)} descripcion={periodo.ventana ? `Ahora: ${periodo.ventana}` : "Para recordar cuándo inscribes"}>Ventana de inscripción</OpcionMenu>
+            )}
             {periodo && !esPeriodoActual(ctx.st, periodo) && (
               <OpcionMenu icono={<Trash2 />} peligro onClick={opcion(eliminarEstePeriodo)}>Eliminar {nombrePeriodo(periodo, verano)}</OpcionMenu>
             )}

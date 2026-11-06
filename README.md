@@ -12,7 +12,7 @@ Malla interactiva, notas con ponderaciones, simulador de PPA, planificación de 
 - **Agenda:** tus evaluaciones con fecha, agrupadas (vencidas sin nota, próximos 7 días, más adelante, registradas), filtro por ramo, registro directo y exportación `.ics`.
 - **Simulaciones:** prueba notas de un ramo (en blanco, desde una plantilla o copiando uno de tus ramos) y tu PPA con una meta de egreso, sin modificar tus notas, PPA ni avance.
 - **Configuración:** datos académicos (semestre, inglés eximido, congelaciones), importar y respaldar, y apariencia.
-- **Plan de carrera:** seis estrategias que se filtran por las que terminan en el mínimo de semestres, ramos críticos primero, tope de créditos, reglas de práctica (dentro de la carga, sobrecupo, verano o fuera del plan), arrastrar y soltar con validación, ajustes sugeridos (intercambios), guardar el plan y PDF.
+- **Plan de carrera:** una sola página que responde cuándo terminas y qué inscribir el próximo semestre; el resto de la carrera como línea de tiempo. Tope de créditos ajustable ahí mismo, reglas de práctica (dentro de la carga, sobrecupo, verano o fuera del plan), «Cambiar ramos de semestre» con validación de requisitos y créditos, intercambios que no alargan la carrera, otras formas de ordenar los ramos que terminan igual, guardar el plan y PDF.
 - **Estadísticas:** PPA, créditos inscritos/aprobados/reprobados/de avance, evolución del PPA (gráfico o tabla), aprobación de créditos por semestre, fortalezas por área (Matemáticas, Ciencias básicas, Programación, Software/datos/IA, Sistemas y redes, Telecomunicaciones, Gestión, Comunicación y formación general, Electivos) y distribución de notas por ramo o por evaluación.
 - **Asistente de inicio, modo oscuro, exportar/importar, sincronización opcional con Google.**
 - **Ayuda:** cómo funciona, reglas de la carrera (prácticas y causales), cómo se calcula cada dato, un formulario para escribirme dudas e ideas y un acceso para reportar errores en los [issues de GitHub](https://github.com/NuggetNuclear/plan-academico/issues).
@@ -28,7 +28,7 @@ Malla interactiva, notas con ponderaciones, simulador de PPA, planificación de 
 - **Ramos en riesgo** en Avisos (requisito perdido, ya no alcanza, necesitas más de 5,5).
 - **Deshacer** cualquier cambio (`Ctrl/⌘ Z` o el botón del encabezado).
 - **Paleta de comandos** (`Ctrl/⌘ K`): busca ramos y acciones.
-- **Celular de verdad:** barra inferior, arrastrar con toque largo y botón «Mover a…» en cada ramo del plan.
+- **Celular de verdad:** barra inferior y botón «Mover» en cada ramo del plan.
 - **PWA:** instalable y funciona sin conexión.
 - **Importar desde la UDP:** sube el *Avance curricular* (PDF) para marcar tu malla en segundos, o el *Trabajo académico del estudiante* (Excel) para importar todo (notas por semestre, repeticiones, verano, congelaciones, inglés eximido y PPA). Se procesa en el navegador; ver `src/importar/`.
 
@@ -48,7 +48,7 @@ Toda la lógica vive en `src/core/` y está cubierta por tests:
 
 - [Vite 7](https://vite.dev) + React 19 + TypeScript (estricto)
 - Tailwind CSS 4 con tokens propios (claro/oscuro) y paleta categórica validada para daltonismo
-- Zustand (estado + deshacer), dnd-kit (arrastrar y soltar con mouse, teclado y toque), lucide-react (íconos)
+- Zustand (estado + deshacer), lucide-react (íconos)
 - Gráficos en SVG propio, sin librerías de charts
 - Vitest para lógica, importación, persistencia, sincronización, PWA y accesibilidad
 

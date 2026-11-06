@@ -1,6 +1,6 @@
-import { Eraser, Plus, Trash2 } from "lucide-react";
+import { Eraser, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useId, type Dispatch, type SetStateAction } from "react";
-import { nombreEntrada, nombrePeriodo, periodosOrdenados, type Ctx } from "../../core/academic";
+import { esPeriodoActual, nombreEntrada, nombrePeriodo, periodosOrdenados, type Ctx } from "../../core/academic";
 import { fmtNota, fmtPct } from "../../core/format";
 import { aplicarPlantilla, calcularRamo, PLANTILLAS, statsCategoria } from "../../core/grades";
 import { nuevoUid, type Entrada } from "../../core/state";
@@ -18,14 +18,16 @@ export function PlanificacionNotas({ ctx, escenario, onCambiar }: {
   const { entrada } = escenario;
   const calculo = calcularRamo(entrada);
   const fuentes = periodosOrdenados(ctx.st).flatMap((p) => p.ramos.filter((e) => e.categorias.length > 0).map((e) => ({
-    entrada: e, nombre: `${nombreEntrada(ctx, e)} · ${nombrePeriodo(p, ctx.cur.malla.periodoVerano)}`,
+    entrada: e, corto: nombreEntrada(ctx, e), nombre: `${nombreEntrada(ctx, e)} · ${nombrePeriodo(p, ctx.cur.malla.periodoVerano)}`, actual: esPeriodoActual(ctx.st, p),
   })));
+  const delSemestre = fuentes.filter((f) => f.actual);
   const editar = (fn: (e: Entrada) => void) => onCambiar((previo) => {
     const copia = structuredClone(previo.entrada);
     fn(copia);
     return { ...previo, entrada: copia };
   });
   const elegirBase = (origen: string) => {
+    if (origen === "") return;
     let copia = crearSimulacion();
     if (origen.startsWith("ramo:")) {
       const fuente = fuentes.find((f) => f.entrada.uid === origen.slice(5));
@@ -42,26 +44,60 @@ export function PlanificacionNotas({ ctx, escenario, onCambiar }: {
   const peso = calculo.examen?.pesoPresentacion ?? calculo.pesoTotal;
   const esperado = calculo.examen?.pesoPresentacionEsperado ?? 100;
 
-  return (
-    <div className="space-y-4">
-      <Tarjeta>
+  const nombreOrigen = escenario.origen.startsWith("ramo:")
+    ? fuentes.find((f) => f.entrada.uid === escenario.origen.slice(5))?.nombre ?? "Un ramo"
+    : escenario.origen.startsWith("plantilla:")
+      ? `Plantilla ${PLANTILLAS[Number(escenario.origen.slice(10))]?.nombre ?? ""}`
+      : "Un ramo en blanco";
+  const otrosRamos = (
+    <select id={`${id}-base`} className="input" value="" onChange={(e) => elegirBase(e.target.value)}>
+      <option value="">Elegir…</option>
+      {fuentes.length > 0 && <optgroup label="Mis ramos">
+        {fuentes.map((f) => <option key={f.entrada.uid} value={`ramo:${f.entrada.uid}`}>{f.nombre}</option>)}
+      </optgroup>}
+      <optgroup label="Plantillas">
+        {PLANTILLAS.map((p, i) => <option key={p.nombre} value={`plantilla:${i}`}>{p.nombre}</option>)}
+      </optgroup>
+    </select>
+  );
+
+  // Primer paso: elegir qué simular. Así se entiende de entrada qué hace esta pantalla.
+  if (escenario.origen === "") {
+    return (
+      <Tarjeta className="space-y-4">
+        <div>
+          <h2 className="text-[18px] font-bold tracking-tight">¿Qué ramo quieres simular?</h2>
+          <p className="mt-0.5 text-[13.5px] text-fg-2">Copiamos sus porcentajes y tus notas; después cambias o agregas notas para ver con cuánto terminarías.</p>
+        </div>
+        {delSemestre.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {delSemestre.map((f) => (
+              <button key={f.entrada.uid} type="button" onClick={() => elegirBase(`ramo:${f.entrada.uid}`)} className="min-h-11 rounded-full bg-accent-soft px-4 text-[13.5px] font-semibold text-accent transition-colors hover:bg-accent hover:text-accent-fg">
+                {f.corto}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-0 flex-1 basis-64">
-            <label className="label" htmlFor={`${id}-base`}>Empezar desde</label>
-            <select id={`${id}-base`} className="input" value={escenario.origen} onChange={(e) => elegirBase(e.target.value)}>
-              <option value="">En blanco</option>
-              {fuentes.length > 0 && <optgroup label="Copiar mis ramos">
-                {fuentes.map((f) => <option key={f.entrada.uid} value={`ramo:${f.entrada.uid}`}>{f.nombre}</option>)}
-              </optgroup>}
-              <optgroup label="Plantillas">
-                {PLANTILLAS.map((p, i) => <option key={p.nombre} value={`plantilla:${i}`}>{p.nombre}</option>)}
-              </optgroup>
-            </select>
+            <label className="label" htmlFor={`${id}-base`}>{delSemestre.length > 0 ? "Otro ramo o una plantilla" : "Un ramo o una plantilla"}</label>
+            {otrosRamos}
           </div>
-          <Boton icono={<Eraser className="size-4" />} onClick={() => editar((e) => e.categorias.forEach((c) => c.notas.forEach((n) => { n.n = null; })))}>Vaciar valores de prueba</Boton>
+          <Boton variante="fantasma" icono={<Plus className="size-4" />} onClick={() => onCambiar({ origen: "blanco", entrada: crearSimulacion() })}>Partir en blanco</Boton>
         </div>
-        <p className="mt-2 text-xs text-fg-3">Elegir otra base reemplaza la prueba actual. Al copiar se conservan las ponderaciones y reglas de examen.</p>
       </Tarjeta>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="card flex flex-wrap items-center gap-3 px-4 py-3">
+        <p className="min-w-0 flex-1 text-[13.5px]">
+          <span className="text-fg-2">Simulando:</span> <strong>{nombreOrigen}</strong>
+        </p>
+        <Boton tamano="sm" variante="fantasma" icono={<Eraser className="size-4" />} onClick={() => editar((e) => e.categorias.forEach((c) => c.notas.forEach((n) => { n.n = null; })))}>Vaciar notas de prueba</Boton>
+        <Boton tamano="sm" variante="suave" icono={<RefreshCw className="size-4" />} onClick={() => onCambiar({ origen: "", entrada: crearSimulacion() })}>Simular otro ramo</Boton>
+      </div>
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
         <section aria-label="Evaluaciones de prueba" className="min-w-0 space-y-3">
           {entrada.categorias.map((c, ci) => (

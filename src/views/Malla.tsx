@@ -3,6 +3,7 @@ import {
   Briefcase,
   Check,
   CheckCheck,
+  ChevronDown,
   CircleSlash,
   FileUp,
   Lightbulb,
@@ -11,6 +12,7 @@ import {
   Lock,
   Route,
   Search,
+  Settings2,
   TriangleAlert,
   X,
 } from "lucide-react";
@@ -217,8 +219,7 @@ function TarjetaRamo({
       </span>
       <span className="line-clamp-3 text-[12.5px] leading-snug font-semibold text-fg">{nombreRamo(ctx, ramo.id)}</span>
       <span className="mt-auto flex items-center gap-1.5 text-[11px] text-fg-3">
-        <span className="tabular">{ramo.creditos} cr</span>
-        <span className="truncate">· {ramo.tipo}</span>
+        <span className="truncate tabular" title={etiquetaTipo(ctx.cur, ramo.tipo)}>{ramo.creditos} créditos</span>
         {nota !== null && <NotaChip nota={nota} className="ml-auto !min-w-0 !px-1 !text-[10.5px]" />}
       </span>
       {deuda.length > 0 && (
@@ -370,46 +371,33 @@ export function Malla() {
 
       <Tarjeta className="!p-0">
         <div className="space-y-4 p-5 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-[15px] font-bold">Malla curricular</h2>
-              <p className="text-[13px] text-fg-2">Toca un ramo para marcarlo. Pasa el mouse para ver sus prerrequisitos y lo que desbloquea.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Boton tamano="sm" variante={verCritica ? "suave" : "secundario"} icono={<Route className="size-4" />} onClick={() => setVerCritica((v) => !v)} aria-pressed={verCritica}>
-                Ruta crítica
-              </Boton>
-              <Boton tamano="sm" icono={<CheckCheck className="size-4" />} onClick={marcarHasta}>
-                Marcar semestres completos
-              </Boton>
-              <Boton tamano="sm" variante="suave" icono={<FileUp className="size-4" />} onClick={() => useUI.getState().setImportar(true)}>
-                Importar desde la UDP
-              </Boton>
-            </div>
+          <div>
+            <h2 className="text-[17px] font-bold tracking-tight">Tu malla</h2>
+            <p className="text-[13.5px] text-fg-2">
+              Toca un ramo para marcarlo como aprobado o cursando. <span className="hidden md:inline">Pasa el mouse sobre uno para ver qué necesita y qué te abre.</span>
+            </p>
           </div>
 
           {puedeTomar > 0 && (
             <button
               type="button"
               onClick={() => irA("planificacion")}
-              className="flex w-full items-center gap-3 rounded-2xl border border-accent-line bg-accent-soft px-4 py-2.5 text-left text-[13.5px] transition-colors hover:bg-accent-soft/70"
+              className="flex w-full items-center gap-3 rounded-2xl bg-accent-soft px-4 py-2.5 text-left text-[13.5px] transition-colors hover:bg-accent-soft/70"
             >
               <Lightbulb className="size-4.5 shrink-0 text-accent" />
               <span className="flex-1">
                 Puedes tomar <strong>{plural(puedeTomar, "ramo")}</strong> el próximo semestre.
               </span>
               <span className="flex items-center gap-1 font-semibold text-accent">
-                Ver planificación <ArrowRight className="size-4" />
+                Ver plan de carrera <ArrowRight className="size-4" />
               </span>
             </button>
           )}
 
           {verCritica && critica.length > 0 && (
-            <div className="rounded-2xl border border-danger/25 bg-danger-soft px-4 py-3 text-[13px]">
-              <p className="font-bold">
-                Tu ruta crítica: {critica.length} semestres como mínimo para titularte
-              </p>
-              <p className="mt-0.5 text-fg-2">Es la cadena de prerrequisitos más larga que te queda (como en el método CPM). Si atrasas uno de estos ramos, se atrasa tu egreso.</p>
+            <div className="rounded-2xl bg-danger-soft px-4 py-3 text-[13px]">
+              <p className="font-bold">Necesitas al menos {plural(critica.length, "semestre")} más para titularte</p>
+              <p className="mt-0.5 text-fg-2">Es tu cadena de requisitos más larga: si atrasas uno de estos ramos, se atrasa tu egreso.</p>
               <ol className="mt-2 flex flex-wrap items-center gap-1.5">
                 {critica.map((id, i) => (
                   <li key={id} className="flex items-center gap-1.5">
@@ -452,36 +440,57 @@ export function Malla() {
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] font-semibold text-fg-2" aria-label="Leyenda">
-              <span className="flex items-center gap-1.5"><span className="size-3 rounded border border-ok/40 bg-ok-soft" />Aprobado</span>
-              <span className="flex items-center gap-1.5"><span className="size-3 rounded border border-info/40 bg-info-soft" />Cursando</span>
-              <span className="flex items-center gap-1.5"><span className="size-3 rounded border border-accent bg-surface" />Puedo tomar</span>
-              <span className="flex items-center gap-1.5"><span className="size-3 rounded border border-line bg-surface-2" />Bloqueado</span>
-              <span className="hidden items-center gap-1.5 md:flex"><span className="size-3 rounded-sm ring-2 ring-[var(--rel-prereq)]" />Prerrequisito</span>
-              <span className="hidden items-center gap-1.5 md:flex"><span className="size-3 rounded-sm ring-2 ring-[var(--rel-unlock)]" />Desbloquea</span>
-              <span className="hidden items-center gap-1.5 md:flex"><span className="size-3 rounded-sm ring-2 ring-[var(--rel-partial)]" />Desbloquea con otros</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-4">
-              <Interruptor
-                checked={st.prefs.marcadoRapido}
-                onChange={(v) => mutar(null, ({ st }) => (st.prefs.marcadoRapido = v))}
-                etiqueta="Marcado rápido"
-                descripcion="Un clic marca el ramo como cursado sin pedir el semestre. Ideal para armar tu plan rápido; las notas las completas después."
-              />
-              <Interruptor checked={st.prefs.mostrarNotas} onChange={(v) => mutar(null, ({ st }) => (st.prefs.mostrarNotas = v))} etiqueta="Mostrar notas" />
-            </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] font-semibold text-fg-2" aria-label="Qué significa cada color">
+            <span className="flex items-center gap-1.5"><span className="size-3 rounded border border-ok/40 bg-ok-soft" />Aprobado</span>
+            <span className="flex items-center gap-1.5"><span className="size-3 rounded border border-info/40 bg-info-soft" />Cursando</span>
+            <span className="flex items-center gap-1.5"><span className="size-3 rounded border border-accent bg-surface" />Puedes tomarlo</span>
+            <span className="flex items-center gap-1.5"><span className="size-3 rounded border border-line bg-surface-2" />Aún bloqueado</span>
           </div>
-          {Object.keys(cur.tipos).length > 0 && (
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-fg-3" aria-label="Tipos de ramo">
-              {Object.keys(cur.tipos).map((t) => (
-                <span key={t} className="flex items-center gap-1.5">
-                  <span className="h-3 w-1 rounded-full" style={{ background: colorTipo(cur, t) }} />
-                  <strong className="font-semibold text-fg-2">{t}</strong> {etiquetaTipo(cur, t)}
-                </span>
-              ))}
+
+          <details className="group rounded-2xl bg-surface-2">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-[13.5px] font-bold [&::-webkit-details-marker]:hidden">
+              <Settings2 aria-hidden="true" className="size-4 text-fg-3" /> Más opciones
+              <span className="font-normal text-fg-3">· importar, marcar rápido, ruta crítica</span>
+              <ChevronDown aria-hidden="true" className="ml-auto size-4 shrink-0 text-fg-3 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="space-y-4 px-4 pb-4">
+              <div className="flex flex-wrap gap-2">
+                <Boton tamano="sm" variante="suave" icono={<FileUp className="size-4" />} onClick={() => useUI.getState().setImportar(true)}>
+                  Importar avance desde la UDP
+                </Boton>
+                <Boton tamano="sm" icono={<CheckCheck className="size-4" />} onClick={marcarHasta}>
+                  Marcar semestres completos
+                </Boton>
+                <Boton tamano="sm" variante={verCritica ? "suave" : "secundario"} icono={<Route className="size-4" />} onClick={() => setVerCritica((v) => !v)} aria-pressed={verCritica}>
+                  {verCritica ? "Ocultar ruta crítica" : "Ver ruta crítica"}
+                </Boton>
+              </div>
+              <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
+                <Interruptor
+                  checked={st.prefs.marcadoRapido}
+                  onChange={(v) => mutar(null, ({ st }) => (st.prefs.marcadoRapido = v))}
+                  etiqueta="Marcado rápido"
+                  descripcion="Un toque marca el ramo como cursado sin preguntar el semestre."
+                />
+                <Interruptor checked={st.prefs.mostrarNotas} onChange={(v) => mutar(null, ({ st }) => (st.prefs.mostrarNotas = v))} etiqueta="Mostrar notas en la malla" />
+              </div>
+              <div className="hidden flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] font-semibold text-fg-2 md:flex" aria-label="Colores al pasar el mouse">
+                <span className="flex items-center gap-1.5"><span className="size-3 rounded-sm ring-2 ring-[var(--rel-prereq)]" />Lo necesita antes</span>
+                <span className="flex items-center gap-1.5"><span className="size-3 rounded-sm ring-2 ring-[var(--rel-unlock)]" />Lo desbloquea</span>
+                <span className="flex items-center gap-1.5"><span className="size-3 rounded-sm ring-2 ring-[var(--rel-partial)]" />Lo desbloquea junto con otros</span>
+              </div>
+              {Object.keys(cur.tipos).length > 0 && (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-fg-3" aria-label="Tipos de ramo">
+                  {Object.keys(cur.tipos).map((t) => (
+                    <span key={t} className="flex items-center gap-1.5">
+                      <span className="h-3 w-1 rounded-full" style={{ background: colorTipo(cur, t) }} />
+                      {etiquetaTipo(cur, t)}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+          </details>
         </div>
 
         {visibles.length === 0 ? (

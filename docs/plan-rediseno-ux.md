@@ -259,4 +259,13 @@ Las fuentes fundamentan criterios generales. La arquitectura y la paleta son pro
 - Pasada visual: los recuadros con borde de Situación académica, Ayuda, Importar, Wizard, editor de evaluaciones, Plan y avisos pasan a superficies suaves. Selectores segmentados en píldora y etiquetas sin mayúsculas. Los menús emergentes y tooltips conservan su borde para separarse del fondo.
 - Tests: pestañas del ramo (reglas y meta guardada), vista Mes y Preferencias del plan con auditoría axe. Sin desbordamiento horizontal a 375px en las 9 secciones.
 
+### Etapa 4: entendible desde el primer segundo
+
+Criterio: cada sección abre con una frase que dice qué es o qué hacer, una acción principal y lo avanzado en «Más opciones».
+
+- **Plan de carrera:** una sola página sin pestañas. Arriba la respuesta («Terminas la carrera el …», semestres que quedan y créditos por semestre ajustables ahí mismo), luego «Tu próximo semestre» con los ramos a inscribir por nombre, el resto como línea de tiempo plegable y «Otras formas de ordenar tus ramos» al final. Mover ramos queda detrás de «Cambiar ramos de semestre» con un botón «Mover» por ramo (se quitó el arrastrar y soltar y la dependencia dnd-kit). Práctica y ruta crítica pasan a «Más opciones».
+- **Mi malla:** arriba solo la instrucción, el aviso de ramos disponibles, búsqueda, filtro y los cuatro colores de estado. Importar, marcar semestres, ruta crítica, marcado rápido, mostrar notas y las leyendas secundarias quedan en «Más opciones».
+- **Simulaciones:** «Notas de un ramo» parte preguntando qué ramo simular (botones con los ramos del semestre, otro ramo o plantilla, o en blanco) y luego muestra «Simulando: …» con «Vaciar notas de prueba» y «Simular otro ramo».
+- **Notas:** la ventana de inscripción sale de la cabecera y se edita desde el menú «Más opciones».
+
 **Pendiente:** validar con estudiantes y en un teléfono real (teclado virtual, lector de pantalla, texto ampliado al 200%) y medir rendimiento con Lighthouse en dispositivos representativos. Son verificaciones fuera del navegador de desarrollo; no hay funciones del plan sin destino.

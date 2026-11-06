@@ -183,7 +183,7 @@ describe("accesibilidad de las vistas", () => {
     expect(document.body.textContent).toContain("5,0");
     await ir("simulaciones");
     expect(document.querySelector('[role="status"]')!.textContent).toContain("6,33");
-    await pulsar("Vaciar valores de prueba");
+    await pulsar("Vaciar notas de prueba");
     expect(document.querySelector('[role="status"]')!.textContent).toContain("—");
     expect(useApp.getState().st).toEqual(antes);
     expect(useApp.getState().pilaDeshacer).toHaveLength(0);
@@ -232,7 +232,7 @@ describe("accesibilidad de las vistas", () => {
     await auditar();
   });
 
-  it("la vista Mes de Agenda y las Preferencias del plan son accesibles", async () => {
+  it("la vista Mes de Agenda y el plan de carrera son accesibles", async () => {
     const st = structuredClone(useApp.getState().st);
     st.periodos[1].ramos[0].categorias[0].notas[1].fecha = "2026-11-20";
     useApp.setState({ st });
@@ -245,9 +245,13 @@ describe("accesibilidad de las vistas", () => {
     await auditar();
     await act(async () => useUI.getState().irA("planificacion"));
     await act(async () => { await vi.dynamicImportSettled(); });
-    const pref = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((b) => b.textContent === "Preferencias")!;
-    await act(async () => pref.click());
-    expect(document.body.textContent).toContain("Tu punto de partida");
+    // Lo primero que se lee responde cuándo terminas y qué inscribir.
+    expect(document.querySelector("#plan-titulo")!.textContent).toMatch(/^Terminas la carrera el /);
+    expect(document.body.textContent).toContain("Tu próximo semestre");
+    const editar = [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.includes("Cambiar ramos de semestre"))!;
+    await act(async () => editar.click());
+    expect(editar.getAttribute("aria-pressed")).toBe("true");
+    for (const d of document.querySelectorAll("details")) d.open = true;
     await auditar();
   });
 

@@ -127,8 +127,8 @@ export function Simulaciones() {
           <FlaskConical className="size-5" />
         </span>
         <div>
-          <p className="text-[16px] font-extrabold">Simulación</p>
-          <p className="text-[13.5px] text-white/90">Estos cambios no modifican tus notas, tu PPA ni tu avance. Se conservan mientras navegas y se descartan al recargar.</p>
+          <p className="text-[16px] font-extrabold">Esto es una simulación</p>
+          <p className="text-[13.5px] text-white/90">Prueba notas sin miedo: nada de lo que hagas aquí cambia tus notas reales ni tu PPA. Se borra al recargar la página.</p>
         </div>
       </div>
       <Pestanas

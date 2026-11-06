@@ -77,7 +77,7 @@ export function Ayuda() {
             {[
               ["Completa tus datos.", "El asistente pregunta en qué semestre vas, si tienes inglés eximido y si congelaste. Los cambias cuando quieras en Configuración › Datos académicos."],
               ["Marca tu malla.", "Usa «Marcar semestres completos» y luego desmarca lo que debes. Marca como Cursando los ramos de este semestre."],
-              ["Revisa tu plan.", "En Planificación ya tienes un plan recomendado. Ajusta tus créditos y la práctica, arrastra ramos y presiona «Quedarme con este plan»."],
+              ["Revisa tu plan.", "En Plan de carrera ves cuándo terminarías y qué inscribir el próximo semestre. Ajusta tus créditos, cambia ramos de semestre si quieres y presiona «Guardar este plan»."],
               ["Registra tus notas.", "En Notas, el semestre en curso ya existe con tus ramos. Al registrar la nota final, el ramo pasa a aprobado en la malla."],
               ["Prueba valores.", "En Notas › Planificación puedes usar una plantilla o copiar un ramo para probar notas y ver promedios. Las pruebas se conservan al alternar con Registro y se descartan al salir de Notas o recargar; no afectan tu PPA ni avance."],
               ["Cierra el semestre.", "Cuando todos tus ramos tengan nota final, Inicio te ofrece pasar al semestre siguiente y el plan se recalcula."],
@@ -210,7 +210,7 @@ export function Ayuda() {
         <Seccion id="ayuda-herramientas" icono={<Sparkles />} titulo="Herramientas extra">
           <ul className="space-y-2.5">
             {[
-              [<Route key="r" className="size-4 text-danger" />, "Ruta crítica", "La cadena de prerrequisitos más larga que te queda (método CPM). Te dice el mínimo de semestres para titularte y qué ramos no puedes atrasar."],
+              [<Route key="r" className="size-4 text-danger" />, "Ruta crítica", "La cadena de prerrequisitos más larga que te queda. Te dice el mínimo de semestres para titularte y qué ramos no puedes atrasar. Está en «Más opciones» de Mi malla y de Plan de carrera."],
               [<CalendarDays key="c" className="size-4 text-accent" />, "Calendario de evaluaciones", "Pon fecha a cada evaluación (botón ··· de la nota), míralas en Inicio y expórtalas a Google Calendar con recordatorio un día antes."],
               [<Calculator key="e" className="size-4 text-accent" />, "Escala de notas", "Convierte puntaje en nota con cualquier exigencia y úsalo directo en una casilla."],
               [<Lightbulb key="m" className="size-4 text-warn" />, "Metas", "Define la nota que quieres en un ramo o el PPA con que quieres egresar, y la app te dice cuánto necesitas."],
