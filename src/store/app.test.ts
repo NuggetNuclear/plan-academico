@@ -2,7 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import malla from "../../public/carreras/inf.json";
 import { estadoInicial } from "../core/state";
-import { firmaPlanificacion, leerTodosLosEstados, useApp } from "./app";
+import { accionDeshacer, firmaPlanificacion, leerTodosLosEstados, useApp } from "./app";
+import { useUI } from "./ui";
 
 beforeEach(() => {
   localStorage.clear();
@@ -50,5 +51,22 @@ describe("inicio y persistencia", () => {
     expect(firmaPlanificacion({ cur: cur!, st: cambiado })).toBe(firma);
     cambiado.maxCreditos = 20;
     expect(firmaPlanificacion({ cur: cur!, st: cambiado })).not.toBe(firma);
+  });
+
+  it("el Deshacer de un aviso solo revierte el cambio que anunció", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => malla })));
+    await useApp.getState().iniciar();
+    useApp.getState().mutar("Nota A", ({ st }) => { st.prefs.metaPPA = 5; });
+    const avisoA = accionDeshacer();
+    useApp.getState().mutar("Nota B", ({ st }) => { st.maxCreditos = 20; });
+    avisoA.fn();
+    // B no se revierte por error y A sigue en la pila para el Deshacer general.
+    expect(useApp.getState().st.maxCreditos).toBe(20);
+    expect(useApp.getState().st.prefs.metaPPA).toBe(5);
+    expect(useUI.getState().toasts.at(-1)?.mensaje).toContain("ya no es el último");
+    const avisoB = accionDeshacer();
+    avisoB.fn();
+    expect(useApp.getState().st.maxCreditos).not.toBe(20);
+    expect(useApp.getState().st.prefs.metaPPA).toBe(5);
   });
 });

@@ -14,8 +14,8 @@ const VARIANTES: Record<Variante, string> = {
 };
 
 const TAMANOS: Record<Tamano, string> = {
-  sm: "min-h-9 px-3 py-1.5 text-[13px] gap-1.5 rounded-lg",
-  md: "min-h-11 px-4 py-2 text-sm gap-2 rounded-xl",
+  sm: "min-h-9 px-3.5 py-1.5 text-[13px] gap-1.5 rounded-full",
+  md: "min-h-11 px-5 py-2 text-sm gap-2 rounded-full",
 };
 
 /** Clases de un botón, para enlaces que deben verse como uno. */
@@ -58,7 +58,7 @@ export const BotonIcono = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTM
         aria-label={etiqueta}
         title={etiqueta}
         className={cx(
-          "inline-flex shrink-0 items-center justify-center rounded-lg text-fg-2 transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-40",
+          "inline-flex shrink-0 items-center justify-center rounded-full text-fg-2 transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-40",
           tamano === "sm" ? "size-8" : "size-11",
           className,
         )}

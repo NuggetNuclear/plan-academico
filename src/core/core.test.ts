@@ -512,7 +512,7 @@ describe("persistencia y calendario", () => {
   });
 
   it("genera un .ics válido", () => {
-    const ics = generarICS([{ fecha: "2026-11-03", ramo: "Redes de Datos", sigla: "CIT-2114", categoria: "Solemnes", etiqueta: "Solemne 2", peso: 20, rendida: false, uid: "a" }]);
+    const ics = generarICS([{ fecha: "2026-11-03", ramo: "Redes de Datos", sigla: "CIT-2114", categoria: "Solemnes", etiqueta: "Solemne 2", peso: 20, rendida: false, uid: "a", entrada: "e" }]);
     expect(ics).toContain("DTSTART;VALUE=DATE:20261103");
     expect(ics).toContain("DTEND;VALUE=DATE:20261104");
     expect(ics.startsWith("BEGIN:VCALENDAR")).toBe(true);

@@ -1,6 +1,6 @@
 import { ChevronDown, Eraser, IdCard, Info, Plus, Snowflake, Wand2, X } from "lucide-react";
 import { useState } from "react";
-import { useApp, useCtx } from "../../store/app";
+import { useApp, useCtx, accionDeshacer } from "../../store/app";
 import { confirmar, toast, useUI } from "../../store/ui";
 import { estadoInicial } from "../../core/state";
 import { CampoNumero } from "../../ui/CampoNumero";
@@ -150,7 +150,7 @@ export function TusDatos() {
                   nuevo.prefs.wizardHecho = true;
                   Object.assign(c.st, nuevo);
                 });
-                toast("Progreso borrado.", "info", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
+                toast("Progreso borrado.", "info", accionDeshacer());
               }}
             >
               Borrar todo mi progreso

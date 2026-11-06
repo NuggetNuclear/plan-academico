@@ -33,7 +33,7 @@ import { evaluarReglaPractica, rutaCritica } from "../core/curriculum";
 import { normalizarTexto, plural } from "../core/format";
 import { idsPendientes } from "../core/planner";
 import type { Ramo } from "../core/types";
-import { useApp, useCtx } from "../store/app";
+import { useApp, useCtx, accionDeshacer } from "../store/app";
 import { alternarRapido, desmarcar, marcableComoCompleto, marcarAprobado, marcarCursando, marcarSemestres } from "../store/mutaciones";
 import { confirmar, pedirTexto, toast, useUI } from "../store/ui";
 import { colorTipo, etiquetaTipo, NotaChip } from "../ui/comun";
@@ -351,7 +351,7 @@ export function Malla() {
     if (v === null) return;
     let n = 0;
     mutar(`Marcar hasta S${v}`, (c) => (n = marcarSemestres(c, Number(v))));
-    toast(n ? `${plural(n, "ramo marcado", "ramos marcados")}. Ahora desmarca los que debes.` : "Esos semestres ya estaban marcados.", n ? "ok" : "info", n ? { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() } : undefined);
+    toast(n ? `${plural(n, "ramo marcado", "ramos marcados")}. Ahora desmarca los que debes.` : "Esos semestres ya estaban marcados.", n ? "ok" : "info", n ? accionDeshacer() : undefined);
   };
 
   const ramoMenu = menu?.ramo;
@@ -507,7 +507,7 @@ export function Malla() {
                           onClick={() => {
                             let n = 0;
                             mutar(`Marcar ${col.titulo}`, (c) => (n = marcarSemestres(c, col.semestre, col.semestre)));
-                            toast(`${col.titulo}: ${plural(n, "ramo marcado", "ramos marcados")}.`, "ok", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
+                            toast(`${col.titulo}: ${plural(n, "ramo marcado", "ramos marcados")}.`, "ok", accionDeshacer());
                           }}
                         >
                           <ListChecks className="size-4" />

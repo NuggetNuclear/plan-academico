@@ -5,7 +5,7 @@ import { esPersonalizable } from "../../core/curriculum";
 import { fmtPct, normalizarTexto, plural } from "../../core/format";
 import { CATEGORIAS_SUGERIDAS, PLANTILLAS, aplicarPlantilla, configExamen, inferirEscala, plantillaDesdeEntrada, type Plantilla } from "../../core/grades";
 import type { Categoria, ConfigExamen, Entrada, Periodo } from "../../core/state";
-import { useApp } from "../../store/app";
+import { useApp, accionDeshacer } from "../../store/app";
 import { periodoPorClave } from "../../store/mutaciones";
 import { toast } from "../../store/ui";
 import { CampoNumero, CampoTexto } from "../../ui/CampoNumero";
@@ -235,7 +235,7 @@ export function EditorEvaluacion({ ctx, periodo, entrada, onCerrar }: { ctx: Ctx
       if (tieneExamen) e.examen = { ...b.examen, escala: esc };
       else delete e.examen;
     });
-    toast("Evaluación guardada", "ok", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
+    toast("Evaluación guardada", "ok", accionDeshacer());
     onCerrar();
   };
 

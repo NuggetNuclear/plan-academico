@@ -5,15 +5,15 @@
 /* ── Tokens de diseño ── */
 :root {
   color-scheme: light;
-  --bg: #f5f6fa;
+  --bg: #f3f2fa;
   --surface: #ffffff;
-  --surface-2: #f2f4f9;
-  --surface-3: #e9ecf4;
-  --line: #e3e6ef;
+  --surface-2: #f1f0f9;
+  --surface-3: #e8e6f4;
+  --line: #e6e4f0;
   --line-strong: #858ca3;
-  --fg: #0e1121;
-  --fg-2: #4a5170;
-  --fg-3: #606981;
+  --fg: #1b1d33;
+  --fg-2: #4b4f6a;
+  --fg-3: #5d6178;
 
   --accent: #5b47f0;
   --accent-hover: #4a36de;
@@ -45,18 +45,22 @@
   --s7: #6250d6;
   --s8: #e34948;
 
-  --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.05);
-  --shadow: 0 1px 3px rgb(16 24 40 / 0.06), 0 6px 16px -4px rgb(16 24 40 / 0.08);
-  --shadow-lg: 0 24px 48px -12px rgb(16 24 40 / 0.25);
+  --shadow-sm: 0 1px 2px rgb(27 29 51 / 0.04), 0 8px 24px -14px rgb(27 29 51 / 0.2);
+  --shadow: 0 1px 3px rgb(27 29 51 / 0.05), 0 12px 30px -12px rgb(27 29 51 / 0.22);
+  --shadow-lg: 0 24px 48px -12px rgb(27 29 51 / 0.28);
+
+  /* Degradado de marca: tarjeta destacada, logo y acentos grandes */
+  --hero: linear-gradient(140deg, #4f3be6 0%, #6a4cf2 55%, #7c56f0 100%);
+  --hero-fg: #ffffff;
 }
 
 .dark {
   color-scheme: dark;
-  --bg: #0a0c13;
-  --surface: #12151f;
-  --surface-2: #181c28;
-  --surface-3: #212636;
-  --line: #242a3a;
+  --bg: #0c0d16;
+  --surface: #161827;
+  --surface-2: #1d2033;
+  --surface-3: #262a40;
+  --line: #272b40;
   --line-strong: #69738d;
   --fg: #eef0f8;
   --fg-2: #a8aec6;
@@ -90,9 +94,12 @@
   --s7: #9085e9;
   --s8: #e66767;
 
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
-  --shadow: 0 1px 3px rgb(0 0 0 / 0.35), 0 8px 20px -6px rgb(0 0 0 / 0.45);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 30px -16px rgb(0 0 0 / 0.7);
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.35), 0 14px 34px -14px rgb(0 0 0 / 0.75);
   --shadow-lg: 0 24px 60px -12px rgb(0 0 0 / 0.7);
+
+  --hero: linear-gradient(140deg, #3d2fc0 0%, #5134d4 55%, #6238cf 100%);
+  --hero-fg: #ffffff;
 }
 
 @theme inline {
@@ -160,11 +167,16 @@
 }
 
 @layer components {
+  /* Superficie elevada sin borde marcado: el contorno lo da la sombra y un filo casi invisible. */
   .card {
     background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 1.1rem;
+    border: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+    border-radius: 1.4rem;
     box-shadow: var(--shadow-sm);
+  }
+  .hero {
+    background: var(--hero);
+    color: var(--hero-fg);
   }
   .tabular {
     font-variant-numeric: tabular-nums;
@@ -176,7 +188,7 @@
   }
   .input {
     width: 100%;
-    border-radius: 0.65rem;
+    border-radius: 0.8rem;
     border: 1px solid var(--line-strong);
     background: var(--surface);
     padding: 0.5rem 0.75rem;

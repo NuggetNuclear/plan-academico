@@ -166,24 +166,24 @@ export function Toaster() {
   const toasts = useUI((s) => s.toasts);
   const cerrar = useUI((s) => s.cerrarToast);
   return (
-    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-20 z-[60] flex flex-col items-center gap-2 px-4 sm:bottom-6 lg:right-6 lg:left-auto lg:items-end">
+    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-28 z-[60] flex flex-col items-center gap-2 px-4 lg:right-6 lg:bottom-6 lg:left-auto lg:items-end">
       {toasts.map((t) => (
         <div
           key={t.id}
-          className="animar-entrada pointer-events-auto flex max-w-md items-start gap-2.5 rounded-2xl border border-line bg-surface px-4 py-3 text-[13.5px] shadow-pop"
+          className="animar-entrada pointer-events-auto flex max-w-md items-center gap-2.5 rounded-[1.4rem] bg-fg py-2 pr-2 pl-4 text-[13.5px] text-bg shadow-pop"
         >
           {t.tipo === "error" ? (
-            <XCircle className="mt-0.5 size-4.5 shrink-0 text-danger" />
+            <XCircle className="size-4.5 shrink-0 text-[#ff9aa6] dark:text-[#ba2929]" />
           ) : t.tipo === "info" ? (
-            <Info className="mt-0.5 size-4.5 shrink-0 text-info" />
+            <Info className="size-4.5 shrink-0 text-[#9cc4ff] dark:text-[#245fb5]" />
           ) : (
-            <CheckCircle2 className="mt-0.5 size-4.5 shrink-0 text-ok" />
+            <CheckCircle2 className="size-4.5 shrink-0 text-[#6be3b4] dark:text-[#08734f]" />
           )}
           <span className="min-w-0 flex-1 leading-snug">{t.mensaje}</span>
           {t.accion && (
             <button
               type="button"
-              className="shrink-0 font-bold text-accent hover:underline"
+              className="min-h-9 shrink-0 rounded-full bg-bg/15 px-3.5 font-bold hover:bg-bg/25"
               onClick={() => {
                 t.accion!.fn();
                 cerrar(t.id);
@@ -192,7 +192,7 @@ export function Toaster() {
               {t.accion.etiqueta}
             </button>
           )}
-          <button type="button" aria-label="Cerrar aviso" className="shrink-0 text-fg-3 hover:text-fg" onClick={() => cerrar(t.id)}>
+          <button type="button" aria-label="Cerrar aviso" className="grid size-9 shrink-0 place-items-center rounded-full opacity-70 hover:opacity-100" onClick={() => cerrar(t.id)}>
             <X className="size-4" />
           </button>
         </div>

@@ -4,7 +4,7 @@ import { clavePeriodo, creditosEntrada, esPeriodoActual, nombreEntrada, siglaEnt
 import { NOTA_APROB, fmtNota, fmtPct, leerNumero, numeroConComa } from "../../core/format";
 import { calcularRamo, configExamen, indiceExamen, ramoAsegurado, statsCategoria, type Condicion, type InfoExamen } from "../../core/grades";
 import type { ConfigExamen, Entrada, Periodo } from "../../core/state";
-import { useApp } from "../../store/app";
+import { useApp, accionDeshacer } from "../../store/app";
 import { cerrarEntrada, periodoPorClave, quitarEntrada, reabrirEntrada } from "../../store/mutaciones";
 import { confirmar, pedirTexto, toast } from "../../store/ui";
 import { OpcionMenu, Popover } from "../../ui/overlays";
@@ -194,14 +194,14 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
     const tieneDatos = entrada.notaFinal !== null || hayNotas;
     if (tieneDatos && !(await confirmar({ titulo: "Quitar ramo", mensaje: `¿Quitar ${nombre} de este periodo? Se perderán sus notas (puedes deshacerlo).`, aceptar: "Quitar", peligro: true }))) return;
     editar(`Quitar ${nombre}`, (e, c, p) => quitarEntrada(c, p, e));
-    toast(`${nombre} quitado`, "info", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
+    toast(`${nombre} quitado`, "info", accionDeshacer());
   };
 
   const opcion = (fn: () => void) => () => (setMenu(false), fn());
   const quitarValor = (categoriaId: string, notaId: string, etiqueta: string) => {
     let quitada = false;
     editar(`Quitar valor de ${etiqueta}`, (e) => { quitada = quitarValorNota(e, categoriaId, notaId); });
-    if (quitada) toast(`${etiqueta}: queda pendiente`, "info", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
+    if (quitada) toast(`${etiqueta}: queda pendiente`, "info", accionDeshacer());
   };
 
   return (

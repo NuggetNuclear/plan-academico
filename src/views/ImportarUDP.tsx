@@ -8,7 +8,7 @@ import { lineasDePDF } from "../importar/pdf";
 import { aplicarPlan, construirPlanAvance, construirPlanTrabajo, previsualizar, type PlanImportacion } from "../importar/plan";
 import { COLUMNAS_TRABAJO, leerTrabajoAcademico, type TablaTrabajo } from "../importar/trabajo";
 import { ErrorImportacion, esPlanInformatica } from "../importar/udp";
-import { useApp } from "../store/app";
+import { useApp, accionDeshacer } from "../store/app";
 import { toast, useUI } from "../store/ui";
 import { CabeceraModal, Modal } from "../ui/overlays";
 import { Aviso, Boton, Insignia, Segmentado, cx } from "../ui/primitives";
@@ -172,7 +172,7 @@ export function ImportarUDP() {
     toast(
       rev.conExcel ? "¡Listo! Importé tu historial completo: notas, repeticiones y PPA." : "¡Listo! Marqué tus ramos aprobados e inscritos.",
       "ok",
-      { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() },
+      accionDeshacer(),
     );
   };
 

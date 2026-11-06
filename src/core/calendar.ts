@@ -10,9 +10,15 @@ interface Evaluacion {
   peso: number; // % aproximado del ramo
   rendida: boolean;
   uid: string;
+  /** Para abrir el registro con la evaluación ya elegida. */
+  entrada: string;
+  categoriaId?: string;
+  notaId?: string;
 }
 
 /** Evaluaciones con fecha de los ramos aún abiertos (semestre en curso y verano). */
+export type { Evaluacion };
+
 export function evaluacionesConFecha(ctx: Ctx): Evaluacion[] {
   const out: Evaluacion[] = [];
   ctx.st.periodos.forEach((p) => {
@@ -37,6 +43,9 @@ export function evaluacionesConFecha(ctx: Ctx): Evaluacion[] {
             peso: Math.round(((peso *(n.f > 0 ? n.f : 0)) / fTot) * 10) / 10,
             rendida: n.n !== null,
             uid: n.id ?? `${e.uid}-${ci}-${ni}`,
+            entrada: e.uid,
+            categoriaId: c.id,
+            notaId: n.id,
           });
         });
       });
