@@ -228,7 +228,8 @@ function armar(e: Entrada, a: Acumulado, examen: InfoExamen | null): CalculoRamo
     pesoTotal: Math.round(W * 1000) / 10,
     restante: Math.round(pendiente * 1000) / 10,
     necesaria: necesitar(NOTA_APROB),
-    necesariaMeta: meta !== null ? necesitar(meta - 0.05) : null,
+    // La meta se calcula aunque aún no haya notas: con todo pendiente, necesitas la meta misma.
+    necesariaMeta: meta !== null && pendiente > 1e-9 ? (meta - 0.05 - S) / pendiente : null,
     reqFallidos: a.reqFallidos,
     reqMetas: a.reqMetas,
     pendienteNoReq: Math.round(a.pendienteNoReq * 10) / 10,
@@ -366,7 +367,7 @@ export function calcularRamo(e: Entrada): CalculoRamo {
 
 /** El ramo ya no puede reprobar (peor caso ≥ 4,0, sin requisitos pendientes o perdidos y con derecho a examen si lo necesitas). */
 export function ramoAsegurado(c: CalculoRamo): boolean {
-  if (c.cerrado) return (c.nf ?? 0) >= NOTA_APROB;
+  if (c.cerrado) return Math.min(7, (c.nf ?? 0) + (c.decimas || 0)) >= NOTA_APROB;
   const habilitacion = c.examen?.habilitacion;
   return c.nfPeor !== null && c.nfPeor >= NOTA_APROB && c.reqFallidos.length === 0 && c.reqMetas.length === 0 && (habilitacion === null || habilitacion === undefined || habilitacion === "habilitado");
 }

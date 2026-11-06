@@ -1,6 +1,6 @@
 import { CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, PenLine, TriangleAlert } from "lucide-react";
 import { useState } from "react";
-import { evaluacionesConFecha, diasHasta, generarICS, hoyISO, type Evaluacion } from "../core/calendar";
+import { evaluacionesConFecha, evaluacionesPendientes, diasHasta, generarICS, hoyISO, type Evaluacion } from "../core/calendar";
 import { fmtNota, fmtPct, plural } from "../core/format";
 import type { Periodo } from "../core/state";
 import { descargarArchivo } from "../store/respaldo";
@@ -201,7 +201,7 @@ export function Agenda() {
   const sinFecha = ctx.st.periodos
     .filter((p) => p.tipo !== "convalidaciones")
     .flatMap((p) => p.ramos.filter((e) => e.notaFinal === null))
-    .reduce((n, e) => n + e.categorias.reduce((s, c) => s + c.notas.filter((x) => x.n === null && !x.fecha).length, 0), 0);
+    .reduce((n, e) => n + evaluacionesPendientes(e).filter((x) => !x.fecha).length, 0);
 
   const abrir = (ev: Evaluacion) => {
     const periodo = ctx.st.periodos.find((p) => p.ramos.some((e) => e.uid === ev.entrada));

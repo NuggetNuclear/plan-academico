@@ -47,7 +47,7 @@ import {
   situacionSemestreUDP,
   type SituacionSemestreUDP,
 } from "../core/academic";
-import { diasHasta, evaluacionesConFecha, hoyISO } from "../core/calendar";
+import { diasHasta, evaluacionesConFecha, evaluacionesPendientes, hoyISO } from "../core/calendar";
 import { evaluarReglaPractica, fechaEgreso } from "../core/curriculum";
 import { NOTA_APROB, fmtNota, fmtPct, plural } from "../core/format";
 import type { Periodo } from "../core/state";
@@ -197,7 +197,7 @@ function Destacada({ onRegistrar }: { onRegistrar: AbrirRegistro }) {
   const proxima = evaluacionesConFecha(ctx).find((e) => e.fecha >= hoy && !e.rendida);
   const actual = ctx.st.periodos.find((p) => esPeriodoActual(ctx.st, p));
   const abiertos = actual?.ramos.filter((e) => e.notaFinal === null) ?? [];
-  const pendientes = abiertos.reduce((n, e) => n + e.categorias.reduce((s, c) => s + c.notas.filter((x) => x.n === null).length, 0), 0);
+  const pendientes = abiertos.reduce((n, e) => n + evaluacionesPendientes(e).length, 0);
   const periodoDe = (uid: string) => ctx.st.periodos.find((p) => p.ramos.some((e) => e.uid === uid));
 
   const boton = "inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-5 text-[14px] font-bold text-[#3a28c4] shadow-[0_6px_20px_-6px_rgb(0_0_0/0.35)] transition-transform hover:-translate-y-px";
@@ -225,7 +225,7 @@ function Destacada({ onRegistrar }: { onRegistrar: AbrirRegistro }) {
         {r.necesaria !== null && r.necesaria > 1 && (
           <span className={pastilla}>
             <Target aria-hidden="true" className="size-3.5" />
-            {r.necesaria > 7 ? "Ya no alcanza el 4,0 con lo que queda" : <>Para aprobar: {fmtNota(r.necesaria, 1)} en lo que queda</>}
+            {r.necesaria > 7 ? "Ya no alcanza el 4,0 con lo que queda" : <>Para aprobar: {fmtNota(Math.ceil(r.necesaria * 10 - 1e-9) / 10, 1)} en lo que queda</>}
           </span>
         )}
       </>
@@ -349,7 +349,7 @@ function Resumen() {
       />
       <Cifra
         etiqueta={estimado ? "PPA estimado" : "PPA acumulado"}
-        valor={actual.ppa !== null ? fmtNota(actual.ppa, 2) : "—"}
+        valor={estimado ? fmtNota(actual.ppa, 2) : ppa !== null ? fmtNota(ppa, 2) : "—"}
         detalle={
           estimado ? (
             <>Según tus promedios en curso. Se confirma cuando cierres tus primeros ramos.</>
@@ -366,7 +366,7 @@ function Resumen() {
               ) : (
                 <span className="block">Con dos semestres verás la tendencia.</span>
               )}
-              {actual.ramos > 0 && <span className="block">Incluye ramos en curso · confirmado {fmtNota(ppa, 2)}</span>}
+              {actual.ramos > 0 && actual.ppa !== null && <span className="block">Con tus ramos en curso quedaría en {fmtNota(actual.ppa, 2)}.</span>}
             </>
           )
         }
@@ -682,7 +682,7 @@ function MisRamos({ onRegistrar }: { onRegistrar: AbrirRegistro }) {
             const nombre = nombreEntrada(ctx, e);
             const ramo = ctx.cur.ramos.find((r) => r.id === e.id);
             const color = ramo ? colorTipo(ctx.cur, ramo.tipo) : "var(--accent)";
-            const pendientes = e.categorias.reduce((s, cat) => s + cat.notas.filter((n) => n.n === null).length, 0);
+            const pendientes = evaluacionesPendientes(e).length;
             const cerrado = c.cerrado || e.notaFinal !== null;
             return (
               <li key={e.uid}>

@@ -10,6 +10,7 @@ import {
   periodosOrdenados,
   siglaEntrada,
 } from "../core/academic";
+import { evaluacionesPendientes } from "../core/calendar";
 import { NOTA_APROB, fmtNota, normalizarTexto, plural } from "../core/format";
 import { notaDesdePuntaje, puntajeParaNota } from "../core/grades";
 import type { Periodo, TipoPeriodo } from "../core/state";
@@ -244,7 +245,7 @@ function RegistroNotas() {
   const promedio = periodo ? calcularPPA(ctx, [periodo]).ppa : null;
   const muchos = (periodo?.ramos.length ?? 0) > 8;
   const ramosVisibles = periodo?.ramos.filter((e) => !muchos || normalizarTexto(`${nombreEntrada(ctx, e)} ${siglaEntrada(ctx, e)}`).includes(normalizarTexto(buscar.trim()))) ?? [];
-  const pendientes = periodo?.ramos.filter((e) => e.notaFinal === null).reduce((n, e) => n + e.categorias.reduce((s, c) => s + c.notas.filter((x) => x.n === null).length, 0), 0) ?? 0;
+  const pendientes = periodo?.ramos.filter((e) => e.notaFinal === null).reduce((n, e) => n + evaluacionesPendientes(e).length, 0) ?? 0;
   const abiertos = periodo?.ramos.some((e) => e.notaFinal === null) ?? false;
   const abrirAgregar = () => {
     setAgregando(true);

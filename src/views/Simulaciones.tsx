@@ -20,6 +20,9 @@ const useBorrador = create<{ pestana: Pestana; escenario: EscenarioNotas; nota: 
   nota: 5,
 }));
 
+/** Redondea hacia arriba: una nota "necesaria" mostrada nunca debe quedar bajo lo que de verdad se necesita. */
+const arriba = (x: number, decimales: number) => Math.ceil(x * 10 ** decimales - 1e-9) / 10 ** decimales;
+
 function SimuladorPPA() {
   const ctx = useCtx();
   const mutar = useApp((s) => s.mutar);
@@ -74,7 +77,7 @@ function SimuladorPPA() {
                   ? "✓ Con cualquier nota quedas sobre 4,0 de PPA."
                   : necesaria4 > 7
                     ? "Este semestre no alcanza para llegar a 4,0 de PPA."
-                    : `Necesitas al menos ${fmtNota(necesaria4)} este semestre para quedar con PPA 4,0.`}
+                    : `Necesitas al menos ${fmtNota(arriba(necesaria4, 1))} este semestre para quedar con PPA 4,0.`}
           </p>
         </div>
         <div className="rounded-2xl bg-surface-2 p-4">
@@ -100,12 +103,12 @@ function SimuladorPPA() {
             ) : porCursar === 0 ? (
               <span className="text-fg-2">No te quedan créditos por cursar.</span>
             ) : necesariaMeta === null ? null : necesariaMeta > 7 ? (
-              <span className="font-semibold text-danger">Con {porCursar} créditos por delante ya no alcanza: el máximo posible es {fmtNota((suma + 7 * porCursar) / (creditos + porCursar), 2)}.</span>
+              <span className="font-semibold text-danger">Con {porCursar} créditos por delante ya no alcanza: el máximo posible es {fmtNota(Math.floor(((suma + 7 * porCursar) / (creditos + porCursar)) * 100) / 100, 2)}.</span>
             ) : necesariaMeta <= 1 ? (
               <span className="font-semibold text-ok">¡Meta asegurada pase lo que pase!</span>
             ) : (
               <>
-                Necesitas promediar <strong className="text-accent tabular">{fmtNota(necesariaMeta, 2)}</strong> en los {porCursar} créditos que te quedan.
+                Necesitas promediar <strong className="text-accent tabular">{fmtNota(arriba(necesariaMeta, 2), 2)}</strong> en los {porCursar} créditos que te quedan.
               </>
             )}
           </p>

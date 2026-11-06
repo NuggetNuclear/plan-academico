@@ -1,5 +1,6 @@
 import { nombreEntrada, siglaEntrada, type Ctx } from "./academic";
 import { calcularRamo, pesoEnRamo } from "./grades";
+import type { Entrada } from "./state";
 
 interface Evaluacion {
   fecha: string; // AAAA-MM-DD
@@ -20,6 +21,13 @@ interface Evaluacion {
 
 /** Evaluaciones con fecha de los ramos aún abiertos (semestre en curso y verano). */
 export type { Evaluacion };
+
+/** Evaluaciones que de verdad faltan en un ramo: sin nota, que cuentan (peso > 0) y sin el examen si ya te eximiste. */
+export function evaluacionesPendientes(e: Entrada) {
+  const estado = calcularRamo(e).examen?.estado;
+  const eximido = estado === "eximido" || estado === "asegurada";
+  return e.categorias.flatMap((c) => (c.examen && eximido ? [] : c.notas.filter((n) => n.n === null && (n.f ?? 1) > 0)));
+}
 
 export function evaluacionesConFecha(ctx: Ctx): Evaluacion[] {
   const out: Evaluacion[] = [];

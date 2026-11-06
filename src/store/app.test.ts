@@ -69,4 +69,21 @@ describe("inicio y persistencia", () => {
     expect(useApp.getState().st.maxCreditos).not.toBe(20);
     expect(useApp.getState().st.prefs.metaPPA).toBe(5);
   });
+
+  it("una acción que no cambia nada no deja un paso vacío en Deshacer", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => malla })));
+    await useApp.getState().iniciar();
+    const antes = useApp.getState().pilaDeshacer.length;
+    useApp.getState().mutar("Nada", () => {});
+    expect(useApp.getState().pilaDeshacer).toHaveLength(antes);
+  });
+
+  it("los avisos fijos no se pierden con avisos nuevos", () => {
+    useUI.setState({ toasts: [] });
+    useUI.getState().toast("Hay una versión nueva", "info", undefined, true);
+    for (let i = 0; i < 6; i++) useUI.getState().toast(`Aviso ${i}`);
+    const toasts = useUI.getState().toasts;
+    expect(toasts.some((t) => t.mensaje === "Hay una versión nueva")).toBe(true);
+    expect(toasts.filter((t) => !t.fijo)).toHaveLength(4);
+  });
 });

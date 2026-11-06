@@ -113,6 +113,8 @@ export const useApp = create<AppStore>((set, get) => ({
       );
     }
     sincronizar(ctx);
+    // Una acción que no cambió nada no deja un paso vacío en Deshacer.
+    if (JSON.stringify(borrador) === JSON.stringify(s.st)) return;
     set({
       st: borrador,
       pilaDeshacer: etiqueta ? [...s.pilaDeshacer.slice(-(MAX_DESHACER - 1)), { st: s.st, etiqueta, id: ++idCambio }] : s.pilaDeshacer,

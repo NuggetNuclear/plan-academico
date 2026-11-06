@@ -33,6 +33,15 @@ const entrada = (id: string, notaFinal: number | null, extra: Partial<Entrada> =
 });
 
 describe("notas de un ramo", () => {
+  it("calcula la meta aunque el ramo aún no tenga notas", () => {
+    const r = calcularRamo(entrada("X", null, { meta: 5.5, categorias: [{ nombre: "Solemnes", peso: 100, notas: [{ n: null, f: 1 }] }] }));
+    expect(r.necesariaMeta).toBeCloseTo(5.45, 5);
+  });
+
+  it("un ramo cerrado con décimas que llega a 4,0 cuenta como aprobado", () => {
+    expect(rendimientoRamo(calcularRamo(entrada("X", 3.8, { decimas: 0.2 })))).toBe("asegurado");
+  });
+
   it("promedia una categoría con factores y pendientes como 1,0", () => {
     const st = statsCategoria({ nombre: "Pruebas", peso: 60, notas: [{ n: 4.5, f: 1 }, { n: 5.8, f: 2 }, { n: null, f: 1 }] });
     expect(st.promRendido).toBeCloseTo((4.5 + 11.6) / 3, 5);

@@ -224,7 +224,7 @@ export function Pestanas<T extends string>({ base, etiqueta, opciones, valor, on
             type="button"
             role="tab"
             aria-selected={activa}
-            aria-controls={idPanel(base, o.valor)}
+            aria-controls={activa ? idPanel(base, o.valor) : undefined}
             tabIndex={activa ? 0 : -1}
             onClick={() => onChange(o.valor)}
             onKeyDown={(e) => mover(e, i)}
@@ -245,7 +245,7 @@ export function Pestanas<T extends string>({ base, etiqueta, opciones, valor, on
 
 export function PanelPestana({ base, valor, children, className }: { base: string; valor: string; children: ReactNode; className?: string }) {
   return (
-    <div role="tabpanel" id={idPanel(base, valor)} aria-labelledby={idPestana(base, valor)} className={className}>
+    <div role="tabpanel" id={idPanel(base, valor)} aria-labelledby={idPestana(base, valor)} tabIndex={0} className={className}>
       {children}
     </div>
   );

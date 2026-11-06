@@ -31,9 +31,14 @@ export function formaInstalar(s: EstadoPWA): FormaInstalar {
 export async function instalar() {
   const { evento } = usePWA.getState();
   if (!evento) return;
-  await evento.prompt();
-  const { outcome } = await evento.userChoice;
-  usePWA.setState({ evento: null, instalada: outcome === "accepted" });
+  // El evento sirve una sola vez: si falla, se descarta para no dejar un botón muerto.
+  try {
+    await evento.prompt();
+    const { outcome } = await evento.userChoice;
+    if (outcome === "accepted") usePWA.setState({ instalada: true });
+  } finally {
+    usePWA.setState({ evento: null });
+  }
 }
 
 /** Registra el service worker, ofrece instalar y avisa cuando hay una versión nueva. */
@@ -47,13 +52,15 @@ export function iniciarPWA() {
 
   if (!("serviceWorker" in navigator) || !import.meta.env.PROD) return;
   window.addEventListener("load", async () => {
+    // Si ya había una versión controlando la página, un cambio de versión (pedido aquí o en otra pestaña)
+    // recarga para no quedar con código viejo cuyo caché ya se borró. En la primera instalación no recarga.
+    const habiaVersion = !!navigator.serviceWorker.controller;
     const reg = await navigator.serviceWorker.register("./sw.js").catch(() => null);
     if (!reg) return;
-    // Recarga solo cuando el usuario pidió actualizar (no en la primera instalación).
-    let pedido = false;
+    let recargando = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (!pedido) return;
-      pedido = false;
+      if (!habiaVersion || recargando) return;
+      recargando = true;
       location.reload();
     });
     // Un solo aviso aunque lleguen varias versiones; activa siempre la más reciente.
@@ -64,10 +71,7 @@ export function iniciarPWA() {
       if (yaAvisado) return;
       useUI.getState().toast("Hay una versión nueva de la app.", "info", {
         etiqueta: "Actualizar",
-        fn: () => {
-          pedido = true;
-          (reg.waiting ?? pendiente)?.postMessage("activar");
-        },
+        fn: () => (reg.waiting ?? pendiente)?.postMessage("activar"),
       }, true);
     };
     // Solo es una actualización si ya había una versión controlando la página.

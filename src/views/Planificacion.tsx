@@ -18,7 +18,7 @@ import {
   Sun,
   TriangleAlert,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { nombreRamo, siglaRamo } from "../core/academic";
 import { fechaEgreso, nombrePeriodoCalendario, rutaCritica } from "../core/curriculum";
 import { plural } from "../core/format";
@@ -44,7 +44,7 @@ import { confirmar, toast, useUI } from "../store/ui";
 import { colorTipo } from "../ui/comun";
 import { OpcionMenu, Popover } from "../ui/overlays";
 import { Aviso, Boton, Tarjeta, cx } from "../ui/primitives";
-import { usePlanes } from "./plan/usePlanes";
+import { restantesDe, usePlanes } from "./plan/usePlanes";
 
 /** Qué plan se está mirando: el guardado o uno de los generados. Se conserva al cambiar de sección. */
 type Viendo = "guardado" | number;
@@ -67,10 +67,6 @@ function exportarPlan(plan: Plan, titulo: string, carrera: string, verano: strin
   abrirImpresion(titulo, carrera, `<table><tr><th style="width:150px">Periodo</th><th>Ramos</th><th style="width:70px">Créditos</th></tr>${filas}</table>`);
 }
 
-/** Último semestre con ramos por cursar (incluye los que aún no caben). */
-function ultimoSemestre(plan: Plan): number | null {
-  return plan.semestres.filter((s) => s.tipo === "futuro" || s.tipo === "overflow").at(-1)?.numero ?? null;
-}
 
 /** Un ramo del plan: nombre, créditos y avisos de práctica; en modo edición, el botón para moverlo. */
 function FilaRamo({ ramo, sem, plan, editando, onMover }: { ramo: Ramo; sem: SemestrePlan; plan: Plan; editando: boolean; onMover: (ramo: Ramo, origen: number, el: HTMLElement) => void }) {
@@ -175,7 +171,7 @@ export function Planificacion() {
   const verano = ctx.cur.malla.periodoVerano ?? "Semestre de verano";
 
   // Si el plan que se miraba ya no existe (se quitó el guardado o hay menos opciones), vuelve al sugerido.
-  const viendo: Viendo = viendoEstado === "guardado" ? (guardado ? "guardado" : 0) : viendoEstado < planes.length ? viendoEstado : 0;
+  const viendo: Viendo = viendoEstado === "guardado" ? (guardado ? "guardado" : 0) : viendoEstado < planes.length ? viendoEstado : guardado && planes.length === 0 ? "guardado" : 0;
   const ver = (v: Viendo) => {
     viendoRecordado = v;
     setViendoEstado(v);
@@ -184,10 +180,19 @@ export function Planificacion() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const plan = viendo === "guardado" ? guardado : planes[viendo];
+  // Si el plan que se miraba dejó de existir, se fija el que se muestra y se sale del modo edición.
+  useEffect(() => {
+    if (viendo === viendoEstado) return;
+    viendoRecordado = viendo;
+    setViendoEstado(viendo);
+    setEditando(false);
+  }, [viendo, viendoEstado]);
+  // Un plan nuevo (otro máximo, un intercambio) invalida el ramo que se estaba por mover.
+  useEffect(() => setMover(null), [plan]);
   const esGuardado = viendo === "guardado";
   const setMax = (v: number) => mutar(null, ({ st }) => (st.maxCreditos = Math.max(5, Math.min(ctx.cur.maxCreditosSemestre, v))));
 
-  if (!plan || (!esGuardado && planes.length === 0)) {
+  if (!plan) {
     return (
       <Tarjeta className="flex flex-col items-center gap-2 py-10 text-center">
         <Flag className="size-7 text-ok" />
@@ -197,11 +202,11 @@ export function Planificacion() {
     );
   }
 
-  const ultimo = ultimoSemestre(plan);
+  const { n: restantes, ultimo } = restantesDe(plan);
   const futuros = plan.semestres.filter((s) => s.tipo !== "cursando");
-  const proximo = futuros[0];
-  const despues = futuros.slice(1);
-  const restantes = plan.semestres.filter((s) => s.tipo === "futuro" || s.tipo === "overflow").length;
+  // Lo que «no cabe» nunca se presenta como algo para inscribir.
+  const proximo = futuros.find((s) => s.tipo !== "overflow");
+  const despues = futuros.filter((s) => s !== proximo);
   const yaGuardado = !esGuardado && planCoincide(plan, ctx.st.planFijado);
   const hayOverflow = plan.semestres.some((s) => s.tipo === "overflow");
   const nombrePlan = esGuardado ? "Tu plan guardado" : viendo === 0 ? "Plan sugerido" : `Otra opción · ${plan.etiqueta}`;
@@ -221,8 +226,8 @@ export function Planificacion() {
 
   // Otras formas de ordenar los ramos, distintas de la que se está mirando.
   const otras: { v: Viendo; titulo: string; detalle: string; fin: number | null }[] = [
-    ...(guardado && !esGuardado ? [{ v: "guardado" as Viendo, titulo: "Tu plan guardado", detalle: `El que guardaste el ${new Date(ctx.st.planFijado!.fecha).toLocaleDateString("es-CL", { day: "numeric", month: "long" })}.`, fin: ultimoSemestre(guardado) }] : []),
-    ...planes.map((p, i) => ({ v: i as Viendo, titulo: i === 0 ? "Plan sugerido" : p.etiqueta, detalle: p.descripcion, fin: ultimoSemestre(p) })).filter((o) => o.v !== viendo),
+    ...(guardado && !esGuardado ? [{ v: "guardado" as Viendo, titulo: "Tu plan guardado", detalle: `El que guardaste el ${new Date(ctx.st.planFijado!.fecha).toLocaleDateString("es-CL", { day: "numeric", month: "long" })}.`, fin: restantesDe(guardado).ultimo }] : []),
+    ...planes.map((p, i) => ({ v: i as Viendo, titulo: i === 0 ? "Plan sugerido" : p.etiqueta, detalle: p.descripcion, fin: restantesDe(p).ultimo })).filter((o) => o.v !== viendo),
   ];
 
   const boton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-4 text-[13.5px] font-bold transition-colors";
@@ -267,9 +272,7 @@ export function Planificacion() {
                 className={cx(boton, "bg-white text-[#3a28c4] shadow-[0_6px_20px_-6px_rgb(0_0_0/0.35)] hover:-translate-y-px")}
                 onClick={() => {
                   mutar("Guardar plan", (c) => (c.st.planFijado = guardarPlan(c, plan)));
-                  viendoRecordado = "guardado";
-                  setViendoEstado("guardado");
-                  setEditando(false);
+                  ver("guardado");
                   toast("Plan guardado. Lo verás aquí y en Inicio.");
                 }}
               >
@@ -284,8 +287,8 @@ export function Planificacion() {
               {editando ? <Check className="size-4" /> : <PenLine className="size-4" />} {editando ? "Listo" : "Cambiar ramos de semestre"}
             </button>
           )}
-          {!esGuardado && editado && viendo === 0 && (
-            <button type="button" className={cx(boton, "bg-white/[0.16] hover:bg-white/25")} onClick={restaurar}>
+          {!esGuardado && editado(viendo) && (
+            <button type="button" className={cx(boton, "bg-white/[0.16] hover:bg-white/25")} onClick={() => restaurar(viendo)}>
               <RotateCcw className="size-4" /> Deshacer mis cambios
             </button>
           )}

@@ -10,6 +10,8 @@ interface Toast {
   mensaje: string;
   tipo: TipoToast;
   accion?: { etiqueta: string; fn: () => void };
+  /** No se cierra solo ni lo desplazan los avisos nuevos. */
+  fijo?: boolean;
 }
 
 interface OpcionesDialogo {
@@ -107,7 +109,9 @@ export const useUI = create<UIStore>((set, get) => ({
   },
   toast(mensaje, tipo = "ok", accion, fijo = false) {
     const id = ++idToast;
-    set({ toasts: [...get().toasts.slice(-3), { id, mensaje, tipo, accion }] });
+    const previos = get().toasts;
+    // Se muestran a lo más cuatro avisos normales; los fijos siempre quedan.
+    set({ toasts: [...previos.filter((t) => t.fijo), ...previos.filter((t) => !t.fijo).slice(fijo ? -4 : -3), { id, mensaje, tipo, accion, fijo }] });
     if (!fijo) setTimeout(() => get().cerrarToast(id), accion ? 6500 : 4200);
   },
   cerrarToast(id) {

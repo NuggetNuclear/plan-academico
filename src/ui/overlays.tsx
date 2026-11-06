@@ -87,11 +87,14 @@ export function HostDialogos() {
   const abrir = useUI((s) => s._abrirDialogo);
   const [valor, setValor] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
+  // Al abrir otro diálogo se reinicia el campo durante el render, antes de pintarlo:
+  // así nunca se ve (ni se envía con Enter) el valor del diálogo anterior.
+  const [anterior, setAnterior] = useState(dialogo);
+  if (anterior !== dialogo) {
+    setAnterior(dialogo);
     setValor(dialogo?.opciones.campo?.valor ?? "");
     setError(null);
-  }, [dialogo]);
+  }
 
   if (!dialogo) return null;
   const { opciones, resolver } = dialogo;
