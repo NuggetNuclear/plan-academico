@@ -181,6 +181,13 @@ const fechaLocal = (iso: string) => {
 const FMT_MES = new Intl.DateTimeFormat("es-CL", { month: "short" });
 const FMT_DIA = new Intl.DateTimeFormat("es-CL", { weekday: "long" });
 
+/** Cuadritos del fondo del bloque destacado: [x, y, opacidad], más tenues hacia la izquierda. */
+const MALLA_FONDO: [number, number, number][] = [
+  [170, 96, 0.03], [200, 96, 0.07], [230, 96, 0.12], [260, 96, 0.07], [290, 96, 0.14], [320, 96, 0.09],
+  [170, 126, 0.04], [200, 126, 0.05], [230, 126, 0.09], [260, 126, 0.15], [290, 126, 0.08], [320, 126, 0.12],
+  [260, 66, 0.05], [290, 66, 0.08], [320, 66, 0.06],
+];
+
 /** Lo primero que se ve: la próxima evaluación, o la acción que corresponde si aún no hay datos. */
 function Destacada({ onRegistrar }: { onRegistrar: AbrirRegistro }) {
   const ctx = useCtx();
@@ -270,8 +277,14 @@ function Destacada({ onRegistrar }: { onRegistrar: AbrirRegistro }) {
 
   return (
     <section aria-label="Lo que viene" className="hero relative overflow-clip rounded-[1.75rem] p-5 sm:p-7">
-      <span aria-hidden="true" className="pointer-events-none absolute -top-24 -right-20 size-72 rounded-full bg-white/[0.07]" />
-      <span aria-hidden="true" className="pointer-events-none absolute -bottom-28 left-1/3 size-56 rounded-full bg-white/[0.05]" />
+      {/* Mini malla de cuadritos, como el ícono de la app. */}
+      <svg aria-hidden="true" width="360" height="170" viewBox="0 0 360 170" className="pointer-events-none absolute right-0 bottom-0">
+        <g fill="#fff">
+          {MALLA_FONDO.map(([x, y, o]) => (
+            <rect key={`${x}-${y}`} x={x} y={y} width="22" height="22" rx="6" opacity={o} />
+          ))}
+        </g>
+      </svg>
       <div className="relative flex items-start gap-4 sm:gap-6">
         <div className="min-w-0 flex-1">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.16] px-3 py-1.5 text-[12px] font-bold">
