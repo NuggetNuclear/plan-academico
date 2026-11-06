@@ -7,9 +7,12 @@ Malla interactiva, notas con ponderaciones, simulador de PPA, planificación de 
 **Base**
 
 - **Inicio:** avance de la carrera (créditos válidos), PPA acumulado con tendencia, semestres que faltan, situación académica (causales de eliminación UDP art. 38 a 40: cuánto te falta para cada una, qué ramos en curso te dejarían en causal y cuánto necesitas para aprobarlos, y registro de permanencias aceptadas), ramos del semestre, avisos (prácticas y ramos en riesgo) y lista de próximos pasos.
-- **Mi malla:** estados aprobado / cursando / puedo tomar / bloqueado, menú por ramo (aprobado con semestre o convalidado, cursando, desmarcar), marcado rápido, marcar semestres completos, resaltado de prerrequisitos y de lo que desbloquea, búsqueda y filtros, notas en la malla, inglés eximido y congelaciones.
-- **Notas:** modos **Registro** y **Planificación** (pruebas temporales sin afectar las notas reales, PPA ni avance); periodos regulares, de verano/TAV y convalidaciones; categorías con %, notas con peso relativo (×), quitar solo el valor de una nota para dejarla pendiente, categorías con requisito de 4,0, examen con nota de presentación y eximición (nota y asistencia), modo *actual* o *peor caso*, nota necesaria, nota final con décimas, reabrir, ventana por semestre, simulador de PPA y exportación a PDF.
-- **Planificación:** seis estrategias que se filtran por las que terminan en el mínimo de semestres, ramos críticos primero, tope de créditos, reglas de práctica (dentro de la carga, sobrecupo, verano o fuera del plan), arrastrar y soltar con validación, ajustes sugeridos (intercambios), guardar el plan y PDF.
+- **Mi malla:** estados aprobado / cursando / puedo tomar / bloqueado, menú por ramo (aprobado con semestre o convalidado, cursando, desmarcar), marcado rápido, marcar semestres completos, resaltado de prerrequisitos y de lo que desbloquea, búsqueda y filtros y notas en la malla.
+- **Notas:** periodos regulares, de verano/TAV y convalidaciones; categorías con %, notas con peso relativo (×), quitar solo el valor de una nota para dejarla pendiente, categorías con requisito de 4,0, examen con nota de presentación y eximición (nota y asistencia), modo *actual* o *peor caso*, nota necesaria, nota final con décimas, reabrir, ventana de inscripción por semestre y exportación a PDF.
+- **Agenda:** tus evaluaciones con fecha, agrupadas (vencidas sin nota, próximos 7 días, más adelante, registradas), filtro por ramo, registro directo y exportación `.ics`.
+- **Simulaciones:** prueba notas de un ramo (en blanco, desde una plantilla o copiando uno de tus ramos) y tu PPA con una meta de egreso, sin modificar tus notas, PPA ni avance.
+- **Configuración:** datos académicos (semestre, inglés eximido, congelaciones), importar y respaldar, y apariencia.
+- **Plan de carrera:** seis estrategias que se filtran por las que terminan en el mínimo de semestres, ramos críticos primero, tope de créditos, reglas de práctica (dentro de la carga, sobrecupo, verano o fuera del plan), arrastrar y soltar con validación, ajustes sugeridos (intercambios), guardar el plan y PDF.
 - **Estadísticas:** PPA, créditos inscritos/aprobados/reprobados/de avance, evolución del PPA (gráfico o tabla), aprobación de créditos por semestre, fortalezas por área (Matemáticas, Ciencias básicas, Programación, Software/datos/IA, Sistemas y redes, Telecomunicaciones, Gestión, Comunicación y formación general, Electivos) y distribución de notas por ramo o por evaluación.
 - **Asistente de inicio, modo oscuro, exportar/importar, sincronización opcional con Google.**
 - **Ayuda:** cómo funciona, reglas de la carrera (prácticas y causales), cómo se calcula cada dato, un formulario para escribirme dudas e ideas y un acceso para reportar errores en los [issues de GitHub](https://github.com/NuggetNuclear/plan-academico/issues).
@@ -54,7 +57,7 @@ src/
   core/        Lógica pura y testeada: malla, notas, PPA, créditos, reglamentos, planificador, calendario
   store/       Estado (zustand), mutaciones, persistencia y respaldos
   importar/    Lectores de los reportes de la UDP (PDF y Excel), armado y aplicación del plan de importación
-  views/       Inicio, Mi malla, Notas, Planificación, Estadísticas, Ayuda, asistente y cuenta
+  views/       Inicio, Notas, Agenda, Mi malla, Plan de carrera, Simulaciones, Estadísticas, Configuración, Ayuda, asistente y cuenta
   ui/          Componentes base, diálogos, popovers, paleta de comandos y el shell
   sync/        Sincronización opcional con Firebase (se carga desde el CDN solo si está configurada)
 public/

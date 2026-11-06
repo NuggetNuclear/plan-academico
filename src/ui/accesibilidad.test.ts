@@ -60,7 +60,7 @@ async function auditar() {
 }
 
 describe("accesibilidad de las vistas", () => {
-  it.each<Vista>(["inicio", "malla", "notas", "planificacion", "estadisticas", "ayuda"])("%s tiene controles identificables y estructura accesible", async (vista) => {
+  it.each<Vista>(["inicio", "notas", "agenda", "malla", "planificacion", "simulaciones", "estadisticas", "configuracion", "ayuda"])("%s tiene controles identificables y estructura accesible", async (vista) => {
     useUI.setState({ vista });
     await act(async () => root.render(createElement(Shell)));
     await auditar();
@@ -152,17 +152,21 @@ describe("accesibilidad de las vistas", () => {
     expect(useApp.getState().st).toEqual(antes);
   });
 
-  it("el modo Planificación es accesible y conserva el escenario al alternar con Registro", async () => {
+  it("Simulaciones es accesible y conserva el borrador al cambiar de sección", async () => {
     const antes = structuredClone(useApp.getState().st);
     const guardado = localStorage.getItem("notas.v1.estado.inf");
-    useUI.setState({ vista: "notas" });
+    useUI.setState({ vista: "simulaciones" });
     await act(async () => root.render(createElement(Shell)));
+    await act(async () => { await vi.dynamicImportSettled(); });
+    const ir = async (vista: Vista) => {
+      await act(async () => useUI.getState().irA(vista));
+      await act(async () => { await vi.dynamicImportSettled(); });
+    };
     const pulsar = async (texto: string) => {
       const boton = [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === texto)!;
       expect(boton).toBeDefined();
       await act(async () => boton.click());
     };
-    await pulsar("Planificación");
     const base = document.querySelector<HTMLSelectElement>('select')!;
     await act(async () => { base.value = "ramo:actual"; base.dispatchEvent(new Event("change", { bubbles: true })); });
     expect(document.querySelector('[role="status"]')!.textContent).toContain("5,00");
@@ -174,15 +178,76 @@ describe("accesibilidad de las vistas", () => {
     });
     await act(async () => pendiente.blur());
     expect(document.querySelector('[role="status"]')!.textContent).toContain("6,33");
-    await pulsar("Vaciar valores de prueba");
-    expect(document.querySelector('[role="status"]')!.textContent).toContain("—");
-    await pulsar("Registro");
+    // Ir a Notas muestra la nota real; al volver, el borrador sigue ahí.
+    await ir("notas");
     expect(document.body.textContent).toContain("5,0");
-    await pulsar("Planificación");
+    await ir("simulaciones");
+    expect(document.querySelector('[role="status"]')!.textContent).toContain("6,33");
+    await pulsar("Vaciar valores de prueba");
     expect(document.querySelector('[role="status"]')!.textContent).toContain("—");
     expect(useApp.getState().st).toEqual(antes);
     expect(useApp.getState().pilaDeshacer).toHaveLength(0);
     expect(localStorage.getItem("notas.v1.estado.inf")).toBe(guardado);
+    await auditar();
+  });
+
+  it("Agenda lista una evaluación con fecha y abre su registro", async () => {
+    const st = structuredClone(useApp.getState().st);
+    const manana = new Date();
+    manana.setDate(manana.getDate() + 1);
+    const z = (n: number) => String(n).padStart(2, "0");
+    st.periodos[1].ramos[0].categorias[0].notas[1].fecha = `${manana.getFullYear()}-${z(manana.getMonth() + 1)}-${z(manana.getDate())}`;
+    useApp.setState({ st });
+    useUI.setState({ vista: "agenda" });
+    await act(async () => root.render(createElement(Shell)));
+    await act(async () => { await vi.dynamicImportSettled(); });
+    expect(document.body.textContent).toContain("Próximos 7 días");
+    const fila = document.querySelector<HTMLButtonElement>('button[aria-label^="Solemnes 2"]')!;
+    expect(fila.getAttribute("aria-label")).toContain("Registrar nota");
+    await auditar();
+    await act(async () => fila.click());
+    expect(document.querySelector("dialog[open]")?.getAttribute("aria-label")).toBe("Registrar nota");
+    const elegidos = [...document.querySelectorAll('button[aria-pressed="true"]')].map((b) => b.textContent);
+    expect(elegidos.some((t) => t?.includes("Solemnes 2"))).toBe(true);
+  });
+
+  it("las pestañas del ramo muestran reglas y guardan la meta", async () => {
+    useUI.setState({ vista: "notas" });
+    await act(async () => root.render(createElement(Shell)));
+    await act(async () => { await vi.dynamicImportSettled(); });
+    const pestana = (texto: string) => [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((b) => b.textContent?.startsWith(texto))!;
+    await act(async () => pestana("Reglas").click());
+    expect(document.body.textContent).toContain("Editar reglas");
+    await auditar();
+    await act(async () => pestana("Meta").click());
+    const campo = document.querySelector<HTMLInputElement>('input[id$="-meta"]')!;
+    await act(async () => campo.focus());
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(campo, "6");
+      campo.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => campo.blur());
+    expect(useApp.getState().st.periodos[1].ramos[0].meta).toBe(6);
+    expect(document.body.textContent).toContain("Para llegar a 6,0");
+    await auditar();
+  });
+
+  it("la vista Mes de Agenda y las Preferencias del plan son accesibles", async () => {
+    const st = structuredClone(useApp.getState().st);
+    st.periodos[1].ramos[0].categorias[0].notas[1].fecha = "2026-11-20";
+    useApp.setState({ st });
+    useUI.setState({ vista: "agenda" });
+    await act(async () => root.render(createElement(Shell)));
+    await act(async () => { await vi.dynamicImportSettled(); });
+    const mes = [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Mes")!;
+    await act(async () => mes.click());
+    expect(document.querySelector('[aria-label^="Calendario de"]')).not.toBeNull();
+    await auditar();
+    await act(async () => useUI.getState().irA("planificacion"));
+    await act(async () => { await vi.dynamicImportSettled(); });
+    const pref = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((b) => b.textContent === "Preferencias")!;
+    await act(async () => pref.click());
+    expect(document.body.textContent).toContain("Tu punto de partida");
     await auditar();
   });
 

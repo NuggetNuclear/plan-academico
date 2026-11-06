@@ -33,13 +33,12 @@ import { evaluarReglaPractica, rutaCritica } from "../core/curriculum";
 import { normalizarTexto, plural } from "../core/format";
 import { idsPendientes } from "../core/planner";
 import type { Ramo } from "../core/types";
-import { useApp, useCtx } from "../store/app";
+import { useApp, useCtx, accionDeshacer } from "../store/app";
 import { alternarRapido, desmarcar, marcableComoCompleto, marcarAprobado, marcarCursando, marcarSemestres } from "../store/mutaciones";
 import { confirmar, pedirTexto, toast, useUI } from "../store/ui";
 import { colorTipo, etiquetaTipo, NotaChip } from "../ui/comun";
 import { CabeceraModal, Modal, OpcionMenu, PieModal, Popover } from "../ui/overlays";
 import { Boton, BotonIcono, Interruptor, Segmentado, Tarjeta, cx } from "../ui/primitives";
-import { TusDatos } from "./malla/TusDatos";
 
 type Filtro = "todos" | "disponible" | "aprobado" | "cursando" | "pendientes";
 
@@ -100,7 +99,7 @@ function DialogoSemestre({ peticion, onCerrar }: { peticion: PeticionSemestre | 
             </p>
             {error && <p className="mt-1 text-[12px] font-medium text-danger">{error}</p>}
           </div>
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-line p-3">
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-2xl bg-surface-2 p-3">
             <input type="checkbox" className="mt-0.5 size-4 accent-[var(--accent)]" checked={rapido} onChange={(e) => setRapido(e.target.checked)} />
             <span className="text-[13px]">
               <strong>Marcar sin semestre (marcado rápido)</strong>
@@ -302,7 +301,7 @@ export function Malla() {
       toast(`${ramo.nombre} está bloqueado. Primero aprueba: ${nombres.length > 2 ? `${nombres.slice(0, 2).join(", ")} y ${nombres.length - 2} más` : nombres.join(" y ")}.`, "error");
       return;
     }
-    if (esEximido(ctx, ramo.id)) return toast("Este nivel está eximido. Cámbialo en Tus datos › Inglés eximido.", "info");
+    if (esEximido(ctx, ramo.id)) return toast("Este nivel está eximido. Cámbialo en Configuración › Datos académicos.", "info");
     if (st.prefs.marcadoRapido) {
       let r = "";
       mutar(`Marcado rápido de ${ramo.nombre}`, (c) => (r = alternarRapido(c, ramo.id)));
@@ -351,7 +350,7 @@ export function Malla() {
     if (v === null) return;
     let n = 0;
     mutar(`Marcar hasta S${v}`, (c) => (n = marcarSemestres(c, Number(v))));
-    toast(n ? `${plural(n, "ramo marcado", "ramos marcados")}. Ahora desmarca los que debes.` : "Esos semestres ya estaban marcados.", n ? "ok" : "info", n ? { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() } : undefined);
+    toast(n ? `${plural(n, "ramo marcado", "ramos marcados")}. Ahora desmarca los que debes.` : "Esos semestres ya estaban marcados.", n ? "ok" : "info", n ? accionDeshacer() : undefined);
   };
 
   const ramoMenu = menu?.ramo;
@@ -359,7 +358,15 @@ export function Malla() {
 
   return (
     <div className="space-y-4">
-      <TusDatos />
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[13px] text-fg-2">
+        <span>
+          Semestre {ctx.st.semestreActual} · {ctx.st.inglesEximido ? `${plural(ctx.st.inglesEximido, "nivel", "niveles")} de inglés eximido${ctx.st.inglesEximido === 1 ? "" : "s"}` : "sin inglés eximido"}
+          {ctx.st.congelaciones.length > 0 && ` · ${plural(ctx.st.congelaciones.length, "congelación", "congelaciones")}`}
+        </span>
+        <button type="button" className="inline-flex min-h-9 items-center gap-1 font-bold text-accent hover:underline" onClick={() => irA("configuracion")}>
+          Editar tus datos académicos
+        </button>
+      </div>
 
       <Tarjeta className="!p-0">
         <div className="space-y-4 p-5 sm:p-6">
@@ -507,7 +514,7 @@ export function Malla() {
                           onClick={() => {
                             let n = 0;
                             mutar(`Marcar ${col.titulo}`, (c) => (n = marcarSemestres(c, col.semestre, col.semestre)));
-                            toast(`${col.titulo}: ${plural(n, "ramo marcado", "ramos marcados")}.`, "ok", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
+                            toast(`${col.titulo}: ${plural(n, "ramo marcado", "ramos marcados")}.`, "ok", accionDeshacer());
                           }}
                         >
                           <ListChecks className="size-4" />

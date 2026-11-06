@@ -8,7 +8,7 @@ import { lineasDePDF } from "../importar/pdf";
 import { aplicarPlan, construirPlanAvance, construirPlanTrabajo, previsualizar, type PlanImportacion } from "../importar/plan";
 import { COLUMNAS_TRABAJO, leerTrabajoAcademico, type TablaTrabajo } from "../importar/trabajo";
 import { ErrorImportacion, esPlanInformatica } from "../importar/udp";
-import { useApp } from "../store/app";
+import { useApp, accionDeshacer } from "../store/app";
 import { toast, useUI } from "../store/ui";
 import { CabeceraModal, Modal } from "../ui/overlays";
 import { Aviso, Boton, Insignia, Segmentado, cx } from "../ui/primitives";
@@ -61,7 +61,7 @@ async function prepararRevision(archivos: File[]): Promise<Revision> {
 
 function Dato({ etiqueta, valor, detalle }: { etiqueta: string; valor: ReactNode; detalle?: string }) {
   return (
-    <div className="rounded-2xl border border-line bg-surface-2/50 p-3">
+    <div className="rounded-2xl bg-surface-2 p-3.5">
       <p className="text-[11px] font-semibold text-fg-3">{etiqueta}</p>
       <p className="text-xl leading-tight font-bold tracking-tight">{valor}</p>
       {detalle && <p className="text-[11.5px] text-fg-3">{detalle}</p>}
@@ -84,7 +84,7 @@ function Lista({ items, icono }: { items: ReactNode[]; icono: ReactNode }) {
 
 function Tutorial() {
   return (
-    <details className="group rounded-2xl border border-line">
+    <details className="group rounded-2xl bg-surface-2">
       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 px-4 py-3 text-[13.5px] font-bold select-none">
         <ChevronRight className="size-4 text-fg-3 transition-transform group-open:rotate-90" />
         ¿Cómo saco el Excel?
@@ -107,7 +107,7 @@ function Tutorial() {
         <div>
           <p className="mb-2 text-[12.5px] font-bold">Columnas que lee la app</p>
           <p className="mb-2 text-[12px] text-fg-3">El reporte original ya las trae todas: no tienes que agregar nada. Si lo editas, no borres las obligatorias.</p>
-          <ul className="divide-y divide-line rounded-xl border border-line text-[12.5px]">
+          <ul className="divide-y divide-line rounded-2xl bg-surface text-[12.5px]">
             {COLUMNAS_TRABAJO.map((c) => (
               <li key={c.rol} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-3 py-2">
                 <code className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-[12px] font-semibold">{c.nombre}</code>
@@ -172,7 +172,7 @@ export function ImportarUDP() {
     toast(
       rev.conExcel ? "¡Listo! Importé tu historial completo: notas, repeticiones y PPA." : "¡Listo! Marqué tus ramos aprobados e inscritos.",
       "ok",
-      { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() },
+      accionDeshacer(),
     );
   };
 

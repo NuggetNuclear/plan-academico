@@ -6,7 +6,7 @@ import type { Plan } from "../core/planner";
 import { estadoInicial, normalizarEstado, type PlannerState } from "../core/state";
 import type { MallaDef } from "../core/types";
 import { sincronizar } from "./mutaciones";
-import { escribirLocal, leerLocal } from "./ui";
+import { escribirLocal, leerLocal, useUI } from "./ui";
 
 /** La app es solo para Ingeniería Civil en Informática y Telecomunicaciones (UDP). */
 export const CARRERA_ID = "inf";
@@ -15,6 +15,7 @@ const claveEstado = (carrera: string) => `notas.v1.estado.${carrera}`;
 /** Claves de versiones con varias carreras: se limpian al borrar los datos. */
 const CLAVES_ANTIGUAS = ["notas.v1.carrera", claveEstado("ds")];
 const MAX_DESHACER = 40;
+let idCambio = 0;
 let inicioEnCurso: Promise<void> | null = null;
 
 function leerEstadoGuardado(): PlannerState | null {
@@ -62,13 +63,14 @@ interface AppStore {
   malla: MallaDef | null;
   cur: Curriculum | null;
   st: PlannerState;
-  pilaDeshacer: { st: PlannerState; etiqueta: string }[];
+  pilaDeshacer: { st: PlannerState; etiqueta: string; id: number }[];
   planesEditados: PlanesEditados | null;
 
   iniciar: () => Promise<void>;
   /** Aplica un cambio sobre una copia del estado, lo sincroniza y lo guarda. */
   mutar: (etiqueta: string | null, fn: (ctx: Ctx) => void) => void;
-  deshacer: () => string | null;
+  /** Con `id`, solo deshace si ese cambio sigue siendo el último. */
+  deshacer: (id?: number) => string | null;
   /** Reemplaza el progreso por el de un respaldo o de la nube ({ inf: estado }). */
   reemplazarTodo: (estados: Record<string, PlannerState>) => void;
   setPlanesEditados: (p: PlanesEditados | null) => void;
@@ -113,15 +115,15 @@ export const useApp = create<AppStore>((set, get) => ({
     sincronizar(ctx);
     set({
       st: borrador,
-      pilaDeshacer: etiqueta ? [...s.pilaDeshacer.slice(-(MAX_DESHACER - 1)), { st: s.st, etiqueta }] : s.pilaDeshacer,
+      pilaDeshacer: etiqueta ? [...s.pilaDeshacer.slice(-(MAX_DESHACER - 1)), { st: s.st, etiqueta, id: ++idCambio }] : s.pilaDeshacer,
     });
     guardarEstadoLocal(borrador);
   },
 
-  deshacer() {
+  deshacer(id) {
     const s = get();
     const ultimo = s.pilaDeshacer.at(-1);
-    if (!ultimo) return null;
+    if (!ultimo || (id !== undefined && ultimo.id !== id)) return null;
     set({ st: ultimo.st, pilaDeshacer: s.pilaDeshacer.slice(0, -1) });
     guardarEstadoLocal(ultimo.st);
     return ultimo.etiqueta;
@@ -160,4 +162,19 @@ export function firmaPlanificacion(ctx: Ctx): string {
     st.modoPractica,
     st.inglesEximido,
   ]);
+}
+
+/**
+ * Acción «Deshacer» para el aviso de un cambio recién hecho. Se fija en ese cambio:
+ * si después hubo otro, no revierte el equivocado.
+ */
+export function accionDeshacer(): { etiqueta: string; fn: () => void } {
+  const id = useApp.getState().pilaDeshacer.at(-1)?.id;
+  return {
+    etiqueta: "Deshacer",
+    fn: () => {
+      if (id === undefined || useApp.getState().deshacer(id) === null)
+        useUI.getState().toast("Ese cambio ya no es el último. Usa Deshacer del encabezado.", "info");
+    },
+  };
 }

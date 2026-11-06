@@ -44,7 +44,6 @@ export function PlanificacionNotas({ ctx, escenario, onCambiar }: {
 
   return (
     <div className="space-y-4">
-      <Aviso tono="info">Prueba valores sin modificar tus notas, PPA ni avance. Puedes alternar con Registro; las pruebas se descartan al salir de Notas o recargar.</Aviso>
       <Tarjeta>
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-0 flex-1 basis-64">

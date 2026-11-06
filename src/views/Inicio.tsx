@@ -3,22 +3,25 @@ import {
   BellRing,
   Briefcase,
   CalendarClock,
-  CalendarDays,
+  ChevronRight,
+  Clock,
   Check,
   CheckCircle2,
   EyeOff,
   Flag,
   Info,
   Minus,
+  PenLine,
   ShieldAlert,
   ShieldCheck,
   Trash2,
   TrendingDown,
   TrendingUp,
   TriangleAlert,
+  Upload,
   Wand2,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   aprobadosSet,
   calcularPPA,
@@ -39,21 +42,22 @@ import {
   resumenCreditos,
   semestreListoParaAvanzar,
   semestreProtegido,
-  siglaEntrada,
   situacionSemestreUDP,
   type SituacionSemestreUDP,
 } from "../core/academic";
 import { diasHasta, evaluacionesConFecha, hoyISO } from "../core/calendar";
 import { evaluarReglaPractica, fechaEgreso } from "../core/curriculum";
-import { fmtNota, fmtPct, plural } from "../core/format";
+import { NOTA_APROB, fmtNota, fmtPct, plural } from "../core/format";
+import type { Periodo } from "../core/state";
 import { calcularRamo } from "../core/grades";
 import { useApp, useCtx } from "../store/app";
 import { avanzarSemestre } from "../store/mutaciones";
 import { confirmar, toast, useUI } from "../store/ui";
-import { Anillo, NotaChip, Sparkline } from "../ui/comun";
+import { colorTipo } from "../ui/comun";
 import { Aviso, Boton, CabeceraTarjeta, Insignia, Tarjeta, cx } from "../ui/primitives";
 import { semestresRestantes, usePlanes } from "./plan/usePlanes";
 import { letrasCausal, motivoCausal, textoRendimiento } from "./riesgoCausal";
+import { RegistroNota, type SeleccionNota } from "./notas/RegistroNota";
 
 function AvisoCierreSemestre() {
   const ctx = useCtx();
@@ -164,6 +168,101 @@ function Checklist() {
   );
 }
 
+/** Abre el registro de nota sin salir de Inicio: al guardar, se vuelve aquí con todo actualizado. */
+type AbrirRegistro = (periodo: Periodo, seleccion: SeleccionNota) => void;
+
+const FMT_FECHA = new Intl.DateTimeFormat("es-CL", { weekday: "long", day: "numeric", month: "long" });
+const fechaLocal = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+const enDias = (d: number) => (d === 0 ? "hoy" : d === 1 ? "mañana" : `en ${d} días`);
+
+/** Lo primero que se ve: la próxima evaluación, o la acción que corresponde si aún no hay datos. */
+function Destacada({ onRegistrar }: { onRegistrar: AbrirRegistro }) {
+  const ctx = useCtx();
+  const irA = useUI((s) => s.irA);
+  const setImportar = useUI((s) => s.setImportar);
+  const hoy = hoyISO();
+  const proxima = evaluacionesConFecha(ctx).find((e) => e.fecha >= hoy && !e.rendida);
+  const actual = ctx.st.periodos.find((p) => esPeriodoActual(ctx.st, p));
+  const abiertos = actual?.ramos.filter((e) => e.notaFinal === null) ?? [];
+  const pendientes = abiertos.reduce((n, e) => n + e.categorias.reduce((s, c) => s + c.notas.filter((x) => x.n === null).length, 0), 0);
+  const periodoDe = (uid: string) => ctx.st.periodos.find((p) => p.ramos.some((e) => e.uid === uid));
+
+  const boton = "relative z-10 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-5 text-[14px] font-bold text-[#3a28c4] transition-transform hover:-translate-y-px";
+  const secundario = "relative z-10 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white/15 px-5 text-[14px] font-bold text-white hover:bg-white/25";
+  let etiqueta: React.ReactNode, titulo: React.ReactNode, detalle: React.ReactNode, acciones: React.ReactNode, numero: string | null = null;
+
+  if (proxima && periodoDe(proxima.entrada)) {
+    const d = diasHasta(proxima.fecha);
+    numero = String(fechaLocal(proxima.fecha).getDate());
+    etiqueta = <>Próxima evaluación · {enDias(d)}</>;
+    titulo = proxima.etiqueta;
+    detalle = <>{proxima.ramo} · {FMT_FECHA.format(fechaLocal(proxima.fecha))}{proxima.peso > 0 && <> · {fmtPct(proxima.peso)}% del ramo</>}</>;
+    acciones = (
+      <button type="button" className={boton} onClick={() => onRegistrar(periodoDe(proxima.entrada)!, { uid: proxima.entrada, categoria: proxima.categoriaId, nota: proxima.notaId })}>
+        <PenLine className="size-4" /> Registrar nota
+      </button>
+    );
+  } else if (actual && abiertos.length) {
+    etiqueta = <>Semestre {ctx.st.semestreActual}</>;
+    titulo = pendientes ? "Mantén tus notas al día" : "Todo registrado por ahora";
+    detalle = pendientes
+      ? <>{plural(pendientes, "evaluación pendiente", "evaluaciones pendientes")} en {plural(abiertos.length, "ramo")}. Agrega fechas para verlas aquí a tiempo.</>
+      : <>No tienes evaluaciones pendientes en tus {plural(abiertos.length, "ramo")} en curso.</>;
+    acciones = (
+      <button type="button" className={boton} onClick={() => onRegistrar(actual, {})}>
+        <PenLine className="size-4" /> Registrar nota
+      </button>
+    );
+  } else {
+    etiqueta = <>Para empezar</>;
+    titulo = "Carga lo que ya cursaste";
+    detalle = <>Importa tu avance desde la UDP o márcalo a mano en tu malla. No necesitas cuenta: todo queda en este navegador.</>;
+    acciones = (
+      <div className="relative z-10 flex flex-wrap gap-2">
+        <button type="button" className={boton} onClick={() => setImportar(true)}>
+          <Upload className="size-4" /> Importar avance
+        </button>
+        <button type="button" className={secundario} onClick={() => irA("malla")}>
+          Marcar a mano
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <section aria-label="Lo que viene" className="hero relative flex flex-col gap-5 overflow-clip rounded-[1.75rem] p-6 sm:flex-row sm:items-end sm:justify-between sm:p-7">
+      <span aria-hidden="true" className="pointer-events-none absolute -top-20 -right-16 size-64 rounded-full bg-white/[0.08]" />
+      {numero && (
+        <span aria-hidden="true" className="pointer-events-none absolute top-1 right-6 text-[112px] leading-none font-extrabold tracking-[-0.06em] text-white/[0.14] sm:text-[128px]">
+          {numero}
+        </span>
+      )}
+      <div className="relative z-10 min-w-0">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.16] px-3 py-1.5 text-[12px] font-bold">
+          <Clock className="size-3.5" /> {etiqueta}
+        </span>
+        <h2 className="mt-3.5 text-[26px] leading-tight font-extrabold tracking-[-0.03em] sm:text-[30px]">{titulo}</h2>
+        <p className="mt-1.5 max-w-xl text-[14px] text-white/90 first-letter:uppercase">{detalle}</p>
+      </div>
+      {acciones}
+    </section>
+  );
+}
+
+function Cifra({ etiqueta, valor, detalle }: { etiqueta: string; valor: React.ReactNode; detalle: React.ReactNode }) {
+  return (
+    <div className="min-w-0 px-5 py-4 sm:px-6">
+      <p className="text-[12.5px] font-semibold text-fg-2">{etiqueta}</p>
+      <p className="mt-1 text-[28px] leading-none font-extrabold tracking-[-0.03em] tabular">{valor}</p>
+      <div className="mt-1.5 text-[12px] text-fg-3">{detalle}</div>
+    </div>
+  );
+}
+
+/** Avance, PPA y egreso en una sola franja; el detalle vive en Estadísticas y en Plan de carrera. */
 function Resumen() {
   const ctx = useCtx();
   const irA = useUI((s) => s.irA);
@@ -176,91 +275,78 @@ function Resumen() {
   const pct = cred.total > 0 ? Math.round((cred.avance / cred.total) * 100) : 0;
   const reales = evo.filter((p) => p.numero > 0);
   const delta = reales.length >= 2 ? reales.at(-1)!.acumulado - reales.at(-2)!.acumulado : null;
-  const apr = aprobadosSet(ctx);
-  const ramosAprobados = ctx.cur.ramos.filter((r) => apr.has(r.id)).length;
+  const enlace = "mt-1 inline-flex min-h-9 items-center gap-1 text-[12.5px] font-bold text-accent hover:underline";
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.25fr_1.25fr_1fr]">
-      <Tarjeta className="flex items-center gap-5">
-        <Anillo porcentaje={pct} tamano={112}>
-          <div>
-            <p className="text-2xl font-extrabold tracking-tight tabular">{pct}%</p>
-            <p className="text-[11px] font-semibold text-fg-3">avance</p>
-          </div>
-        </Anillo>
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-fg-2">Avance de la carrera</p>
-          <p className="mt-1 text-xl font-extrabold tracking-tight tabular">
-            {cred.avance} <span className="text-[14px] font-semibold text-fg-3">/ {cred.total} créditos</span>
-          </p>
-          <p className="mt-1 text-[12.5px] text-fg-2">
-            {plural(ramosAprobados, "ramo aprobado", "ramos aprobados")} de {ctx.cur.ramos.length}
-            {cred.cursando > 0 && <> · {cred.cursando} cr cursando</>}
-          </p>
-        </div>
-      </Tarjeta>
-
-      <Tarjeta className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-fg-2">PPA acumulado</p>
-          <p className="mt-1 text-[40px] leading-none font-extrabold tracking-tight tabular">{actual.ppa !== null ? fmtNota(actual.ppa, 2) : "—"}</p>
-          {actual.ramos > 0 && (
-            <p className="mt-1.5 text-[12px] text-fg-3">
-              Con tus promedios en curso · confirmado <strong className="tabular font-semibold text-fg-2">{ppa !== null ? fmtNota(ppa, 2) : "—"}</strong>
-            </p>
-          )}
-          {delta !== null ? (
-            <p className={cx("mt-2 flex items-center gap-1 text-[12.5px] font-semibold", delta > 0.005 ? "text-ok" : delta < -0.005 ? "text-danger" : "text-fg-3")}>
-              {delta > 0.005 ? <TrendingUp className="size-4" /> : delta < -0.005 ? <TrendingDown className="size-4" /> : <Minus className="size-4" />}
-              {delta > 0 ? "+" : ""}
-              {fmtNota(delta, 2)} vs. semestre anterior
-            </p>
-          ) : (
-            <p className="mt-2 text-[12.5px] text-fg-3">{ppa === null ? "Registra notas finales para verlo" : "Necesitas dos semestres para ver la tendencia"}</p>
-          )}
-        </div>
-        <Sparkline valores={reales.map((p) => p.acumulado)} />
-      </Tarjeta>
-
-      <Tarjeta className="flex flex-col md:col-span-2 xl:col-span-1">
-        <p className="flex items-center gap-2 text-[13px] font-semibold text-fg-2">
-          <Flag className="size-4 text-accent" /> Para titularte
-        </p>
-        {restante.ultimo !== null ? (
+    <section aria-label="Resumen de tu carrera" className="card grid divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+      <Cifra
+        etiqueta="Avance de la carrera"
+        valor={<>{pct}%</>}
+        detalle={
           <>
-            <p className="mt-1 text-[40px] leading-none font-extrabold tracking-tight tabular">
-              {restante.n} <span className="text-[15px] font-semibold text-fg-3">{restante.n === 1 ? "semestre" : "semestres"}</span>
-            </p>
-            <p className="mt-2 text-[12.5px] text-fg-2">
-              Egreso estimado: <strong className="text-fg">{fechaEgreso(ctx.st.semestreActual, restante.ultimo, ctx.st.congelaciones)}</strong>
-              <br />
-              <span className="text-fg-3">Según tu plan {restante.fuente === "guardado" ? "guardado" : "recomendado"}.</span>
-            </p>
+            <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-surface-3">
+              <div className="hero h-full rounded-full" style={{ width: `${pct}%` }} />
+            </div>
+            {cred.avance} de {cred.total} créditos{cred.cursando > 0 && <> · {cred.cursando} cursando</>}
           </>
-        ) : (
-          <p className="mt-2 text-[13px] text-fg-2">¡No te quedan ramos por planificar!</p>
-        )}
-        <Boton tamano="sm" variante="suave" className="mt-auto self-start" onClick={() => irA("planificacion")}>
-          Ver planificación <ArrowRight className="size-4" />
-        </Boton>
-      </Tarjeta>
-    </div>
+        }
+      />
+      <Cifra
+        etiqueta="PPA acumulado"
+        valor={actual.ppa !== null ? fmtNota(actual.ppa, 2) : "—"}
+        detalle={
+          <>
+            {delta !== null ? (
+              <span className={cx("inline-flex items-center gap-1 font-semibold", delta > 0.005 ? "text-ok" : delta < -0.005 ? "text-danger" : "text-fg-3")}>
+                {delta > 0.005 ? <TrendingUp className="size-3.5" /> : delta < -0.005 ? <TrendingDown className="size-3.5" /> : <Minus className="size-3.5" />}
+                {delta > 0 ? "+" : ""}
+                {fmtNota(delta, 2)} vs. semestre anterior
+              </span>
+            ) : (
+              <span>{ppa === null ? "Registra notas finales para verlo" : "Con dos semestres verás la tendencia"}</span>
+            )}
+            {actual.ramos > 0 && <span className="block">Con promedios en curso · confirmado {ppa !== null ? fmtNota(ppa, 2) : "—"}</span>}
+            <button type="button" className={enlace} onClick={() => irA("estadisticas")}>
+              Ver estadísticas <ArrowRight className="size-3.5" />
+            </button>
+          </>
+        }
+      />
+      <Cifra
+        etiqueta="Para titularte"
+        valor={restante.ultimo !== null ? <>{restante.n} <span className="text-[15px] font-semibold text-fg-3">{restante.n === 1 ? "semestre" : "semestres"}</span></> : "Listo"}
+        detalle={
+          <>
+            {restante.ultimo !== null ? (
+              <span>
+                Egreso estimado: <strong className="font-semibold text-fg-2">{fechaEgreso(ctx.st.semestreActual, restante.ultimo, ctx.st.congelaciones)}</strong>, según tu plan {restante.fuente === "guardado" ? "guardado" : "recomendado"}.
+              </span>
+            ) : (
+              <span>No te quedan ramos por planificar.</span>
+            )}
+            <button type="button" className={enlace} onClick={() => irA("planificacion")}>
+              Ver plan de carrera <ArrowRight className="size-3.5" />
+            </button>
+          </>
+        }
+      />
+    </section>
   );
 }
 
 type TonoRiesgo = "neutro" | "info" | "ok" | "warn" | "danger";
 const CLASE_TONO: Record<TonoRiesgo, string> = {
-  neutro: "border-line",
-  info: "border-info/25 bg-info-soft",
-  ok: "border-ok/25 bg-ok-soft",
-  warn: "border-warn/25 bg-warn-soft",
-  danger: "border-danger/25 bg-danger-soft",
+  neutro: "bg-surface-2",
+  info: "bg-info-soft",
+  ok: "bg-ok-soft",
+  warn: "bg-warn-soft",
+  danger: "bg-danger-soft",
 };
 
 function Contador({ causal, valor, detalle, tono }: { causal: string; valor: React.ReactNode; detalle: React.ReactNode; tono: TonoRiesgo }) {
   return (
-    <div className={cx("rounded-xl border px-3 py-2.5", CLASE_TONO[tono])}>
-      <p className="text-[11.5px] font-bold tracking-wide text-fg-3 uppercase">Causal {causal}</p>
+    <div className={cx("rounded-2xl px-3.5 py-3", CLASE_TONO[tono])}>
+      <p className="text-[12px] font-bold text-fg-2">Causal {causal}</p>
       <p className={cx("text-[20px] leading-tight font-extrabold tabular", tono === "danger" ? "text-danger" : tono === "info" ? "text-info" : "text-fg")}>{valor}</p>
       <p className="text-[12px] text-fg-2">{detalle}</p>
     </div>
@@ -310,7 +396,7 @@ function CausalesUDP() {
         </ul>
       )}
       {ultimo && (
-        <div className="space-y-2 rounded-xl border border-line px-3 py-2 text-[13px]">
+        <div className="space-y-2 rounded-2xl bg-surface-2 px-3.5 py-2.5 text-[13px]">
           <p>
             Puedes solicitar tu permanencia por escrito al Comité de Carrera (art. 39).
             {reincidencia ? " Ya tuviste una permanencia aceptada: si te la rechazan, la apelación a la Comisión Especial de Gracia es solo para la primera causal (art. 40)." : " Si la rechaza, puedes ir a la Comisión de Gracia de la Facultad y luego a la Comisión Especial de Gracia (art. 40)."}
@@ -466,13 +552,13 @@ function SituacionUDP() {
         />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-line p-4">
+        <div className="rounded-2xl bg-surface-2 p-4">
           <p className="mb-3 flex items-center gap-2 text-[13.5px] font-bold">
             <Info className="size-4 text-info" /> Causales de eliminación
           </p>
           <CausalesUDP />
         </div>
-        <div className="rounded-2xl border border-line p-4">
+        <div className="rounded-2xl bg-surface-2 p-4">
           <p className="mb-3 flex items-center gap-2 text-[13.5px] font-bold">
             <ShieldAlert className="size-4 text-accent" /> Para no caer este semestre · S{s.semestre}
           </p>
@@ -502,56 +588,84 @@ function SituacionAcademica() {
   );
 }
 
-function EsteSemestre() {
+/** Iniciales para la insignia del ramo («Cálculo II» → «CII»). */
+function iniciales(nombre: string): string {
+  const palabras = nombre.split(/\s+/).filter((p) => p && !/^(de|del|la|las|el|los|y|e|a|en|para|al)$/i.test(p));
+  const romano = palabras.at(-1)?.match(/^[IVX]+$/)?.[0] ?? "";
+  const base = (romano ? palabras.slice(0, -1) : palabras).slice(0, romano ? 1 : 2).map((p) => p[0]).join("");
+  return (base + romano).toUpperCase().slice(0, 3) || "?";
+}
+
+function MisRamos({ onRegistrar }: { onRegistrar: AbrirRegistro }) {
   const ctx = useCtx();
   const irA = useUI((s) => s.irA);
   const p = ctx.st.periodos.find((x) => esPeriodoActual(ctx.st, x));
   const entradas = p?.ramos ?? [];
   return (
-    <Tarjeta>
-      <CabeceraTarjeta
-        icono={<CalendarDays className="size-[18px]" />}
-        titulo={`Este semestre · S${ctx.st.semestreActual}`}
-        descripcion="Ramos que estás cursando y cómo vas en cada uno."
-        acciones={
-          <Boton tamano="sm" variante="fantasma" onClick={() => irA("notas")}>
-            Ir a Notas
-          </Boton>
-        }
-      />
+    <section aria-labelledby="titulo-mis-ramos" className="min-w-0">
+      <div className="mb-3 flex items-baseline justify-between gap-3 px-1">
+        <h2 id="titulo-mis-ramos" className="text-[17px] font-bold tracking-tight">Mis ramos · S{ctx.st.semestreActual}</h2>
+        <button type="button" className="inline-flex min-h-9 items-center gap-1 text-[13px] font-bold text-accent hover:underline" onClick={() => irA("notas")}>
+          Ver notas <ChevronRight className="size-4" />
+        </button>
+      </div>
       {entradas.length === 0 ? (
-        <p className="text-[13px] text-fg-2">
+        <div className="card p-5 text-[13.5px] text-fg-2">
           No tienes ramos en el semestre {ctx.st.semestreActual}. Márcalos como <strong>Cursando</strong> en{" "}
-          <button className="font-semibold text-accent hover:underline" onClick={() => irA("malla")}>
+          <button type="button" className="font-semibold text-accent hover:underline" onClick={() => irA("malla")}>
             Mi malla
           </button>
           .
-        </p>
+        </div>
       ) : (
-        <ul className="divide-y divide-line">
+        <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5">
           {entradas.map((e) => {
             const c = calcularRamo(e);
             const nota = c.nf !== null ? Math.min(7, c.nf + (c.decimas || 0)) : null;
             const pct = c.cerrado ? 100 : c.pesoEvaluado;
+            const nombre = nombreEntrada(ctx, e);
+            const ramo = ctx.cur.ramos.find((r) => r.id === e.id);
+            const color = ramo ? colorTipo(ctx.cur, ramo.tipo) : "var(--accent)";
+            const pendientes = e.categorias.reduce((s, cat) => s + cat.notas.filter((n) => n.n === null).length, 0);
+            const cerrado = c.cerrado || e.notaFinal !== null;
             return (
-              <li key={e.uid} className="flex items-center gap-3 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13.5px] font-semibold">{nombreEntrada(ctx, e)}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="font-mono text-[11px] text-fg-3">{siglaEntrada(ctx, e)}</span>
-                    <div className="h-1 w-20 overflow-hidden rounded-full bg-surface-3" title={`${fmtNota(pct, 0)}% evaluado`}>
-                      <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="text-[11px] text-fg-3">{c.cerrado ? "final" : nota !== null ? `${fmtNota(pct, 0)}% evaluado` : "sin notas"}</span>
-                  </div>
-                </div>
-                <NotaChip nota={nota} titulo={c.cerrado ? "Nota final" : "Promedio actual"} />
+              <li key={e.uid}>
+                <button
+                  type="button"
+                  onClick={() => (cerrado ? irA("notas") : onRegistrar(p!, { uid: e.uid }))}
+                  aria-label={cerrado ? `${nombre}: nota final ${fmtNota(nota)}. Ver en Notas` : `Registrar nota en ${nombre}`}
+                  className="card group flex w-full items-center gap-3.5 p-3.5 text-left transition-transform hover:-translate-y-px sm:px-4"
+                  style={{ ["--c" as string]: color }}
+                >
+                  <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[color-mix(in_srgb,var(--c)_14%,transparent)] text-[12.5px] font-extrabold text-[var(--c)]">
+                    {iniciales(nombre)}
+                  </span>
+                  <span className="grid min-w-0 flex-1 gap-1.5">
+                    <span className="truncate text-[14.5px] font-bold">{nombre}</span>
+                    <span aria-hidden="true" className="block h-1.5 max-w-64 overflow-hidden rounded-full bg-surface-3">
+                      <span className="block h-full rounded-full bg-[var(--c)]" style={{ width: `${pct}%` }} />
+                    </span>
+                    <span className="text-[12px] text-fg-3">
+                      {cerrado ? "Ramo cerrado" : nota === null ? "Sin notas aún" : `${fmtNota(pct, 0)}% evaluado`}
+                      {!cerrado && pendientes > 0 && <> · {plural(pendientes, "pendiente", "pendientes")}</>}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className={cx("block text-[22px] leading-none font-extrabold tracking-[-0.03em] tabular", nota !== null && nota < NOTA_APROB && "text-danger")}>{nota !== null ? fmtNota(nota) : "—"}</span>
+                    <span className="text-[11px] text-fg-3">{cerrado ? "final" : "parcial"}</span>
+                  </span>
+                  {!cerrado && (
+                    <span aria-hidden="true" className="hidden size-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent transition-colors group-hover:bg-accent group-hover:text-accent-fg sm:grid">
+                      <PenLine className="size-4" />
+                    </span>
+                  )}
+                </button>
               </li>
             );
           })}
         </ul>
       )}
-    </Tarjeta>
+    </section>
   );
 }
 
@@ -565,7 +679,7 @@ function ProximasEvaluaciones() {
   const fmt = new Intl.DateTimeFormat("es-CL", { weekday: "short", day: "numeric", month: "short" });
   return (
     <Tarjeta>
-      <CabeceraTarjeta icono={<CalendarClock className="size-[18px]" />} titulo="Próximas evaluaciones" descripcion="Agrega fechas a tus evaluaciones en Notas y aparecerán aquí." />
+      <CabeceraTarjeta icono={<CalendarClock className="size-[18px]" />} titulo="Próximas evaluaciones" descripcion="Las que tienen fecha, en orden." acciones={<Boton tamano="sm" variante="fantasma" onClick={() => irA("agenda")}>Ver agenda</Boton>} />
       {proximas.length === 0 ? (
         <p className="text-[13px] text-fg-2">
           No tienes evaluaciones con fecha.{" "}
@@ -579,7 +693,7 @@ function ProximasEvaluaciones() {
             const d = diasHasta(e.fecha);
             const [y, m, dia] = e.fecha.split("-").map(Number);
             return (
-              <li key={e.uid} className="flex items-center gap-3 rounded-xl border border-line px-3 py-2">
+              <li key={e.uid} className="flex items-center gap-3 rounded-2xl bg-surface-2 px-3 py-2.5">
                 <span className={cx("grid w-14 shrink-0 place-items-center rounded-lg py-1 text-center", d <= 2 ? "bg-danger-soft text-danger" : d <= 7 ? "bg-warn-soft text-warn" : "bg-surface-2 text-fg-2")}>
                   <span className="text-[11px] leading-tight font-bold">{d === 0 ? "Hoy" : d === 1 ? "Mañana" : `${d} días`}</span>
                 </span>
@@ -661,18 +775,24 @@ function AvisosParaTi() {
 export function Inicio() {
   const ctx = useCtx();
   const sinNotas = calcularPPA(ctx).ppa === null;
+  const [registro, setRegistro] = useState<{ periodo: Periodo; seleccion: SeleccionNota } | null>(null);
+  const abrir: AbrirRegistro = (periodo, seleccion) => setRegistro({ periodo, seleccion });
+  // El periodo se vuelve a leer del estado: puede haber cambiado mientras el registro estaba abierto.
+  const periodo = registro && ctx.st.periodos.find((p) => p.tipo === registro.periodo.tipo && p.numero === registro.periodo.numero);
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <AvisoCierreSemestre />
       <Checklist />
+      <Destacada onRegistrar={abrir} />
       <Resumen />
       {!sinNotas && <SituacionAcademica />}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <EsteSemestre />
+      <div className="grid items-start gap-5 lg:grid-cols-[1.4fr_1fr]">
+        <MisRamos onRegistrar={abrir} />
         <ProximasEvaluaciones />
       </div>
       <AvisosParaTi />
       {sinNotas && <SituacionAcademica />}
+      {registro && periodo && <RegistroNota ctx={ctx} periodo={periodo} seleccion={registro.seleccion} onCerrar={() => setRegistro(null)} />}
     </div>
   );
 }

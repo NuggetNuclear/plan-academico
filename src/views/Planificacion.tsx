@@ -15,6 +15,8 @@ import {
   MoveRight,
   Plus,
   RotateCcw,
+  Shuffle,
+  SlidersHorizontal,
   Route,
   Snowflake,
   Sun,
@@ -45,23 +47,23 @@ import { useApp, useCtx } from "../store/app";
 import { confirmar, toast, useUI } from "../store/ui";
 import { colorTipo } from "../ui/comun";
 import { OpcionMenu, Popover } from "../ui/overlays";
-import { Aviso, Boton, BotonIcono, Insignia, Tarjeta, cx } from "../ui/primitives";
+import { Aviso, Boton, BotonIcono, Insignia, PanelPestana, Pestanas, Tarjeta, Vacio, cx } from "../ui/primitives";
 import { usePlanes } from "./plan/usePlanes";
 
-function Paso({ n, titulo, children, descripcion }: { n: number; titulo: string; descripcion?: React.ReactNode; children: React.ReactNode }) {
+/** Sección de la pestaña Preferencias. */
+function Seccion({ titulo, children, descripcion }: { titulo: string; descripcion?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <Tarjeta className="relative">
-      <div className="flex items-start gap-3 sm:gap-4">
-        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent text-[14px] font-extrabold text-accent-fg">{n}</span>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-[15px] font-bold">{titulo}</h2>
-          {descripcion && <p className="mt-0.5 text-[13px] text-fg-2">{descripcion}</p>}
-        </div>
-      </div>
-      <div className="mt-3 sm:pl-12">{children}</div>
+    <Tarjeta>
+      <h2 className="text-[16px] font-bold tracking-tight">{titulo}</h2>
+      {descripcion && <p className="mt-0.5 text-[13px] text-fg-2">{descripcion}</p>}
+      <div className="mt-4">{children}</div>
     </Tarjeta>
   );
 }
+
+type PestanaPlan = "plan" | "preferencias" | "alternativas";
+/** Se conserva al cambiar de sección durante la sesión. */
+let pestanaRecordada: PestanaPlan = "plan";
 
 function etiquetaSemestre(sem: SemestrePlan, verano: string) {
   if (sem.tipo === "cursando") return `Semestre ${sem.numero} · en curso`;
@@ -92,7 +94,7 @@ function RamoPlan({ ramo, idPlan, sem, editable, deuda, sobrecupo, onMover }: { 
         ref.current = el;
       }}
       className={cx(
-        "group relative flex items-start gap-1.5 overflow-hidden rounded-lg border border-line bg-surface py-1.5 pr-1.5 pl-3 text-[12px] shadow-soft",
+        "group relative flex items-start gap-1.5 overflow-hidden rounded-xl border border-line bg-surface py-1.5 pr-1.5 pl-3 text-[12px] shadow-soft",
         isDragging && "opacity-30",
 
       )}
@@ -318,7 +320,7 @@ function TarjetaPlan({ plan, idx, recomendado, onCambiar, editado, onRestaurar }
         <div className="space-y-3 p-4">
           <GrillaPlan plan={plan} idPlan={idx} editable onCambiar={onCambiar} />
           {plan.intercambios.length > 0 && (
-            <details className="group rounded-xl border border-line">
+            <details className="group rounded-2xl bg-surface-2">
               <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-[13px] font-bold">
                 <ArrowLeftRight className="size-4 text-accent" /> Ajustes sugeridos ({Math.min(6, plan.intercambios.length)})
                 <ChevronDown className="ml-auto size-4 text-fg-3 transition-transform group-open:rotate-180" />
@@ -332,7 +334,7 @@ function TarjetaPlan({ plan, idx, recomendado, onCambiar, editado, onRestaurar }
                       onCambiar(intercambiar(ctx, plan, sw));
                       toast(`${siglaRamo(ctx, sw.ramo1)} ↔ ${siglaRamo(ctx, sw.ramo2)} intercambiados`);
                     }}
-                    className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-2 text-left text-[12px] transition-colors hover:border-accent hover:bg-accent-soft"
+                    className="flex items-center gap-2 rounded-xl bg-surface px-2.5 py-2 text-left text-[12px] transition-colors hover:bg-accent-soft"
                   >
                     <span className="rounded bg-surface-3 px-1.5 font-bold tabular">S{sw.sem1}</span>
                     <span className="min-w-0 flex-1 break-words font-semibold">{nombreRamo(ctx, sw.ramo1)}</span>
@@ -355,7 +357,11 @@ export function Planificacion() {
   const mutar = useApp((s) => s.mutar);
   const irA = useUI((s) => s.irA);
   const { planes, guardado, actualizarPlan, restaurar, editado } = usePlanes();
-  const [alternativas, setAlternativas] = useState(false);
+  const [pestana, setPestanaEstado] = useState<PestanaPlan>(pestanaRecordada);
+  const setPestana = (p: PestanaPlan) => {
+    pestanaRecordada = p;
+    setPestanaEstado(p);
+  };
   const cred = useMemo(() => resumenCreditos(ctx), [ctx]);
   const cursando = ramosSemestreActual(ctx).length;
   const faltan = Math.max(0, cred.total - cred.avance - cred.cursando);
@@ -367,82 +373,30 @@ export function Planificacion() {
   const setMax = (v: number) => mutar(null, ({ st }) => (st.maxCreditos = Math.max(5, Math.min(ctx.cur.maxCreditosSemestre, v))));
 
   return (
-    <div className="space-y-4">
-      <Paso n={1} titulo="Tu punto de partida">
-        <p className="text-[13.5px] leading-relaxed">
-          Vas en el <strong>semestre {ctx.st.semestreActual}</strong> · <strong>{cred.avance}</strong> de {cred.total} créditos aprobados ·{" "}
-          {cursando > 0 ? <>cursando <strong>{plural(cursando, "ramo")}</strong> · </> : "sin ramos en curso · "}
-          te faltan <strong>{faltan} créditos</strong>.
-        </p>
-        {critica.length > 1 && (
-          <div className="mt-3 rounded-xl border border-line bg-surface-2/60 p-3">
-            <p className="flex items-center gap-2 text-[13px] font-bold">
-              <Route className="size-4 text-danger" /> Ruta crítica: mínimo {plural(critica.length, "semestre")} más
+    <div className="space-y-5">
+      <Pestanas
+        base="plan"
+        etiqueta="Secciones del plan de carrera"
+        valor={pestana}
+        onChange={setPestana}
+        opciones={[
+          { valor: "plan", etiqueta: guardado ? "Mi plan" : "Plan", icono: <CalendarRange /> },
+          { valor: "preferencias", etiqueta: "Preferencias", icono: <SlidersHorizontal /> },
+          { valor: "alternativas", etiqueta: planes.length > 1 ? `Alternativas (${planes.length - 1})` : "Alternativas", icono: <Shuffle /> },
+        ]}
+      />
+      <PanelPestana base="plan" valor={pestana} className="space-y-4">
+        {pestana === "plan" && (
+          <>
+            <h2 className="sr-only">{guardado ? "Tu plan guardado y el recomendado" : "Tu plan recomendado"}</h2>
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[13px] text-fg-2">
+              <span>
+                Semestre {ctx.st.semestreActual} · {cred.avance} de {cred.total} créditos · te faltan {faltan} · máximo {max} por semestre
+              </span>
+              <button type="button" className="inline-flex min-h-9 items-center gap-1 font-bold text-accent hover:underline" onClick={() => setPestana("preferencias")}>
+                Ajustar preferencias <ArrowRight className="size-4" />
+              </button>
             </p>
-            <ol className="mt-1.5 flex flex-wrap items-center gap-1 text-[12px]">
-              {critica.map((id, i) => (
-                <li key={id} className="flex items-center gap-1">
-                  <span className="rounded-md bg-surface px-1.5 py-0.5 font-semibold" title={nombreRamo(ctx, id)}>
-                    {siglaRamo(ctx, id)}
-                  </span>
-                  {i < critica.length - 1 && <ArrowRight className="size-3 text-fg-3" />}
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-        <button type="button" onClick={() => irA("malla")} className="mt-3 flex items-center gap-1 text-[13px] font-semibold text-accent hover:underline">
-          ¿Algo no cuadra? Corrígelo en Mi malla <ArrowRight className="size-4" />
-        </button>
-      </Paso>
-
-      <Paso n={2} titulo="Tus preferencias" descripcion="El plan se actualiza solo cada vez que cambias algo.">
-        <div className="flex flex-wrap items-end gap-6">
-          <div>
-            <p className="label">Máximo de créditos por semestre</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <BotonIcono etiqueta="Menos créditos" className="border border-line" onClick={() => setMax(max - 1)}>
-                <Minus className="size-4" />
-              </BotonIcono>
-              <span className="w-12 text-center text-xl font-extrabold tabular">{max}</span>
-              <BotonIcono etiqueta="Más créditos" className="border border-line" onClick={() => setMax(max + 1)} disabled={max >= ctx.cur.maxCreditosSemestre}>
-                <Plus className="size-4" />
-              </BotonIcono>
-              <input
-                type="range"
-                className="rango ml-2 w-40"
-                min={Math.min(10, ctx.cur.maxCreditosSemestre)}
-                max={ctx.cur.maxCreditosSemestre}
-                value={max}
-                style={{ ["--avance" as string]: `${((max - 10) / (ctx.cur.maxCreditosSemestre - 10)) * 100}%` }}
-                onChange={(e) => setMax(Number(e.target.value))}
-                aria-label="Máximo de créditos por semestre"
-              />
-            </div>
-            <p className="mt-1 text-[11.5px] text-fg-3">Tope de tu carrera: {ctx.cur.maxCreditosSemestre} créditos.</p>
-          </div>
-          {practicas.length > 0 && (
-            <div className="min-w-[220px]">
-              <label className="label" htmlFor="modo-practica">
-                <Briefcase className="mr-1 inline size-3.5" /> Práctica profesional
-              </label>
-              <select
-                id="modo-practica"
-                className="input"
-                value={ctx.st.modoPractica}
-                onChange={(e) => mutar("Modo de práctica", ({ st }) => (st.modoPractica = e.target.value as ModoPractica))}
-              >
-                <option value="carga">Dentro de la carga</option>
-                <option value="sobrecupo">En sobrecupo (no cuenta en el máximo)</option>
-                <option value="verano">En {verano.toLowerCase()}</option>
-                <option value="quitar">No planificarla</option>
-              </select>
-            </div>
-          )}
-        </div>
-      </Paso>
-
-      <Paso n={3} titulo="Tu plan" descripcion="Te recomendamos uno. Arrástralo a tu gusto (o usa la flecha de cada ramo en el celular) y guárdalo.">
         <div className="space-y-3">
           {guardado && (
             <article className="overflow-hidden rounded-2xl border border-ok/35">
@@ -493,18 +447,108 @@ export function Planificacion() {
               )}
               <TarjetaPlan plan={planes[0]} idx={0} recomendado onCambiar={(p) => actualizarPlan(0, p)} editado={editado} onRestaurar={restaurar} />
               {planes.length > 1 && (
-                <Boton tamano="sm" variante="fantasma" icono={<ChevronDown className={cx("size-4 transition-transform", alternativas && "rotate-180")} />} onClick={() => setAlternativas((v) => !v)}>
-                  {alternativas ? "Ocultar alternativas" : `Ver ${plural(planes.length - 1, "alternativa")} con la misma duración`}
-                </Boton>
+                <button type="button" className="inline-flex min-h-9 items-center gap-1 text-[13px] font-bold text-accent hover:underline" onClick={() => setPestana("alternativas")}>
+                  Ver {plural(planes.length - 1, "alternativa")} con la misma duración <ArrowRight className="size-4" />
+                </button>
               )}
-              {alternativas && planes.slice(1).map((p, i) => <TarjetaPlan key={p.etiqueta} plan={p} idx={i + 1} onCambiar={(np) => actualizarPlan(i + 1, np)} />)}
             </>
           )}
           <p className="text-[12px] text-fg-3">
             El plan respeta prerrequisitos, tu máximo de créditos y las reglas de práctica. No puede garantizar horarios, cupos ni que un ramo se dicte: confírmalo con tu universidad antes de inscribir.
           </p>
         </div>
-      </Paso>
+          </>
+        )}
+        {pestana === "preferencias" && (
+          <>
+            <Seccion titulo="Tu punto de partida">
+        <p className="text-[13.5px] leading-relaxed">
+          Vas en el <strong>semestre {ctx.st.semestreActual}</strong> · <strong>{cred.avance}</strong> de {cred.total} créditos aprobados ·{" "}
+          {cursando > 0 ? <>cursando <strong>{plural(cursando, "ramo")}</strong> · </> : "sin ramos en curso · "}
+          te faltan <strong>{faltan} créditos</strong>.
+        </p>
+        {critica.length > 1 && (
+          <div className="mt-3 rounded-2xl bg-surface-2 p-3.5">
+            <p className="flex items-center gap-2 text-[13px] font-bold">
+              <Route className="size-4 text-danger" /> Ruta crítica: mínimo {plural(critica.length, "semestre")} más
+            </p>
+            <ol className="mt-1.5 flex flex-wrap items-center gap-1 text-[12px]">
+              {critica.map((id, i) => (
+                <li key={id} className="flex items-center gap-1">
+                  <span className="rounded-md bg-surface px-1.5 py-0.5 font-semibold" title={nombreRamo(ctx, id)}>
+                    {siglaRamo(ctx, id)}
+                  </span>
+                  {i < critica.length - 1 && <ArrowRight className="size-3 text-fg-3" />}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+        <button type="button" onClick={() => irA("malla")} className="mt-3 flex items-center gap-1 text-[13px] font-semibold text-accent hover:underline">
+          ¿Algo no cuadra? Corrígelo en Mi malla <ArrowRight className="size-4" />
+        </button>
+            </Seccion>
+            <Seccion titulo="Tus preferencias" descripcion="El plan se actualiza solo cada vez que cambias algo.">
+        <div className="flex flex-wrap items-end gap-6">
+          <div>
+            <p className="label">Máximo de créditos por semestre</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <BotonIcono etiqueta="Menos créditos" className="border border-line" onClick={() => setMax(max - 1)}>
+                <Minus className="size-4" />
+              </BotonIcono>
+              <span className="w-12 text-center text-xl font-extrabold tabular">{max}</span>
+              <BotonIcono etiqueta="Más créditos" className="border border-line" onClick={() => setMax(max + 1)} disabled={max >= ctx.cur.maxCreditosSemestre}>
+                <Plus className="size-4" />
+              </BotonIcono>
+              <input
+                type="range"
+                className="rango ml-2 w-40"
+                min={Math.min(10, ctx.cur.maxCreditosSemestre)}
+                max={ctx.cur.maxCreditosSemestre}
+                value={max}
+                style={{ ["--avance" as string]: `${((max - 10) / (ctx.cur.maxCreditosSemestre - 10)) * 100}%` }}
+                onChange={(e) => setMax(Number(e.target.value))}
+                aria-label="Máximo de créditos por semestre"
+              />
+            </div>
+            <p className="mt-1 text-[11.5px] text-fg-3">Tope de tu carrera: {ctx.cur.maxCreditosSemestre} créditos.</p>
+          </div>
+          {practicas.length > 0 && (
+            <div className="min-w-[220px]">
+              <label className="label" htmlFor="modo-practica">
+                <Briefcase className="mr-1 inline size-3.5" /> Práctica profesional
+              </label>
+              <select
+                id="modo-practica"
+                className="input"
+                value={ctx.st.modoPractica}
+                onChange={(e) => mutar("Modo de práctica", ({ st }) => (st.modoPractica = e.target.value as ModoPractica))}
+              >
+                <option value="carga">Dentro de la carga</option>
+                <option value="sobrecupo">En sobrecupo (no cuenta en el máximo)</option>
+                <option value="verano">En {verano.toLowerCase()}</option>
+                <option value="quitar">No planificarla</option>
+              </select>
+            </div>
+          )}
+        </div>
+            </Seccion>
+          </>
+        )}
+        {pestana === "alternativas" && (
+          <>
+            <h2 className="sr-only">Planes alternativos</h2>
+            <p className="px-1 text-[13px] text-fg-2">Otras formas de ordenar tus ramos que terminan en la misma cantidad de semestres. Puedes ajustarlas y guardar la que prefieras.</p>
+            {planes.length > 1 ? (
+              planes.slice(1).map((p, i) => <TarjetaPlan key={p.etiqueta} plan={p} idx={i + 1} onCambiar={(np) => actualizarPlan(i + 1, np)} />)
+            ) : (
+              <Vacio icono={<Shuffle className="size-5" />} titulo="No hay alternativas con la misma duración">
+                Con tu avance y tus preferencias, el plan recomendado es la única forma de terminar en el mínimo de semestres.
+              </Vacio>
+            )}
+          </>
+        )}
+      </PanelPestana>
     </div>
   );
 }

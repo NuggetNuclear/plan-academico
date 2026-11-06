@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
-export type Vista = "inicio" | "malla" | "notas" | "planificacion" | "estadisticas" | "ayuda";
-export const VISTAS: Vista[] = ["inicio", "malla", "notas", "planificacion", "estadisticas", "ayuda"];
+export type Vista = "inicio" | "notas" | "agenda" | "malla" | "planificacion" | "simulaciones" | "estadisticas" | "configuracion" | "ayuda";
+export const VISTAS: Vista[] = ["inicio", "notas", "agenda", "malla", "planificacion", "simulaciones", "estadisticas", "configuracion", "ayuda"];
 
 type TipoToast = "ok" | "error" | "info";
 

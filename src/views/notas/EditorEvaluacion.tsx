@@ -5,7 +5,7 @@ import { esPersonalizable } from "../../core/curriculum";
 import { fmtPct, normalizarTexto, plural } from "../../core/format";
 import { CATEGORIAS_SUGERIDAS, PLANTILLAS, aplicarPlantilla, configExamen, inferirEscala, plantillaDesdeEntrada, type Plantilla } from "../../core/grades";
 import type { Categoria, ConfigExamen, Entrada, Periodo } from "../../core/state";
-import { useApp } from "../../store/app";
+import { useApp, accionDeshacer } from "../../store/app";
 import { periodoPorClave } from "../../store/mutaciones";
 import { toast } from "../../store/ui";
 import { CampoNumero, CampoTexto } from "../../ui/CampoNumero";
@@ -59,7 +59,7 @@ function SelectorPlantilla({ propias, onElegir }: { propias: Plantilla[]; onEleg
         <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-fg-2">{icono}{titulo}</p>
         <div className="grid gap-2 sm:grid-cols-2">
           {lista.map((p) => (
-            <button key={p.nombre} type="button" onClick={() => onElegir(p)} className="rounded-xl border border-line bg-surface-2 p-3 text-left transition-colors hover:border-accent">
+            <button key={p.nombre} type="button" onClick={() => onElegir(p)} className="rounded-2xl bg-surface-2 p-3 text-left transition-colors hover:bg-accent-soft">
               <span className="block text-[13.5px] font-semibold">{p.nombre}</span>
               <span className="mt-0.5 block text-xs text-fg-2">{resumenPlantilla(p)}</span>
             </button>
@@ -82,7 +82,7 @@ function FilaCategoria({ cat, indice, conExamen, onCambiar, onQuitar }: { cat: C
   const nombre = cat.nombre || `Categoría ${indice + 1}`;
   const ultimaConNota = cat.notas.length > 0 && cat.notas[cat.notas.length - 1].n !== null;
   return (
-    <li className="rounded-xl border border-line bg-surface-2/60 p-3">
+    <li className="rounded-2xl bg-surface-2 p-3.5">
       <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-2 sm:grid-cols-[minmax(0,1fr)_5.5rem_auto_auto]">
         <div className="col-span-3 sm:col-span-1">
           <label className="label" htmlFor={`${id}-nombre`}>Nombre</label>
@@ -235,7 +235,7 @@ export function EditorEvaluacion({ ctx, periodo, entrada, onCerrar }: { ctx: Ctx
       if (tieneExamen) e.examen = { ...b.examen, escala: esc };
       else delete e.examen;
     });
-    toast("Evaluación guardada", "ok", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
+    toast("Evaluación guardada", "ok", accionDeshacer());
     onCerrar();
   };
 
@@ -325,7 +325,7 @@ export function EditorEvaluacion({ ctx, periodo, entrada, onCerrar }: { ctx: Ctx
               )}
             </section>
 
-            <section aria-labelledby={`${id}-examen`} className="space-y-3 rounded-2xl border border-line p-4">
+            <section aria-labelledby={`${id}-examen`} className="space-y-3 rounded-2xl bg-surface-2 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 id={`${id}-examen`} className="flex items-center gap-2 font-bold"><GraduationCap className="size-4.5 text-accent" />Examen final</h3>
                 <Interruptor checked={!!exCat} onChange={alternarExamen} etiqueta={exCat ? "Tiene examen" : "No tiene examen"} />

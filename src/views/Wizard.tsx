@@ -166,7 +166,7 @@ export function Wizard() {
               <Opcion activo={modo === "rapido"} onClick={() => setModo("rapido")} icono={<Zap className="size-4" />} titulo="Rápido (recomendado)" descripcion="Un clic marca el ramo como aprobado, sin pedir el semestre. Ideal para planificar." />
               <Opcion activo={modo === "completo"} onClick={() => setModo("completo")} icono={<ListChecks className="size-4" />} titulo="Completo" descripcion="Te preguntamos en qué semestre aprobaste cada ramo para armar tus notas, PPA y estadísticas." />
               {semestre > 1 && (
-                <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-2xl border border-line p-3.5">
+                <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-2xl bg-surface-2 p-3.5">
                   <input type="checkbox" className="mt-1 size-4 accent-[var(--accent)]" checked={marcar} onChange={(e) => setMarcar(e.target.checked)} />
                   <span>
                     <strong className="block text-[14px]">Marcar como aprobado todo hasta el semestre {semestre - 1}</strong>
