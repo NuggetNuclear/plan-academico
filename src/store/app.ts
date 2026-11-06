@@ -15,6 +15,7 @@ const claveEstado = (carrera: string) => `notas.v1.estado.${carrera}`;
 /** Claves de versiones con varias carreras: se limpian al borrar los datos. */
 const CLAVES_ANTIGUAS = ["notas.v1.carrera", claveEstado("ds")];
 const MAX_DESHACER = 40;
+let inicioEnCurso: Promise<void> | null = null;
 
 function leerEstadoGuardado(): PlannerState | null {
   const raw = leerLocal(claveEstado(CARRERA_ID));
@@ -28,6 +29,9 @@ function leerEstadoGuardado(): PlannerState | null {
 
 /** Progreso guardado en este navegador, con el formato de respaldos y sincronización ({ inf: estado }). */
 export function leerTodosLosEstados(): Record<string, PlannerState> {
+  const actual = useApp.getState();
+  // La memoria puede estar más al día que localStorage (cuota llena o modo privado).
+  if (actual.carga === "listo") return { [CARRERA_ID]: actual.st };
   const st = leerEstadoGuardado();
   return st ? { [CARRERA_ID]: st } : {};
 }
@@ -79,16 +83,19 @@ export const useApp = create<AppStore>((set, get) => ({
   pilaDeshacer: [],
   planesEditados: null,
 
-  async iniciar() {
-    try {
-      const malla = await cargarMalla();
-      const st = leerEstadoGuardado() ?? estadoInicial();
-      const cur = construirCurriculum(malla);
-      sincronizar({ cur, st });
-      set({ malla, cur, st, carga: "listo", error: null, pilaDeshacer: [], planesEditados: null });
-    } catch (e) {
-      set({ carga: "error", error: e instanceof Error ? e.message : String(e) });
-    }
+  iniciar() {
+    if (get().carga === "listo") return Promise.resolve();
+    return inicioEnCurso ??= (async () => {
+      try {
+        const malla = await cargarMalla();
+        const st = leerEstadoGuardado() ?? estadoInicial();
+        const cur = construirCurriculum(malla);
+        sincronizar({ cur, st });
+        set({ malla, cur, st, carga: "listo", error: null, pilaDeshacer: [], planesEditados: null });
+      } catch (e) {
+        set({ carga: "error", error: e instanceof Error ? e.message : String(e) });
+      }
+    })().finally(() => { inicioEnCurso = null; });
   },
 
   mutar(etiqueta, fn) {
@@ -104,19 +111,19 @@ export const useApp = create<AppStore>((set, get) => ({
       );
     }
     sincronizar(ctx);
-    guardarEstadoLocal(borrador);
     set({
       st: borrador,
       pilaDeshacer: etiqueta ? [...s.pilaDeshacer.slice(-(MAX_DESHACER - 1)), { st: s.st, etiqueta }] : s.pilaDeshacer,
     });
+    guardarEstadoLocal(borrador);
   },
 
   deshacer() {
     const s = get();
     const ultimo = s.pilaDeshacer.at(-1);
     if (!ultimo) return null;
-    guardarEstadoLocal(ultimo.st);
     set({ st: ultimo.st, pilaDeshacer: s.pilaDeshacer.slice(0, -1) });
+    guardarEstadoLocal(ultimo.st);
     return ultimo.etiqueta;
   },
 
@@ -124,9 +131,9 @@ export const useApp = create<AppStore>((set, get) => ({
     const { cur } = get();
     const st = structuredClone(estados[CARRERA_ID] ?? estadoInicial());
     if (cur) sincronizar({ cur, st });
-    borrarEstadosLocales();
-    guardarEstadoLocal(st);
+    CLAVES_ANTIGUAS.forEach((k) => escribirLocal(k, null));
     set({ st, pilaDeshacer: [], planesEditados: null });
+    guardarEstadoLocal(st);
   },
 
   setPlanesEditados(p) {
@@ -151,7 +158,6 @@ export function firmaPlanificacion(ctx: Ctx): string {
     st.semestreActual,
     st.maxCreditos,
     st.modoPractica,
-    st.congelaciones,
     st.inglesEximido,
   ]);
 }

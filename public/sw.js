@@ -1,55 +1,45 @@
-// Service worker: la app funciona sin conexión después de la primera visita.
-const CACHE = "notas-v2";
-const BASE = ["./", "./index.html", "./carreras/inf.json", "./icon.svg", "./manifest.webmanifest"];
+// Vite inserta la revisión y los chunks del build, incluidas las secciones diferidas.
+const PREFIJO = `notas-planner:${self.registration.scope}:`;
+const CACHE = PREFIJO + "__REVISION__";
+const BASE = ["./", "./index.html", "./carreras/inf.json", "./icon.svg", "./manifest.webmanifest", /* __ASSETS__ */];
 
 self.addEventListener("install", (e) => {
-  self.skipWaiting();
-  e.waitUntil(
-    caches
-      .open(CACHE)
-      .then(async (c) => {
-        await c.addAll(BASE);
-        // Los bundles con hash de Vite: en la primera visita se bajaron antes de que existiera el SW.
-        const html = await (await c.match("./index.html")).text();
-        await c.addAll([...html.matchAll(/(?:src|href)="(\.\/assets\/[^"]+)"/g)].map((m) => m[1]));
-      })
-      .catch(() => {}),
-  );
+  // Si falla la descarga, la versión anterior sigue disponible. La actualización espera a que se cierren sus pestañas.
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(BASE)));
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()),
+    caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith(PREFIJO) && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()),
   );
 });
+
+async function guardar(req, res) {
+  try {
+    await (await caches.open(CACHE)).put(req, res);
+  } catch {
+    // Una cuota llena no impide entregar la respuesta de red.
+  }
+}
 
 async function primeroRed(req) {
   try {
     const res = await fetch(req);
-    if (res.ok) (await caches.open(CACHE)).put(req, res.clone());
+    if (res.ok) await guardar(req, res.clone());
     return res;
-  } catch {
-    return (await caches.match(req)) || (await caches.match("./index.html"));
+  } catch (error) {
+    const cache = await caches.open(CACHE);
+    const respaldo = await cache.match(req) || (req.mode === "navigate" ? await cache.match("./index.html") : null);
+    if (respaldo) return respaldo;
+    throw error;
   }
 }
 
-// Tras un deploy, los bundles con hash del anterior ya no los pide nadie: se borran.
-// ponytail: también caen los chunks diferidos (pdf); se vuelven a bajar al usarlos con conexión.
-async function podarAssets(res) {
-  const vivos = [...(await res.text()).matchAll(/(?:src|href)="\.\/(assets\/[^"]+)"/g)].map((m) => m[1]);
-  const cache = await caches.open(CACHE);
-  const assets = (await cache.keys()).filter((r) => r.url.includes("/assets/"));
-  const vigente = (r) => vivos.some((v) => r.url.endsWith("/" + v));
-  // Si todo lo que pide el index ya está guardado, es el mismo deploy.
-  if (!vivos.length || vivos.every((v) => assets.some((r) => r.url.endsWith("/" + v)))) return;
-  await Promise.all(assets.filter((r) => !vigente(r)).map((r) => cache.delete(r)));
-}
-
 async function primeroCache(req) {
-  const enCache = await caches.match(req);
+  const enCache = await (await caches.open(CACHE)).match(req);
   if (enCache) return enCache;
   const res = await fetch(req);
-  if (res.ok || res.type === "opaque") (await caches.open(CACHE)).put(req, res.clone());
+  if (res.ok || res.type === "opaque") await guardar(req, res.clone());
   return res;
 }
 
@@ -62,7 +52,6 @@ self.addEventListener("fetch", (e) => {
     if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") e.respondWith(primeroCache(req));
     return;
   }
-  if (req.mode === "navigate") e.respondWith(primeroRed(req).then((res) => (res?.ok && e.waitUntil(podarAssets(res.clone())), res)));
-  else if (url.pathname.endsWith(".json")) e.respondWith(primeroRed(req));
+  if (req.mode === "navigate" || url.pathname.endsWith(".json")) e.respondWith(primeroRed(req));
   else e.respondWith(primeroCache(req));
 });

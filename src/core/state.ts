@@ -65,7 +65,6 @@ export interface Entrada {
   notaFinal: number | null;
   decimas?: number;
   modo?: ModoPromedio;
-  colapsado?: boolean;
   /** Créditos con que se inscribió, si difieren de la malla (los trae la importación). */
   creditos?: number | null;
   siglaReal?: string;
@@ -168,6 +167,19 @@ export function estadoInicial(): PlannerState {
 }
 
 const num = (v: unknown, def: number) => (typeof v === "number" && Number.isFinite(v) ? v : def);
+const numeroEnRango = (v: unknown, min: number, max = Infinity): number | null =>
+  typeof v === "number" && Number.isFinite(v) && v >= min && v <= max ? v : null;
+const esObjeto = (v: unknown) => !!v && typeof v === "object" && !Array.isArray(v);
+const idsValidos = (v: unknown): string[] =>
+  Array.isArray(v) ? [...new Set(v.filter((id): id is string => typeof id === "string" && id.length > 0))] : [];
+
+function planValido(p: PlanGuardado | null | undefined): p is PlanGuardado {
+  return !!p && typeof p.etiqueta === "string" && typeof p.fecha === "string" && Number.isFinite(Date.parse(p.fecha))
+    && Number.isInteger(p.semestreBase) && p.semestreBase >= 1 && Array.isArray(p.semestres)
+    && p.semestres.every((s) => s && Number.isInteger(s.numero) && s.numero >= 1
+      && ["cursando", "futuro", "verano", "overflow"].includes(s.tipo)
+      && Array.isArray(s.ids) && s.ids.every((id) => typeof id === "string" && id.length > 0));
+}
 
 /** Repara datos guardados (o importados) para que siempre cumplan el modelo. */
 export function normalizarEstado(raw: unknown): PlannerState {
@@ -179,13 +191,14 @@ export function normalizarEstado(raw: unknown): PlannerState {
     ...base,
     semestreActual: Math.max(1, Math.trunc(num(r.semestreActual, 1))),
     inglesEximido: Math.max(0, Math.trunc(num(r.inglesEximido, 0))),
-    maxCreditos: typeof r.maxCreditos === "number" ? r.maxCreditos : null,
+    maxCreditos: numeroEnRango(r.maxCreditos, 1),
     congelaciones: (Array.isArray(r.congelaciones) ? r.congelaciones : [])
       .map((c) => ({ desde: Math.trunc(num(c?.desde, 0)), duracion: Math.trunc(num(c?.duracion, 0)) }))
       .filter((c) => c.desde >= 1 && c.duracion >= 1),
-    marcas: r.marcas && typeof r.marcas === "object" && !Array.isArray(r.marcas) ? r.marcas : {},
-    rapidosDesdeCursando: Array.isArray(r.rapidosDesdeCursando) ? r.rapidosDesdeCursando : [],
-    cursando: Array.isArray(r.cursando) ? [...new Set(r.cursando)] : [],
+    marcas: esObjeto(r.marcas) ? Object.fromEntries(Object.entries(r.marcas!).filter(([id, sem]) =>
+      id.length > 0 && (sem === null || (Number.isInteger(sem) && sem! >= 0)))) : {},
+    rapidosDesdeCursando: idsValidos(r.rapidosDesdeCursando),
+    cursando: idsValidos(r.cursando),
     periodos: periodos
       .filter((p) => p && typeof p === "object")
       .map((p) => ({
@@ -194,19 +207,40 @@ export function normalizarEstado(raw: unknown): PlannerState {
         ventana: typeof p.ventana === "string" ? p.ventana : undefined,
         ramos: (Array.isArray(p.ramos) ? p.ramos : []).filter((e) => typeof e?.id === "string").map((e) => ({
           ...e,
-          uid: e.uid || nuevoUid(),
+          uid: typeof e.uid === "string" && e.uid ? e.uid : nuevoUid(),
+          siglaReal: typeof e.siglaReal === "string" ? e.siglaReal : undefined,
+          nombreReal: typeof e.nombreReal === "string" ? e.nombreReal : undefined,
+          creditos: e.creditos === undefined ? undefined : numeroEnRango(e.creditos, 0),
+          decimas: e.decimas === undefined ? undefined : numeroEnRango(e.decimas, 0, 1) ?? 0,
+          meta: e.meta === undefined ? undefined : numeroEnRango(e.meta, 1, 7),
+          modo: e.modo === undefined ? undefined : e.modo === "peor" ? "peor" : "actual",
           categorias: (Array.isArray(e.categorias) ? e.categorias : []).filter((c) => c && typeof c === "object").map((c) => ({
             ...c,
-            nombre: c.nombre ?? "",
-            peso: num(c.peso, 0),
-            notas: (Array.isArray(c.notas) ? c.notas : []).map((n) =>
-              typeof n === "number" ? { n, f: 1 } : { ...n, n: n?.n ?? null, f: num(n?.f, 1) },
-            ),
+            id: typeof c.id === "string" && c.id ? c.id : undefined,
+            nombre: typeof c.nombre === "string" ? c.nombre : "",
+            peso: Math.max(0, num(c.peso, 0)),
+            req: c.req === undefined ? undefined : c.req === true,
+            examen: c.examen === undefined ? undefined : c.examen === true,
+            minimos: esObjeto(c.minimos) ? {
+              eximir: c.minimos?.eximir === undefined ? undefined : numeroEnRango(c.minimos.eximir, 1, 7),
+              eximirCada: c.minimos?.eximirCada === undefined ? undefined : numeroEnRango(c.minimos.eximirCada, 1, 7),
+              examen: c.minimos?.examen === undefined ? undefined : numeroEnRango(c.minimos.examen, 1, 7),
+            } : undefined,
+            notas: (Array.isArray(c.notas) ? c.notas : []).map((n) => ({
+              ...n,
+              id: typeof n?.id === "string" && n.id ? n.id : undefined,
+              n: numeroEnRango(typeof n === "number" ? n : n?.n, 1, 7),
+              f: numeroEnRango(n?.f, 0) ?? 1,
+              fecha: n?.fecha === undefined ? undefined : typeof n.fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(n.fecha)
+                && Number.isFinite(Date.parse(n.fecha)) && new Date(n.fecha).toISOString().startsWith(n.fecha) ? n.fecha : null,
+              etiqueta: typeof n?.etiqueta === "string" ? n.etiqueta : undefined,
+            })),
           })),
-          notaFinal: typeof e.notaFinal === "number" ? e.notaFinal : null,
+          notaFinal: numeroEnRango(e.notaFinal, 1, 7),
         })),
       })),
-    alias: r.alias && typeof r.alias === "object" ? r.alias : {},
+    alias: esObjeto(r.alias) ? Object.fromEntries(Object.entries(r.alias!).filter(([, a]) => esObjeto(a)).map(([id, a]) =>
+      [id, { sigla: typeof a.sigla === "string" ? a.sigla : undefined, nombre: typeof a.nombre === "string" ? a.nombre : undefined }])) : {},
     // Antes solo se registraba la causal c (excepcionesCausalC).
     permanenciasUDP: [
       ...new Set(
@@ -219,8 +253,15 @@ export function normalizarEstado(raw: unknown): PlannerState {
       ? (r.modoPractica as PlannerState["modoPractica"])
       : "carga",
     // Sin ErrorBoundary: un plan corrupto en un respaldo rompería Inicio y Planificación en cada carga.
-    planFijado: Array.isArray(r.planFijado?.semestres) && r.planFijado.semestres.every((s) => Array.isArray(s?.ids)) ? r.planFijado : null,
-    prefs: { ...base.prefs, ...(r.prefs ?? {}) },
+    planFijado: planValido(r.planFijado) ? r.planFijado : null,
+    prefs: {
+      marcadoRapido: typeof r.prefs?.marcadoRapido === "boolean" ? r.prefs.marcadoRapido : base.prefs.marcadoRapido,
+      mostrarNotas: typeof r.prefs?.mostrarNotas === "boolean" ? r.prefs.mostrarNotas : base.prefs.mostrarNotas,
+      checklistOculto: typeof r.prefs?.checklistOculto === "boolean" ? r.prefs.checklistOculto : base.prefs.checklistOculto,
+      avanceDescartado: Math.max(0, Math.trunc(num(r.prefs?.avanceDescartado, 0))),
+      metaPPA: numeroEnRango(r.prefs?.metaPPA, 1, 7),
+      wizardHecho: r.prefs?.wizardHecho === true,
+    },
   };
   asignarIds(st, true);
   return st;

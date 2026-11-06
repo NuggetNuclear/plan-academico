@@ -8,6 +8,7 @@ import { construirCurriculum } from "../core/curriculum";
 import { estadoInicial } from "../core/state";
 import type { MallaDef } from "../core/types";
 import { useApp } from "../store/app";
+import { sincronizar } from "../store/mutaciones";
 import { useUI, type Vista } from "../store/ui";
 import { Shell } from "./Shell";
 import { Modal } from "./overlays";
@@ -43,12 +44,15 @@ beforeEach(() => {
     { tipo: "regular", numero: 1, ramos: [{ uid: "final", id: cur.ramos[0].id, notaFinal: 5.5, categorias: [] }] },
     { tipo: "regular", numero: 2, ramos: [{ uid: "actual", id: cur.ramos[1].id, notaFinal: null, categorias: [{ nombre: "Solemnes", peso: 100, notas: [{ n: 5, f: 1 }, { n: null, f: 2 }] }] }] },
   ];
+  sincronizar({ cur, st });
   useApp.setState({ carga: "listo", malla, cur, st, pilaDeshacer: [], planesEditados: null });
   useUI.setState({ vista: "inicio", paletaAbierta: false, lateralCompacta: false, toasts: [], dialogo: null });
 });
 afterEach(async () => { await act(async () => root.unmount()); vi.unstubAllGlobals(); });
 
 async function auditar() {
+  await act(async () => { await vi.dynamicImportSettled(); });
+  expect(document.body.textContent).not.toContain("Cargando sección…");
   // jsdom no calcula geometría ni color. Contraste y reflow se verifican en navegador.
   const result = await axe.run(document.body, { rules: { "color-contrast": { enabled: false } } });
   expect(result.violations.map((v) => ({ regla: v.id, elementos: v.nodes.map((n) => n.html) }))).toEqual([]);
@@ -114,11 +118,22 @@ describe("accesibilidad de las vistas", () => {
     await auditar();
   });
 
+  it("repetir el asistente conserva todas las congelaciones registradas", async () => {
+    const congelaciones = [{ desde: 1, duracion: 1 }, { desde: 2, duracion: 2 }];
+    useApp.setState({ st: { ...useApp.getState().st, congelaciones } });
+    useUI.setState({ wizardAbierto: true });
+    await act(async () => root.render(createElement(Wizard)));
+    await act(async () => (document.querySelector('button[type="submit"]') as HTMLButtonElement).click());
+    await act(async () => (document.querySelector('button[type="submit"]') as HTMLButtonElement).click());
+    expect(useApp.getState().st.congelaciones).toEqual(congelaciones);
+  });
+
   it("sin ramos pendientes el botón principal de Notas invita a agregar un ramo", async () => {
     const { st } = useApp.getState();
     useApp.setState({ st: { ...st, periodos: [{ tipo: "regular", numero: 2, ramos: [] }] } });
     useUI.setState({ vista: "notas" });
     await act(async () => root.render(createElement(Shell)));
+    await act(async () => { await vi.dynamicImportSettled(); });
     const botones = [...document.querySelectorAll("button")].map((b) => b.textContent);
     expect(botones).toContain("Agregar tu primer ramo");
     expect(botones).not.toContain("Registrar nota");

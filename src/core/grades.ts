@@ -16,12 +16,19 @@ interface StatsCategoria {
  * un factor 0 hace que la nota no cuente (ej. se elimina la peor prueba).
  */
 export function statsCategoria(cat: Categoria): StatsCategoria {
-  const items = cat.notas.filter((x) => (x.f ?? 1) > 0);
-  const fTot = items.reduce((s, x) => s + (x.f ?? 1), 0);
+  let fTot = 0;
+  let fRend = 0;
+  let sumRend = 0;
+  for (const x of cat.notas) {
+    const f = x.f ?? 1;
+    if (!(f > 0)) continue;
+    fTot += f;
+    if (x.n !== null && Number.isFinite(x.n)) {
+      fRend += f;
+      sumRend += x.n * f;
+    }
+  }
   if (fTot === 0) return { prom: null, promRendido: null, fTot: 0, fRend: 0, sumRend: 0 };
-  const rendidas = items.filter((x) => x.n !== null && !Number.isNaN(x.n));
-  const fRend = rendidas.reduce((s, x) => s + (x.f ?? 1), 0);
-  const sumRend = rendidas.reduce((s, x) => s + (x.n as number) * (x.f ?? 1), 0);
   return {
     prom: (sumRend + 1.0 * (fTot - fRend)) / fTot,
     promRendido: fRend > 0 ? sumRend / fRend : null,

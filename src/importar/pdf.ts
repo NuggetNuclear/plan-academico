@@ -40,18 +40,21 @@ export async function lineasDePDF(buffer: ArrayBuffer): Promise<string[]> {
   const [pdfjs, worker] = await Promise.all([import("pdfjs-dist"), import("pdfjs-dist/build/pdf.worker.min.mjs?url")]);
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
   const tarea = pdfjs.getDocument({ data: new Uint8Array(buffer) });
-  let doc;
   try {
-    doc = await tarea.promise;
-  } catch {
-    throw new ErrorImportacion("No pude abrir el PDF. ¿Está protegido o dañado? Descárgalo de nuevo desde la UDP.");
+    let doc;
+    try {
+      doc = await tarea.promise;
+    } catch {
+      throw new ErrorImportacion("No pude abrir el PDF. ¿Está protegido o dañado? Descárgalo de nuevo desde la UDP.");
+    }
+    if (doc.numPages > 20) throw new ErrorImportacion("Ese PDF es demasiado largo para ser un Avance curricular.");
+    const paginas: ItemTexto[][] = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const contenido = await (await doc.getPage(n)).getTextContent();
+      paginas.push(contenido.items.filter((i): i is typeof i & ItemTexto => "str" in i) as ItemTexto[]);
+    }
+    return lineasDesdeItems(paginas);
+  } finally {
+    await tarea.destroy();
   }
-  if (doc.numPages > 20) throw new ErrorImportacion("Ese PDF es demasiado largo para ser un Avance curricular.");
-  const paginas: ItemTexto[][] = [];
-  for (let n = 1; n <= doc.numPages; n++) {
-    const contenido = await (await doc.getPage(n)).getTextContent();
-    paginas.push(contenido.items.filter((i): i is typeof i & ItemTexto => "str" in i) as ItemTexto[]);
-  }
-  void tarea.destroy();
-  return lineasDesdeItems(paginas);
 }

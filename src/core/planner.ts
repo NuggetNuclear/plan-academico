@@ -266,7 +266,7 @@ const CONFIGS: { est: Estrategia; flex: Flex; curva: Curva; menosRamos?: boolean
   { est: "desbloqueo", flex: "flex_last", curva: "pareja", menosRamos: true, etiqueta: "Menos ramos por semestre", descripcion: "Un ramo menos por semestre cuando es posible." },
 ];
 
-function resumirPlan(ctx: Ctx, plan: Omit<Plan, "semestresRestantes" | "creditosPorSemestre" | "creditosMaximos" | "intercambios">): Plan {
+function resumirPlan(ctx: Ctx, plan: Omit<Plan, "semestresRestantes" | "creditosPorSemestre" | "creditosMaximos" | "intercambios">, conIntercambios = true): Plan {
   const semestres = plan.semestres.filter((s) => s.ramos.length > 0);
   semestres.forEach((s) => {
     s.creditos = s.tipo === "verano" ? s.ramos.reduce((t, r) => t + r.creditos, 0) : creditosCarga(ctx, s.ramos);
@@ -281,7 +281,7 @@ function resumirPlan(ctx: Ctx, plan: Omit<Plan, "semestresRestantes" | "creditos
     creditosMaximos: futuros.reduce((m, s) => Math.max(m, s.creditos), 0),
     intercambios: [] as Intercambio[],
   };
-  completo.intercambios = calcularIntercambios(ctx, completo);
+  if (conIntercambios) completo.intercambios = calcularIntercambios(ctx, completo);
   return completo;
 }
 
@@ -301,7 +301,7 @@ export function generarPlanes(ctx: Ctx): Plan[] {
       descripcion: cfg.descripcion,
       maxRamos: mr,
       semestres: generarPlan(ctx, mc, mr, cfg.est, cfg.flex, cfg.curva),
-    });
+    }, false);
   });
 
   const varianza = (p: Plan) => {
@@ -317,7 +317,8 @@ export function generarPlanes(ctx: Ctx): Plan[] {
   planes
     .filter((p) => p.semestresRestantes === mejor && overflow(p) === overflow(planes[0]))
     .forEach((p) => !unicos.some((u) => planesEquivalentes(u, p)) && unicos.push(p));
-  return unicos;
+  // Los intercambios son lo más caro: solo hacen falta en los planes que se muestran.
+  return unicos.map((p) => ({ ...p, intercambios: calcularIntercambios(ctx, p) }));
 }
 
 /** Equivalentes si casi todos los ramos caen en el mismo semestre (≤2 ramos u 8% de diferencia). */
@@ -347,18 +348,23 @@ function baseCompletados(ctx: Ctx): Set<string> {
 
 /** Cada práctica sigue cumpliendo su regla después de mover o intercambiar ramos. */
 function planRespetaPracticas(ctx: Ctx, semestres: SemestrePlan[]): boolean {
-  const base = baseCompletados(ctx);
+  const antes = baseCompletados(ctx);
   const periodos = semestres.filter((s) => s.tipo === "futuro" || s.tipo === "verano").sort((a, b) => ordenSem(a) - ordenSem(b));
-  for (const p of periodos) {
-    const antes = new Set(base);
-    periodos.forEach((q) => ordenSem(q) < ordenSem(p) && q.ramos.forEach((r) => antes.add(r.id)));
-    const mismo = new Set(p.ramos.map((r) => r.id));
-    for (const r of p.ramos) {
-      if (!r.reglaPractica) continue;
-      const ev = evaluarReglaPractica(r, antes);
-      if (!ev.ok) return false;
-      if (p.tipo === "futuro" && !ev.deuda.every((id) => mismo.has(id))) return false;
+  for (let i = 0; i < periodos.length;) {
+    const inicio = i;
+    const orden = ordenSem(periodos[i]);
+    // Puede haber varias prácticas en un mismo verano: ninguna cuenta como previa a otra.
+    while (i < periodos.length && ordenSem(periodos[i]) === orden) {
+      const p = periodos[i++];
+      const mismo = new Set(p.ramos.map((r) => r.id));
+      for (const r of p.ramos) {
+        if (!r.reglaPractica) continue;
+        const ev = evaluarReglaPractica(r, antes);
+        if (!ev.ok) return false;
+        if (p.tipo === "futuro" && !ev.deuda.every((id) => mismo.has(id))) return false;
+      }
     }
+    for (let j = inicio; j < i; j++) periodos[j].ramos.forEach((r) => antes.add(r.id));
   }
   return true;
 }
@@ -419,15 +425,16 @@ function calcularIntercambios(ctx: Ctx, plan: Plan): Intercambio[] {
   const base = baseCompletados(ctx);
   const mc = maxCreditos(ctx);
 
-  const completadosAntes = (n: number) => {
+  const antesDe = new Map(futuros.map((s) => {
     const done = new Set(base);
-    plan.semestres.forEach((s) => (s.tipo === "futuro" || s.tipo === "verano") && s.numero < n && s.ramos.forEach((r) => done.add(r.id)));
-    return done;
-  };
+    plan.semestres.forEach((p) => (p.tipo === "futuro" || p.tipo === "verano") && p.numero < s.numero && p.ramos.forEach((r) => done.add(r.id)));
+    return [s.numero, { done, mismo: new Set(s.ramos.map((r) => r.id)) }] as const;
+  }));
   const masTemprano = (id: string) => {
     const r = ctx.cur.map[id];
     for (const s of futuros) {
-      if (cumpleRequisitos(r, completadosAntes(s.numero), new Set(s.ramos.map((x) => x.id)))) return s.numero;
+      const { done, mismo } = antesDe.get(s.numero)!;
+      if (cumpleRequisitos(r, done, mismo)) return s.numero;
     }
     return Infinity;
   };
@@ -512,5 +519,5 @@ export function planDesdeGuardado(ctx: Ctx, g: PlanGuardado): Plan {
       creditos: 0,
       ramos: s.ids.map((id) => ctx.cur.map[id]).filter(Boolean),
     })),
-  });
+  }, false); // El plan guardado se muestra sin edición ni ajustes sugeridos.
 }

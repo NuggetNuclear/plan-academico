@@ -87,4 +87,18 @@ describe("flujo malla ↔ notas", () => {
     agregarRamoAPeriodo(ctx, p, "FIC-1000");
     expect(ctx.st.cursando).toContain("FIC-1000");
   });
+
+  it.each([{ meta: 6 }, { creditos: 0 }, { examen: { escala: "ramo" as const, eximicion: 5, asistenciaMin: null, asistencia: null } }])(
+    "conserva los datos de una entrada sin evaluaciones al cambiar de semestre: %j", (datos) => {
+      const ctx = nuevoCtx();
+      marcarCursando(ctx, "CBM-1001");
+      sincronizar(ctx);
+      const anterior = obtenerPeriodo(ctx.st, "regular", 1)!;
+      Object.assign(anterior.ramos[0], datos);
+      ctx.st.semestreActual = 2;
+      sincronizar(ctx);
+      expect(anterior.ramos).toHaveLength(1);
+      expect(anterior.ramos[0]).toMatchObject(datos);
+    },
+  );
 });

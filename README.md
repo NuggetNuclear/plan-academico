@@ -47,7 +47,7 @@ Toda la lógica vive en `src/core/` y está cubierta por tests:
 - Tailwind CSS 4 con tokens propios (claro/oscuro) y paleta categórica validada para daltonismo
 - Zustand (estado + deshacer), dnd-kit (arrastrar y soltar con mouse, teclado y toque), lucide-react (íconos)
 - Gráficos en SVG propio, sin librerías de charts
-- Vitest para la lógica
+- Vitest para lógica, importación, persistencia, sincronización, PWA y accesibilidad
 
 ```
 src/
@@ -59,7 +59,7 @@ src/
   sync/        Sincronización opcional con Firebase (se carga desde el CDN solo si está configurada)
 public/
   carreras/    inf.json: la malla de la carrera
-  sw.js        Service worker (modo sin conexión)
+  sw.js        Plantilla del service worker (modo sin conexión)
 ```
 
 ## Desarrollo
@@ -70,6 +70,10 @@ npm run dev        # http://localhost:5173
 npm test           # tests de la lógica
 npm run build      # typecheck + build de producción en dist/
 ```
+
+Inicio se carga al abrir la app; las demás vistas se cargan cuando se visitan. Al compilar, Vite genera `dist/sw.js` con una revisión y la lista de recursos que deben guardarse para el modo sin conexión, incluidas las vistas y el lector de PDF. Los cambios del worker se hacen en `public/sw.js`.
+
+Después de la primera visita con conexión y de completar la descarga de esos recursos, la app queda disponible sin conexión. Las actualizaciones del service worker esperan a que se cierren las pestañas de la versión anterior.
 
 ## Publicar en GitHub Pages
 

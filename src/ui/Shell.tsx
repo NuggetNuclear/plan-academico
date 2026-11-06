@@ -15,15 +15,10 @@ import {
   Undo2,
   UserRound,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ComponentType } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ComponentType } from "react";
 import { useApp } from "../store/app";
 import { useUI, toast, type Tema, type Vista } from "../store/ui";
-import { Ayuda } from "../views/Ayuda";
-import { Estadisticas } from "../views/Estadisticas";
 import { Inicio } from "../views/Inicio";
-import { Malla } from "../views/Malla";
-import { Notas } from "../views/Notas";
-import { Planificacion } from "../views/Planificacion";
 import { estadoSync, useSync } from "../sync/useSync";
 import { OpcionMenu, Popover } from "./overlays";
 import { BotonIcono, cx } from "./primitives";
@@ -47,11 +42,11 @@ export const NAV: ItemNav[] = [
 
 const VISTAS: Record<Vista, ComponentType> = {
   inicio: Inicio,
-  malla: Malla,
-  notas: Notas,
-  planificacion: Planificacion,
-  estadisticas: Estadisticas,
-  ayuda: Ayuda,
+  malla: lazy(() => import("../views/Malla").then((m) => ({ default: m.Malla }))),
+  notas: lazy(() => import("../views/Notas").then((m) => ({ default: m.Notas }))),
+  planificacion: lazy(() => import("../views/Planificacion").then((m) => ({ default: m.Planificacion }))),
+  estadisticas: lazy(() => import("../views/Estadisticas").then((m) => ({ default: m.Estadisticas }))),
+  ayuda: lazy(() => import("../views/Ayuda").then((m) => ({ default: m.Ayuda }))),
 };
 
 function Marca({ compacta }: { compacta?: boolean }) {
@@ -370,7 +365,9 @@ export function Shell() {
       <div className="min-w-0 flex-1">
         <Encabezado />
         <main ref={main} id="contenido" tabIndex={-1} aria-label={NAV.find((n) => n.vista === vista)?.titulo} key={vista} className="animar-fundido mx-auto max-w-[1400px] px-4 pt-5 sm:px-6 lg:px-8 lg:pt-7">
-          <Vista />
+          <Suspense fallback={<p role="status" className="py-8 text-center text-fg-2">Cargando sección…</p>}>
+            <Vista />
+          </Suspense>
         </main>
         <Pie />
       </div>

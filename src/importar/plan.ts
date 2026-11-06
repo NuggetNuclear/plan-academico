@@ -210,7 +210,7 @@ export function construirPlanTrabajo(cur: Curriculum, registros: RegistroTrabajo
         entrada.nombre = tituloCaso(nombrePDF.get(claveCodigo(reg.codigo)) ?? reg.nombre);
         if (reg.estado === "aprobado" || reg.estado === "inscrito") plan.alias[id] = { sigla: entrada.sigla, nombre: entrada.nombre };
       }
-      if (reg.creditos !== null && ramo && reg.creditos !== ramo.creditos) entrada.creditos = reg.creditos;
+      if (reg.creditos !== null && ramo) entrada.creditos = reg.creditos;
 
       if (reg.anio === null || reg.estado === "convalidado") {
         if (reg.estado === "aprobado" && niveles.includes(id) && reg.anio === null) return void exentos.set(id, reg);
@@ -331,7 +331,10 @@ function aplicarTrabajo(ctx: Ctx, plan: PlanImportacion) {
       }
       if (ep.sigla) e.siglaReal = ep.sigla;
       if (ep.nombre) e.nombreReal = ep.nombre;
-      if (ep.creditos !== undefined) e.creditos = ep.creditos;
+      if (ep.creditos !== undefined) {
+        if (ep.creditos === ctx.cur.catalogo[ep.id]?.creditos) delete e.creditos;
+        else e.creditos = ep.creditos;
+      }
       return e;
     });
     const p: Periodo = { tipo: pp.tipo, numero: pp.numero, ramos };

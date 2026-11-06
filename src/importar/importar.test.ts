@@ -317,15 +317,26 @@ describe("Plan desde el Trabajo académico", () => {
 
   it("las vías de titulación del reporte (CIT4011-4014) cubren la actividad de titulación", () => {
     const plan = construirPlanTrabajo(cur, [aprobado("CIT4012", 2029, "2", 6.5, { creditos: 9 })]);
-    expect(plan.periodos[0].entradas).toEqual([{ id: "CIT-4002", nota: 6.5 }]);
+    expect(plan.periodos[0].entradas).toEqual([{ id: "CIT-4002", nota: 6.5, creditos: 9 }]);
     expect(plan.noReconocidos).toEqual([]);
   });
 
   it("créditos distintos a los de la malla quedan en la entrada; los iguales no", () => {
     const plan = construirPlanTrabajo(cur, [aprobado("CBM1001", 2023, "1", 5, { creditos: 7 }), aprobado("CBM1000", 2023, "1", 5, { creditos: 8 })]);
-    const e = plan.periodos[0].entradas;
+    const e = aplicar(plan).periodos[0].ramos;
     expect(e.find((x) => x.id === "CBM-1001")!.creditos).toBeUndefined();
     expect(e.find((x) => x.id === "CBM-1000")!.creditos).toBe(8);
+  });
+
+  it("al reimportar corrige un crédito antiguo aunque el reporte ahora coincida con la malla", () => {
+    const previo = aplicar(construirPlanTrabajo(cur, [aprobado("CBM1001", 2023, "1", 5, { creditos: 8 })]));
+    const corregido = construirPlanTrabajo(cur, [aprobado("CBM1001", 2023, "1", 5, { creditos: 7 })]);
+    const st = aplicar(corregido, previo);
+    expect(st.periodos[0].ramos[0].creditos).toBeUndefined();
+    expect(previsualizar(cur, st, corregido).ppa).toBe(5);
+    // Si el reporte no informa créditos, se conserva el dato anterior.
+    const sinCreditos = construirPlanTrabajo(cur, [aprobado("CBM1001", 2023, "1", 5)]);
+    expect(aplicar(sinCreditos, previo).periodos[0].ramos[0].creditos).toBe(8);
   });
 });
 

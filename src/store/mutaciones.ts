@@ -40,7 +40,8 @@ function asegurarEntrada(p: Periodo, id: string): Entrada {
 
 /** Entradas creadas automáticamente y nunca editadas (se pueden mover o quitar sin perder nada). */
 function esEntradaVacia(e: Entrada): boolean {
-  return e.notaFinal === null && e.categorias.length === 0 && !e.siglaReal?.trim() && !e.nombreReal?.trim();
+  return e.notaFinal === null && e.categorias.length === 0 && !e.siglaReal?.trim() && !e.nombreReal?.trim()
+    && e.creditos == null && e.meta == null && !e.decimas && !e.examen;
 }
 
 export function quitarEntradasVacias(st: PlannerState, id: string, { incluirActual = true } = {}) {

@@ -75,12 +75,16 @@ export function estadoSync(s: SyncStore): { texto: string; tono: "ok" | "warn" |
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-let fb: { auth: any; db: any; m: any } | null = null;
+type Firebase = { auth: any; db: any; m: any };
+let fb: Firebase | null = null;
+let cargandoFirebase: Promise<Firebase> | null = null;
 let temporizador: ReturnType<typeof setTimeout> | null = null;
 let aplicandoNube = false;
 // Nada se sube hasta comparar con la nube: si no, el progreso de otro equipo se pisa.
 let reconciliado = false;
 let enCurso: Promise<void> | null = null;
+let subidaEnCurso: Promise<boolean> | null = null;
+let repetirSubida = false;
 // Clave de cifrado de la cuenta. Se recuerda en IndexedDB como CryptoKey no extraíble:
 // no hay que escribir la contraseña en cada visita y sus bytes nunca quedan legibles.
 let llave: { clave: CryptoKey; sal: string; iter: number } | null = null;
@@ -94,9 +98,18 @@ function almacen<T>(modo: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequ
       abrir.onerror = () => ok(undefined);
       abrir.onsuccess = () => {
         const bd = abrir.result;
-        const r = fn(bd.transaction("claves", modo).objectStore("claves"));
-        r.onsuccess = () => (ok(r.result as T), bd.close());
-        r.onerror = () => (ok(undefined), bd.close());
+        try {
+          const tx = bd.transaction("claves", modo);
+          const r = fn(tx.objectStore("claves"));
+          let resultado: T | undefined;
+          r.onsuccess = () => { resultado = r.result as T; };
+          // Un request exitoso aún puede abortarse: la clave se recuerda al confirmar la transacción.
+          tx.oncomplete = () => (ok(resultado), bd.close());
+          tx.onabort = tx.onerror = () => (ok(undefined), bd.close());
+        } catch {
+          bd.close();
+          ok(undefined);
+        }
       };
     } catch {
       ok(undefined); // sin IndexedDB (modo privado): la contraseña se pide en cada visita
@@ -105,6 +118,7 @@ function almacen<T>(modo: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequ
 }
 
 async function recordar(u: Usuario, l: NonNullable<typeof llave>) {
+  if (useSync.getState().usuario?.uid !== u.uid) return;
   llave = l;
   await almacen("readwrite", (s) => s.put(l, u.uid));
 }
@@ -127,7 +141,7 @@ async function crearContrasena(u: Usuario, intro: string): Promise<boolean> {
       validar: (v) => (v.length < 12 ? "Usa al menos 12 caracteres. Una frase de varias palabras es fácil de recordar y difícil de adivinar." : null),
     },
   });
-  if (c === null) return false;
+  if (c === null || useSync.getState().usuario?.uid !== u.uid) return false;
   const repetida = await pedirTexto({
     titulo: "Repite tu contraseña",
     aceptar: "Cifrar",
@@ -136,7 +150,7 @@ async function crearContrasena(u: Usuario, intro: string): Promise<boolean> {
   if (repetida === null) return false;
   const sal = nuevaSal();
   await recordar(u, { clave: await derivarClave(c, sal), sal, iter: ITERACIONES });
-  return true;
+  return useSync.getState().usuario?.uid === u.uid;
 }
 
 function nubeDesde(d: unknown): Nube {
@@ -151,7 +165,9 @@ function nubeDesde(d: unknown): Nube {
 
 /** Consigue la clave (la recordada o pidiendo la contraseña) y descifra la nube. */
 async function abrirSobre(u: Usuario, sobre: Sobre | null): Promise<Nube | null | typeof CANCELADO> {
-  llave ??= (await almacen<NonNullable<typeof llave>>("readonly", (s) => s.get(u.uid))) ?? null;
+  const recordada = llave ?? (await almacen<NonNullable<typeof llave>>("readonly", (s) => s.get(u.uid))) ?? null;
+  if (useSync.getState().usuario?.uid !== u.uid) return CANCELADO;
+  llave = recordada;
   if (!sobre) {
     if (llave) return null;
     return (await crearContrasena(u, "Tu progreso se cifra en este dispositivo antes de subirlo: nadie más puede leerlo, ni quien administra la app.")) ? null : CANCELADO;
@@ -171,7 +187,7 @@ async function abrirSobre(u: Usuario, sobre: Sobre | null): Promise<Nube | null 
       aceptar: "Desbloquear",
       campo: { etiqueta: "Contraseña de cifrado", tipo: "password", autoComplete: "current-password" },
     });
-    if (c === null) return CANCELADO;
+    if (c === null || useSync.getState().usuario?.uid !== u.uid) return CANCELADO;
     const clave = await derivarClave(c, sobre.sal, sobre.iter);
     try {
       const nube = nubeDesde(await descifrar(clave, u.uid, sobre));
@@ -185,12 +201,14 @@ async function abrirSobre(u: Usuario, sobre: Sobre | null): Promise<Nube | null 
 
 const importar = (ruta: string) => import(/* @vite-ignore */ `${SDK}/${ruta}`);
 
-export async function cargarFirebase() {
-  if (fb) return fb;
-  const [app, auth, fs] = await Promise.all([importar("firebase-app.js"), importar("firebase-auth.js"), importar("firebase-firestore.js")]);
-  const instancia = app.initializeApp(config);
-  fb = { auth: auth.getAuth(instancia), db: fs.getFirestore(instancia), m: { ...auth, ...fs } };
-  return fb;
+export function cargarFirebase(): Promise<Firebase> {
+  if (fb) return Promise.resolve(fb);
+  return cargandoFirebase ??= (async () => {
+    const [app, auth, fs] = await Promise.all([importar("firebase-app.js"), importar("firebase-auth.js"), importar("firebase-firestore.js")]);
+    const instancia = app.initializeApp(config);
+    fb = { auth: auth.getAuth(instancia), db: fs.getFirestore(instancia), m: { ...auth, ...fs } };
+    return fb;
+  })().finally(() => { cargandoFirebase = null; });
 }
 
 const tieneProgreso = (estados: Record<string, PlannerState>) =>
@@ -206,18 +224,43 @@ async function leerSobre(uid: string): Promise<Sobre | null> {
   return esSobre(d) ? d : null;
 }
 
-async function subir() {
+function subir(): Promise<boolean> {
+  if (subidaEnCurso) {
+    repetirSubida = true;
+    return subidaEnCurso;
+  }
+  // Se serializan las escrituras: una subida antigua no puede terminar después de la más nueva y pisarla.
+  return subidaEnCurso = (async () => {
+    try {
+      let guardado: boolean;
+      do {
+        repetirSubida = false;
+        guardado = await subirAhora();
+      } while (repetirSubida);
+      return guardado;
+    } finally {
+      subidaEnCurso = null;
+    }
+  })();
+}
+
+async function subirAhora(): Promise<boolean> {
   const { usuario: u, conflicto } = useSync.getState();
-  if (!u || conflicto || !reconciliado || !llave) return;
-  const { db, m } = await cargarFirebase();
-  useSync.setState({ estado: "sincronizando" });
+  const clave = llave;
+  if (!u || conflicto || !reconciliado || !clave) return false;
+  const estados = leerTodosLosEstados();
   try {
+    const { db, m } = await cargarFirebase();
+    useSync.setState({ estado: "sincronizando" });
     const ahora = Date.now();
-    const sobre = await cifrar(llave.clave, llave.sal, llave.iter, u.uid, { estados: leerTodosLosEstados(), carreraActual: CARRERA_ID, actualizado: ahora });
+    const sobre = await cifrar(clave.clave, clave.sal, clave.iter, u.uid, { estados, carreraActual: CARRERA_ID, actualizado: ahora });
+    if (useSync.getState().usuario?.uid !== u.uid || llave !== clave || !reconciliado) return false;
     await m.setDoc(m.doc(db, COLECCION, u.uid), sobre);
-    useSync.setState({ estado: "sincronizado", ultima: ahora });
+    if (useSync.getState().usuario?.uid === u.uid) useSync.setState({ estado: "sincronizado", ultima: ahora });
+    return true;
   } catch {
-    useSync.setState({ estado: navigator.onLine ? "error" : "sin-conexion" });
+    if (useSync.getState().usuario?.uid === u.uid) useSync.setState({ estado: navigator.onLine ? "error" : "sin-conexion" });
+    return false;
   }
 }
 
@@ -229,11 +272,13 @@ async function reconciliarAhora(u: Usuario) {
   useSync.setState({ estado: "conectando" });
   try {
     const nube = await abrirSobre(u, await leerSobre(u.uid));
+    if (useSync.getState().usuario?.uid !== u.uid) return;
     if (nube === CANCELADO) return void useSync.setState({ estado: "bloqueado" });
     const local = leerTodosLosEstados();
     if (!nube || !tieneProgreso(nube.estados)) {
       reconciliado = true;
-      return subir();
+      await subir();
+      return;
     }
     if (!tieneProgreso(local) || firma(local) === firma(nube.estados)) {
       reconciliado = true;
@@ -245,7 +290,7 @@ async function reconciliarAhora(u: Usuario) {
     }
     useSync.setState({ conflicto: { nube, local }, estado: "local" });
   } catch {
-    useSync.setState({ estado: navigator.onLine ? "error" : "sin-conexion" });
+    if (useSync.getState().usuario?.uid === u.uid) useSync.setState({ estado: navigator.onLine ? "error" : "sin-conexion" });
   }
 }
 
@@ -261,8 +306,8 @@ export async function resolverConflicto(eleccion: "nube" | "local") {
     useSync.setState({ estado: "sincronizado", ultima: c.nube.actualizado });
     toast("Se cargó el progreso de tu cuenta.");
   } else {
-    await subir();
-    toast("Tu cuenta quedó con el progreso de este dispositivo.");
+    if (await subir()) toast("Tu cuenta quedó con el progreso de este dispositivo.");
+    else toast("No se pudo actualizar tu cuenta. Tu progreso sigue en este dispositivo.", "error");
   }
 }
 
@@ -310,6 +355,8 @@ export async function entrarConGoogle() {
 
 export async function cerrarSesion() {
   if (!fb) return;
+  if (temporizador) clearTimeout(temporizador);
+  reconciliado = false;
   await fb.m.signOut(fb.auth);
   toast("Sesión cerrada. Tu progreso sigue en este dispositivo.", "info");
 }
@@ -337,8 +384,8 @@ export async function cambiarContrasena() {
     return;
   if (!(await crearContrasena(u, "Elige una contraseña nueva. Tus otros dispositivos te la pedirán la próxima vez que sincronicen."))) return;
   reconciliado = true;
-  await subir();
-  toast("Tu progreso quedó cifrado con la contraseña nueva.");
+  if (await subir()) toast("Tu progreso quedó cifrado con la contraseña nueva.");
+  else toast("No se pudo guardar la contraseña nueva en la nube. Vuelve a sincronizar.", "error");
 }
 
 export async function eliminarCuenta() {

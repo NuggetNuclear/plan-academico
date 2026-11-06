@@ -62,7 +62,7 @@ export function Wizard() {
       const s = ctx.st;
       s.semestreActual = semestre;
       s.inglesEximido = ingles;
-      s.congelaciones = congelo ? [{ desde: Math.max(1, cong.desde), duracion: Math.max(1, cong.duracion) }] : [];
+      s.congelaciones = congelo ? [{ desde: Math.max(1, cong.desde), duracion: Math.max(1, cong.duracion) }, ...s.congelaciones.slice(1)] : [];
       s.prefs.marcadoRapido = modo === "rapido";
       s.prefs.wizardHecho = true;
       if (marcar && semestre > 1) marcados = marcarSemestres(ctx, semestre - 1);

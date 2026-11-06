@@ -70,6 +70,7 @@ export function idsInglesEximidos(ctx: Ctx): Set<string> {
 }
 
 export function esEximido(ctx: Ctx, id: string): boolean {
+  if (ctx.st.inglesEximido === 0 || !ctx.cur.malla.nivelesIngles?.includes(id)) return false;
   return idsInglesEximidos(ctx).has(id) && !tieneConvalidacion(ctx, id);
 }
 
@@ -246,13 +247,20 @@ interface ResumenCreditos {
 
 export function resumenCreditos(ctx: Ctx): ResumenCreditos {
   const intentos = intentosInscritos(ctx);
-  const suma = (r: ResultadoIntento) => intentos.filter((i) => i.resultado === r).reduce((s, i) => s + i.creditos, 0);
+  const suma = { aprobado: 0, reprobado: 0, cursando: 0 };
+  let inscritos = 0;
+  let ramosCursando = 0;
+  for (const i of intentos) {
+    inscritos += i.creditos;
+    suma[i.resultado] += i.creditos;
+    if (i.resultado === "cursando") ramosCursando++;
+  }
   return {
-    inscritos: intentos.reduce((s, i) => s + i.creditos, 0),
-    aprobados: suma("aprobado"),
-    reprobados: suma("reprobado"),
-    cursando: suma("cursando"),
-    ramosCursando: intentos.filter((i) => i.resultado === "cursando").length,
+    inscritos,
+    aprobados: suma.aprobado,
+    reprobados: suma.reprobado,
+    cursando: suma.cursando,
+    ramosCursando,
     avance: creditosAvance(ctx, intentos),
     total: creditosTotalesPlan(ctx),
   };
