@@ -82,7 +82,7 @@ export function CabeceraTarjeta({ titulo, descripcion, acciones, icono }: { titu
   return (
     <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div className="flex min-w-0 items-start gap-3">
-        {icono && <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent">{icono}</span>}
+        {icono && <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">{icono}</span>}
         <div className="min-w-0">
           <h2 className="text-[15px] font-bold tracking-tight text-fg">{titulo}</h2>
           {descripcion && <p className="mt-0.5 text-[13px] leading-relaxed text-fg-2">{descripcion}</p>}
@@ -137,7 +137,7 @@ export function Interruptor({ checked, onChange, etiqueta, descripcion, id }: { 
 
 export function Segmentado<T extends string>({ opciones, valor, onChange, etiqueta, tamano = "sm" }: { opciones: { valor: T; etiqueta: ReactNode; title?: string }[]; valor: T; onChange: (v: T) => void; etiqueta: string; tamano?: "sm" | "xs" }) {
   return (
-    <div role="group" aria-label={etiqueta} className="inline-flex rounded-xl border border-line bg-surface-2 p-0.5">
+    <div role="group" aria-label={etiqueta} className="inline-flex rounded-full bg-surface-2 p-1">
       {opciones.map((o) => (
         <button
           key={o.valor}
@@ -146,7 +146,7 @@ export function Segmentado<T extends string>({ opciones, valor, onChange, etique
           aria-pressed={valor === o.valor}
           onClick={() => onChange(o.valor)}
           className={cx(
-            "rounded-[10px] font-semibold whitespace-nowrap transition-colors",
+            "rounded-full font-semibold whitespace-nowrap transition-colors",
             tamano === "sm" ? "px-3 py-1.5 text-[13px]" : "px-2 py-1 text-[11px]",
             valor === o.valor ? "bg-surface text-fg shadow-soft" : "text-fg-2 hover:text-fg",
           )}
@@ -160,7 +160,7 @@ export function Segmentado<T extends string>({ opciones, valor, onChange, etique
 
 export function Vacio({ icono, titulo, children, accion }: { icono: ReactNode; titulo: string; children?: ReactNode; accion?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line-strong px-6 py-10 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-[1.4rem] bg-surface-2 px-6 py-10 text-center">
       <span className="grid size-11 place-items-center rounded-2xl bg-accent-soft text-accent">{icono}</span>
       <p className="font-bold text-fg">{titulo}</p>
       {children && <p className="max-w-md text-[13px] text-fg-2">{children}</p>}
@@ -171,14 +171,14 @@ export function Vacio({ icono, titulo, children, accion }: { icono: ReactNode; t
 
 export function Aviso({ tono = "info", icono, children, className }: { tono?: "info" | "warn" | "ok" | "danger" | "acento"; icono?: ReactNode; children: ReactNode; className?: string }) {
   const t = {
-    info: "bg-info-soft text-fg border-info/20 [&>svg]:text-info",
-    warn: "bg-warn-soft text-fg border-warn/25 [&>svg]:text-warn",
-    ok: "bg-ok-soft text-fg border-ok/20 [&>svg]:text-ok",
-    danger: "bg-danger-soft text-fg border-danger/20 [&>svg]:text-danger",
-    acento: "bg-accent-soft text-fg border-accent-line [&>svg]:text-accent",
+    info: "bg-info-soft text-fg [&>svg]:text-info",
+    warn: "bg-warn-soft text-fg [&>svg]:text-warn",
+    ok: "bg-ok-soft text-fg [&>svg]:text-ok",
+    danger: "bg-danger-soft text-fg [&>svg]:text-danger",
+    acento: "bg-accent-soft text-fg [&>svg]:text-accent",
   }[tono];
   return (
-    <div className={cx("flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-[13px] leading-relaxed [&>svg]:mt-0.5 [&>svg]:size-4 [&>svg]:shrink-0", t, className)}>
+    <div className={cx("flex items-start gap-2.5 rounded-2xl px-4 py-3 text-[13px] leading-relaxed [&>svg]:mt-0.5 [&>svg]:size-4 [&>svg]:shrink-0", t, className)}>
       {icono}
       <div className="min-w-0">{children}</div>
     </div>
@@ -193,6 +193,60 @@ export function Campo({ etiqueta, children, ayuda, htmlFor }: { etiqueta: ReactN
       </label>
       {children}
       {ayuda && <p className="mt-1 text-[11.5px] text-fg-3">{ayuda}</p>}
+    </div>
+  );
+}
+
+/**
+ * Pestañas locales de una sección: rol tablist, flechas para moverse y foco solo en la activa.
+ * El panel usa `idPanel(base, valor)` y `idPestana(base, valor)` para enlazarse.
+ */
+export const idPestana = (base: string, valor: string) => `${base}-pestana-${valor}`;
+export const idPanel = (base: string, valor: string) => `${base}-panel-${valor}`;
+
+export function Pestanas<T extends string>({ base, etiqueta, opciones, valor, onChange, tamano = "md" }: { base: string; etiqueta: string; opciones: { valor: T; etiqueta: ReactNode; icono?: ReactNode }[]; valor: T; onChange: (v: T) => void; tamano?: "sm" | "md" }) {
+  const mover = (e: React.KeyboardEvent, i: number) => {
+    const destino = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : e.key === "Home" ? 0 : e.key === "End" ? opciones.length - 1 : null;
+    if (destino === null) return;
+    e.preventDefault();
+    const o = opciones[(destino + opciones.length) % opciones.length];
+    onChange(o.valor);
+    document.getElementById(idPestana(base, o.valor))?.focus();
+  };
+  return (
+    <div role="tablist" aria-label={etiqueta} className="scroll-x -mx-1 flex gap-1.5 px-1 pb-1">
+      {opciones.map((o, i) => {
+        const activa = o.valor === valor;
+        return (
+          <button
+            key={o.valor}
+            id={idPestana(base, o.valor)}
+            type="button"
+            role="tab"
+            aria-selected={activa}
+            aria-controls={idPanel(base, o.valor)}
+            tabIndex={activa ? 0 : -1}
+            onClick={() => onChange(o.valor)}
+            onKeyDown={(e) => mover(e, i)}
+            className={cx(
+              "inline-flex shrink-0 items-center gap-2 rounded-full font-semibold whitespace-nowrap transition-colors [&>svg]:size-4",
+              tamano === "sm" ? "min-h-9 px-3.5 text-[12.5px]" : "min-h-10 px-4 text-[13.5px]",
+              activa ? "bg-accent text-accent-fg shadow-soft" : tamano === "sm" ? "bg-surface-2 text-fg-2 hover:text-fg" : "bg-surface text-fg-2 shadow-soft hover:text-fg",
+            )}
+          >
+            {o.icono}
+            {o.etiqueta}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function PanelPestana({ base, valor, children, className }: { base: string; valor: string; children: ReactNode; className?: string }) {
+  return (
+    <div role="tabpanel" id={idPanel(base, valor)} aria-labelledby={idPestana(base, valor)} className={className}>
+      {children}
     </div>
   );
 }

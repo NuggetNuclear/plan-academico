@@ -1,6 +1,6 @@
 # Plan de rediseño del planner académico
 
-Fecha: 6 de noviembre de 2026. Estado: dirección visual aprobada (wireframe v2) y primera etapa implementada. Ver «Avance de la implementación» al final.
+Fecha: 6 de noviembre de 2026. Estado: dirección visual aprobada (wireframe v2); etapas 1, 2 y 3 implementadas. Ver «Avance de la implementación» al final.
 
 ## Objetivo y criterio de diseño
 
@@ -237,4 +237,26 @@ Las fuentes fundamentan criterios generales. La arquitectura y la paleta son pro
 - Registro de nota: chips para ramo (hasta 8) y evaluación (hasta 10), con lista desplegable cuando hay más. Campo de nota grande y una vista previa del promedio, calculada sobre una copia con las reglas reales del ramo, que avisa si la nota aún no cuenta por falta de porcentaje.
 - Deshacer de los avisos (P0 de `revision-flujos.md`): cada aviso queda ligado a su cambio (`accionDeshacer` en `src/store/app.ts`). Si después hubo otro cambio, no revierte el equivocado y remite al Deshacer del encabezado. Tiene test.
 
-**Pendiente (próximas etapas):** separar Agenda, Simulaciones y Configuración como destinos propios (la barra móvil pasará de Malla a Agenda); pestañas locales en Notas, Mi malla y Plan de carrera; conservar contexto y borradores entre secciones; repasar las vistas restantes con el nuevo lenguaje visual. Queda también probar en un teléfono real con teclado virtual y lector de pantalla.
+**Etapa 2, hecha:**
+
+- Destinos nuevos con hash propio (`#agenda`, `#simulaciones`, `#configuracion`); los hashes anteriores siguen funcionando. Navegación: Día a día (Inicio, Notas, Agenda), Mi carrera (Mi malla, Plan de carrera, Simulaciones, Estadísticas) y Utilidades (Configuración, Ayuda). La barra móvil pasa a Inicio, Notas, Agenda y Menú.
+- Agenda: las mismas evaluaciones de Notas ordenadas por fecha. Grupos «Sin nota todavía» (fecha vencida), «Próximos 7 días», «Más adelante» y, opcionalmente, «Registradas». Tiene filtro por ramo y exportación .ics. Tocar una evaluación abre el registro con ella elegida. Avisa cuántas pendientes no tienen fecha y, sin fechas, explica cómo agregarlas.
+- Simulaciones: pestañas «Notas de un ramo» (el antiguo modo Planificación de Notas) y «PPA y meta» (el simulador que estaba en un desplegable de Notas). Lleva el aviso permanente «Estos cambios no modifican tus notas…». El borrador y la pestaña se conservan al cambiar de sección y se descartan al recargar.
+- Configuración: pestañas Datos académicos (semestre, inglés, congelaciones, asistente y borrar progreso; antes en Mi malla), Importar y respaldar (importación UDP, respaldo y borrado del dispositivo, compartido con Mi cuenta) y Apariencia (tema y barra compacta). Mi malla muestra un resumen con enlace a Configuración.
+- Notas queda solo con el registro: sin selector de modo ni desplegable del simulador. La ventana de inscripción va junto al selector de periodo y «Exportar calendario» se reemplazó por «Ver agenda».
+- Componente `Pestanas` accesible (roles tab/tabpanel, flechas, Inicio/Fin).
+- Tests: auditoría de accesibilidad de las 9 vistas, una prueba de Agenda (lista y abre el registro preseleccionado) y el borrador de Simulaciones al navegar.
+
+**Etapa 3, hecha:**
+
+- Agenda: vistas Lista (por defecto) y Mes, con cuadrícula de lunes a domingo, navegación entre meses y marcas por día (vencida sin nota, pendiente, registrada). Al tocar un día se listan sus evaluaciones. Vista, mes y filtros se conservan al cambiar de sección.
+- Notas › ramo: pestañas Evaluaciones / Reglas / Meta.
+  - Reglas resume porcentajes, requisitos, mínimos, examen, eximición y asistencia; incluye «Ver peor caso» y «Editar reglas», que abre el editor con plantillas y copia de otro ramo.
+  - Meta es un campo directo con lo que necesitas; reemplaza al diálogo.
+  - Décimas, cierre, reapertura y quitar el ramo siguen en el pie y el menú.
+- Notas recuerda el periodo y la búsqueda al volver desde otra sección.
+- Plan de carrera: pestañas Plan / Preferencias / Alternativas. El plan guardado y el recomendado van primero, con un resumen y un enlace a Preferencias. Punto de partida, créditos y práctica pasan a Preferencias, y las alternativas con la misma duración tienen pestaña propia. La pestaña elegida se conserva.
+- Pasada visual: los recuadros con borde de Situación académica, Ayuda, Importar, Wizard, editor de evaluaciones, Plan y avisos pasan a superficies suaves. Selectores segmentados en píldora y etiquetas sin mayúsculas. Los menús emergentes y tooltips conservan su borde para separarse del fondo.
+- Tests: pestañas del ramo (reglas y meta guardada), vista Mes y Preferencias del plan con auditoría axe. Sin desbordamiento horizontal a 375px en las 9 secciones.
+
+**Pendiente:** validar con estudiantes y en un teléfono real (teclado virtual, lector de pantalla, texto ampliado al 200%) y medir rendimiento con Lighthouse en dispositivos representativos. Son verificaciones fuera del navegador de desarrollo; no hay funciones del plan sin destino.

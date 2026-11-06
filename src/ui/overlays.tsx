@@ -64,7 +64,7 @@ export function CabeceraModal({ icono, sobretitulo, titulo, children, onCerrar }
     <div className="flex items-start gap-3.5 px-6 pt-6">
       {icono && <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">{icono}</span>}
       <div className="min-w-0 flex-1">
-        {sobretitulo && <p className="text-[11px] font-bold tracking-wider text-accent uppercase">{sobretitulo}</p>}
+        {sobretitulo && <p className="text-[12px] font-bold text-accent">{sobretitulo}</p>}
         <h2 className="text-lg leading-snug font-bold tracking-tight">{titulo}</h2>
         {children && <div className="mt-1 text-[13.5px] leading-relaxed text-fg-2">{children}</div>}
       </div>

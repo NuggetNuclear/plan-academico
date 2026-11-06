@@ -1,9 +1,11 @@
 import {
   BarChart3,
+  CalendarDays,
   CalendarRange,
   ChevronsLeft,
   ChevronsRight,
   CircleHelp,
+  FlaskConical,
   Grid3x3,
   GraduationCap,
   Home,
@@ -12,6 +14,7 @@ import {
   Moon,
   NotebookPen,
   Search,
+  Settings,
   Sun,
   Undo2,
   UserRound,
@@ -35,27 +38,33 @@ interface ItemNav {
 
 export const NAV: ItemNav[] = [
   { vista: "inicio", titulo: "Inicio", corto: "Inicio", icono: Home, descripcion: "Lo que viene, tu avance y tu situación académica" },
-  { vista: "notas", titulo: "Notas", corto: "Notas", icono: NotebookPen, descripcion: "Evaluaciones, ponderaciones y simulador" },
+  { vista: "notas", titulo: "Notas", corto: "Notas", icono: NotebookPen, descripcion: "Registra notas y configura las evaluaciones de cada ramo" },
+  { vista: "agenda", titulo: "Agenda", corto: "Agenda", icono: CalendarDays, descripcion: "Tus evaluaciones por fecha y exportación al calendario" },
   { vista: "malla", titulo: "Mi malla", corto: "Malla", icono: Grid3x3, descripcion: "Marca lo que aprobaste y lo que cursas" },
   { vista: "planificacion", titulo: "Plan de carrera", corto: "Plan", icono: CalendarRange, descripcion: "El resto de tu carrera, semestre a semestre" },
+  { vista: "simulaciones", titulo: "Simulaciones", corto: "Simular", icono: FlaskConical, descripcion: "Prueba notas y PPA sin tocar tus registros" },
   { vista: "estadisticas", titulo: "Estadísticas", corto: "Stats", icono: BarChart3, descripcion: "Evolución del PPA y distribución de notas" },
+  { vista: "configuracion", titulo: "Configuración", corto: "Ajustes", icono: Settings, descripcion: "Datos académicos, importar y respaldar, apariencia" },
   { vista: "ayuda", titulo: "Ayuda", corto: "Ayuda", icono: CircleHelp, descripcion: "Cómo funciona y reglas de tu carrera" },
 ];
 
 /** Grupos de la navegación: sirven para ubicarse, sin submenús. */
 const GRUPOS: { titulo: string; vistas: Vista[] }[] = [
-  { titulo: "Día a día", vistas: ["inicio", "notas"] },
-  { titulo: "Mi carrera", vistas: ["malla", "planificacion", "estadisticas"] },
-  { titulo: "Utilidades", vistas: ["ayuda"] },
+  { titulo: "Día a día", vistas: ["inicio", "notas", "agenda"] },
+  { titulo: "Mi carrera", vistas: ["malla", "planificacion", "simulaciones", "estadisticas"] },
+  { titulo: "Utilidades", vistas: ["configuracion", "ayuda"] },
 ];
 /** Accesos de la barra inferior del celular; el resto vive en Menú. */
-const EN_BARRA: Vista[] = ["inicio", "notas", "malla"];
+const EN_BARRA: Vista[] = ["inicio", "notas", "agenda"];
 const itemDe = (v: Vista) => NAV.find((n) => n.vista === v)!;
 
 const VISTAS: Record<Vista, ComponentType> = {
   inicio: Inicio,
   malla: lazy(() => import("../views/Malla").then((m) => ({ default: m.Malla }))),
   notas: lazy(() => import("../views/Notas").then((m) => ({ default: m.Notas }))),
+  agenda: lazy(() => import("../views/Agenda").then((m) => ({ default: m.Agenda }))),
+  simulaciones: lazy(() => import("../views/Simulaciones").then((m) => ({ default: m.Simulaciones }))),
+  configuracion: lazy(() => import("../views/Configuracion").then((m) => ({ default: m.Configuracion }))),
   planificacion: lazy(() => import("../views/Planificacion").then((m) => ({ default: m.Planificacion }))),
   estadisticas: lazy(() => import("../views/Estadisticas").then((m) => ({ default: m.Estadisticas }))),
   ayuda: lazy(() => import("../views/Ayuda").then((m) => ({ default: m.Ayuda }))),

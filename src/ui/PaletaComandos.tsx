@@ -116,7 +116,7 @@ export function PaletaComandos() {
             grupoPrevio = it.grupo;
             return (
               <li key={it.id} role="presentation">
-                {encabezado && <p className="px-3 pt-2 pb-1 text-[11px] font-bold tracking-wider text-fg-3 uppercase">{encabezado}</p>}
+                {encabezado && <p className="px-3 pt-2 pb-1 text-[12px] font-semibold text-fg-3">{encabezado}</p>}
                 <button
                   type="button"
                   data-idx={i}

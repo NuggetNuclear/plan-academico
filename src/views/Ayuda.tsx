@@ -75,7 +75,7 @@ export function Ayuda() {
         <Seccion id="ayuda-como" icono={<BookOpen />} titulo="Cómo funciona" abierta>
           <ol className="space-y-2.5">
             {[
-              ["Completa tus datos.", "El asistente pregunta en qué semestre vas, si tienes inglés eximido y si congelaste. Los cambias cuando quieras en Mi malla › Tus datos."],
+              ["Completa tus datos.", "El asistente pregunta en qué semestre vas, si tienes inglés eximido y si congelaste. Los cambias cuando quieras en Configuración › Datos académicos."],
               ["Marca tu malla.", "Usa «Marcar semestres completos» y luego desmarca lo que debes. Marca como Cursando los ramos de este semestre."],
               ["Revisa tu plan.", "En Planificación ya tienes un plan recomendado. Ajusta tus créditos y la práctica, arrastra ramos y presiona «Quedarme con este plan»."],
               ["Registra tus notas.", "En Notas, el semestre en curso ya existe con tus ramos. Al registrar la nota final, el ramo pasa a aprobado en la malla."],
@@ -119,7 +119,7 @@ export function Ayuda() {
                 <Briefcase className="size-4 text-accent" /> Prácticas profesionales
               </p>
               {practicas.map((r) => (
-                <div key={r.id} className="rounded-xl border border-line p-3">
+                <div key={r.id} className="rounded-2xl bg-surface-2 p-3.5">
                   <p className="font-semibold text-fg">
                     {siglaRamo(ctx, r.id)} — {nombreRamo(ctx, r.id)}
                   </p>
@@ -178,7 +178,7 @@ export function Ayuda() {
               </div>
             ))}
           </div>
-          <div className="rounded-xl border border-line p-4">
+          <div className="rounded-2xl bg-surface-2 p-4">
             <p className="font-bold text-fg">¿Cómo se calcula el PPA?</p>
             <p className="my-2 rounded-lg bg-surface-2 px-3 py-2 text-center font-mono text-[13px] text-fg">PPA = Σ (nota final × créditos) ÷ Σ créditos con nota final</p>
             <ul className="space-y-1">
@@ -188,7 +188,7 @@ export function Ayuda() {
             </ul>
             <p className="mt-2 text-[13px]">Ejemplo: 5,0 en un ramo de 6 créditos y 6,0 en uno de 7 → (5,0×6 + 6,0×7) ÷ 13 = <strong>5,538</strong>.</p>
           </div>
-          <div className="rounded-xl border border-line p-4">
+          <div className="rounded-2xl bg-surface-2 p-4">
             <p className="font-bold text-fg">Nota de un ramo: actual, peor caso y lo que necesitas</p>
             <ul className="mt-1 list-disc space-y-1 pl-5">
               <li><strong>Promedio de categoría:</strong> cada nota pesa según su factor ×. Un factor 0 la elimina (ej. se borra la peor prueba).</li>
@@ -255,7 +255,7 @@ export function Ayuda() {
             <strong>Notas</strong> es un planner académico hecho por y para estudiantes de <strong>{ctx.cur.malla.carrera}</strong> ({ctx.cur.malla.siglaUniversidad ?? ctx.cur.malla.universidad}): malla interactiva, notas con ponderaciones, simulador de PPA, planificación de semestres y estadísticas. La malla, las prácticas y las causales siguen las reglas de esa carrera.
           </p>
           <p>
-            <strong>Tus datos son tuyos:</strong> todo se guarda en tu navegador. Si activas la sincronización con Google, se guarda una copia cifrada con una contraseña que solo tú conoces. Exporta un respaldo de vez en cuando desde Mi cuenta.
+            <strong>Tus datos son tuyos:</strong> todo se guarda en tu navegador. Si activas la sincronización con Google, se guarda una copia cifrada con una contraseña que solo tú conoces. Exporta un respaldo de vez en cuando desde Configuración › Importar y respaldar.
           </p>
           <p>
             <strong>Créditos:</strong> Notas es un remake del{" "}

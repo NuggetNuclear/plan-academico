@@ -1,14 +1,15 @@
-import { Asterisk, ChevronDown, CircleCheck, CircleX, ClipboardList, Eraser, Flag, GraduationCap, MoreHorizontal, Plus, RotateCcw, Target, Trash2, TrendingDown } from "lucide-react";
+import { Asterisk, ChevronDown, CircleCheck, CircleX, ClipboardList, Eraser, Flag, GraduationCap, MoreHorizontal, Plus, RotateCcw, Target, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { clavePeriodo, creditosEntrada, esPeriodoActual, nombreEntrada, siglaEntrada, situacionSemestreUDP, type Ctx } from "../../core/academic";
-import { NOTA_APROB, fmtNota, fmtPct, leerNumero, numeroConComa } from "../../core/format";
+import { NOTA_APROB, fmtNota, fmtPct, leerNumero, numeroConComa, plural } from "../../core/format";
 import { calcularRamo, configExamen, indiceExamen, ramoAsegurado, statsCategoria, type Condicion, type InfoExamen } from "../../core/grades";
 import type { ConfigExamen, Entrada, Periodo } from "../../core/state";
 import { useApp, accionDeshacer } from "../../store/app";
 import { cerrarEntrada, periodoPorClave, quitarEntrada, reabrirEntrada } from "../../store/mutaciones";
 import { confirmar, pedirTexto, toast } from "../../store/ui";
 import { OpcionMenu, Popover } from "../../ui/overlays";
-import { Boton, BotonIcono, Insignia, cx } from "../../ui/primitives";
+import { CampoNumero } from "../../ui/CampoNumero";
+import { Boton, BotonIcono, Insignia, Interruptor, PanelPestana, Pestanas, cx, idPanel, idPestana } from "../../ui/primitives";
 
 import { AvisoCausalRamo, letrasCausal } from "../riesgoCausal";
 import { EditorEvaluacion } from "./EditorEvaluacion";
@@ -70,6 +71,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
   const [editando, setEditando] = useState(false);
   const [menu, setMenu] = useState(false);
   const [verTodo, setVerTodo] = useState(false);
+  const [pestana, setPestana] = useState<"evaluaciones" | "reglas" | "meta">("evaluaciones");
   const refMenu = useRef<HTMLButtonElement>(null);
   const clave = clavePeriodo(periodo);
   const editar = useEditor(clave, entrada.uid);
@@ -88,6 +90,8 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
   const nombre = nombreEntrada(ctx, entrada);
   const sinConfigurar = entrada.categorias.length === 0;
   const hayNotas = entrada.categorias.some((c) => c.notas.some((n) => n.n !== null));
+  const conPestanas = !r.cerrado && !sinConfigurar;
+  const base = `ramo-${entrada.uid}`;
 
   const chip = r.cerrado ? (
     <Insignia tono={notaMostrada! >= NOTA_APROB ? "ok" : "danger"}>{conv ? "Convalidado" : notaMostrada! >= NOTA_APROB ? "Aprobado" : "Reprobado"}</Insignia>
@@ -114,8 +118,6 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
     if (ex) ayudas.push(...ayudasExamen(ex, cfgExamen));
     r.reqMetas.forEach((m) => ayudas.push({ k: "r" + m.nombre, tono: "warn", icono: <Asterisk className="size-3.5" />, texto: `${m.nombre} debe aprobarse: ≥ ${fmtNota(m.nec, 2)} en lo que queda` }));
     r.reqFallidos.forEach((n) => ayudas.push({ k: "f" + n, tono: "danger", icono: <Asterisk className="size-3.5" />, texto: `${n} quedó bajo 4,0 y debía aprobarse` }));
-    if (r.necesariaMeta !== null && entrada.meta)
-      ayudas.push({ k: "m", tono: "acento", icono: <Flag className="size-3.5" />, texto: `Meta ${fmtNota(entrada.meta)}: ${r.necesariaMeta > 7 ? "ya no alcanza" : r.necesariaMeta <= 1 ? "asegurada" : `necesitas ${fmtNota(r.necesariaMeta, 2)}`}` });
   }
   // El aviso principal va primero; la nota de presentación es información, no urgencia.
   const ordenadas = [...ayudas].sort((a, b) => (a.k === "a" ? -1 : b.k === "a" ? 1 : PRIORIDAD[a.tono] - PRIORIDAD[b.tono]));
@@ -147,27 +149,6 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
     if (nota >= NOTA_APROB) toast(`${nombre} ${conv ? "convalidado" : "aprobado"} con ${fmtNota(nota)} 🎉`);
     else if (causales.length) toast(`${nombre} reprobado con ${fmtNota(nota)}: quedas en ${letrasCausal(causales)} de eliminación. Revisa Inicio › Tu situación académica.`, "error");
     else toast(`${nombre} reprobado con ${fmtNota(nota)}. La nota queda en tu PPA y el ramo vuelve a estar disponible.`, "error");
-  };
-
-  const definirMeta = async () => {
-    const v = await pedirTexto({
-      titulo: "Meta para este ramo",
-      mensaje: "¿Qué nota te gustaría sacar? Te diremos cuánto necesitas en lo que queda. Déjalo vacío para quitarla.",
-      aceptar: "Guardar meta",
-      campo: {
-        etiqueta: "Nota objetivo",
-        valor: entrada.meta ? numeroConComa(entrada.meta) : "",
-        placeholder: "Ej. 5,5",
-        inputMode: "decimal",
-        validar: (x) => {
-          if (!x.trim()) return null;
-          const n = leerNumero(x);
-          return Number.isNaN(n) || n < 1 || n > 7 ? "Escribe una nota entre 1,0 y 7,0." : null;
-        },
-      },
-    });
-    if (v === null) return;
-    editar("Meta del ramo", (e) => (e.meta = v.trim() ? Math.round(leerNumero(v) * 10) / 10 : null));
   };
 
   const agregarDecimas = async () => {
@@ -208,7 +189,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
     <article
       aria-label={nombre}
       className={cx(
-        "card flex min-w-0 flex-col overflow-hidden !rounded-2xl transition-colors",
+        "card flex min-w-0 flex-col overflow-hidden transition-colors",
         r.cerrado ? (notaMostrada! >= NOTA_APROB ? "border-ok/30" : "border-danger/30") : asegurado ? "border-ok/30" : reqMal ? "border-danger/30" : "",
       )}
     >
@@ -239,6 +220,92 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
       <div className="flex-1 space-y-3 px-4 pb-4">
         {actual && !r.cerrado && <AvisoCausalRamo ctx={ctx} entrada={entrada} />}
 
+        {conPestanas && (
+          <Pestanas
+            base={base}
+            tamano="sm"
+            etiqueta={`Detalle de ${nombre}`}
+            valor={pestana}
+            onChange={setPestana}
+            opciones={[
+              { valor: "evaluaciones", etiqueta: "Evaluaciones" },
+              { valor: "reglas", etiqueta: "Reglas" },
+              { valor: "meta", etiqueta: entrada.meta ? `Meta ${fmtNota(entrada.meta)}` : "Meta" },
+            ]}
+          />
+        )}
+        {conPestanas && pestana === "reglas" && (
+          <PanelPestana base={base} valor="reglas" className="space-y-3">
+            <ul className="divide-y divide-line rounded-2xl bg-surface-2 text-[13px]">
+              {entrada.categorias.map((cat, ci) => (
+                <li key={cat.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3.5 py-2.5">
+                  <span className="font-semibold">
+                    {ci === iExamen && <GraduationCap aria-hidden="true" className="mr-1 inline size-3.5 text-accent" />}
+                    {cat.nombre || `Categoría ${ci + 1}`}
+                    <span className="font-normal text-fg-3"> · {plural(cat.notas.length, "evaluación", "evaluaciones")}</span>
+                  </span>
+                  <span className={cx("tabular", cat.peso ? "text-fg-2" : "font-semibold text-warn")}>
+                    {!cat.peso ? "sin %" : escalaPresentacion && ci !== iExamen ? `${fmtPct(cat.peso)}% de la presentación` : `${fmtPct(cat.peso)}% del ramo`}
+                    {cat.req && " · debe aprobarse"}
+                    {cat.minimos?.eximir != null && ` · eximir con ≥ ${fmtNota(cat.minimos.eximir)}`}
+                    {cat.minimos?.examen != null && ` · examen con ≥ ${fmtNota(cat.minimos.examen)}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {iExamen >= 0 && (
+              <p className="text-[12.5px] text-fg-2">
+                Examen: {cfgExamen.eximicion !== null ? `te eximes con presentación ≥ ${fmtNota(cfgExamen.eximicion)}` : "este ramo no exime"}
+                {cfgExamen.asistenciaMin !== null && ` y ${cfgExamen.asistenciaMin}% de asistencia`}
+                {cfgExamen.minPresentacion != null && ` · para darlo necesitas presentación ≥ ${fmtNota(cfgExamen.minPresentacion)}`}.
+              </p>
+            )}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Interruptor
+                checked={r.modo === "peor"}
+                onChange={(v) => editar(null, (e) => (e.modo = v ? "peor" : "actual"))}
+                etiqueta="Ver peor caso"
+                descripcion="Lo pendiente cuenta como 1,0"
+              />
+              <Boton tamano="sm" variante="suave" icono={<ClipboardList className="size-4" />} onClick={() => setEditando(true)}>
+                Editar reglas
+              </Boton>
+            </div>
+            <p className="text-[12px] text-fg-3">Porcentajes, examen, eximición, asistencia, plantillas o copiar la estructura de otro ramo.</p>
+          </PanelPestana>
+        )}
+        {conPestanas && pestana === "meta" && (
+          <PanelPestana base={base} valor="meta" className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2 text-[13px]">
+              <label htmlFor={`${base}-meta`} className="font-semibold">Quiero terminar con</label>
+              <CampoNumero
+                id={`${base}-meta`}
+                className="input !w-20 text-center font-bold"
+                valor={entrada.meta ?? null}
+                min={1}
+                max={7}
+                decimales={1}
+                minDecimales={1}
+                placeholder="5,5"
+                onGuardar={(v) => editar("Meta del ramo", (e) => (e.meta = v === null ? null : Math.round(v * 10) / 10))}
+              />
+            </div>
+            <p className="rounded-2xl bg-accent-soft px-4 py-3 text-[13px]">
+              {!entrada.meta
+                ? "Escribe una nota objetivo y te diremos cuánto necesitas en lo que queda. Déjalo vacío para no tener meta."
+                : r.necesariaMeta === null
+                  ? "Ya no quedan evaluaciones pendientes para ajustar."
+                  : r.necesariaMeta > 7
+                    ? <>Con lo que queda ya no alcanza un {fmtNota(entrada.meta)}.</>
+                    : r.necesariaMeta <= 1
+                      ? <>Tu meta de {fmtNota(entrada.meta)} está asegurada.</>
+                      : <>Para llegar a {fmtNota(entrada.meta)} necesitas <strong className="text-accent tabular">{fmtNota(r.necesariaMeta, 2)}</strong> en lo que queda ({fmtPct(r.restante)}%).</>}
+            </p>
+          </PanelPestana>
+        )}
+        {(!conPestanas || pestana === "evaluaciones") && (
+        <div {...(conPestanas ? { role: "tabpanel", id: idPanel(base, "evaluaciones"), "aria-labelledby": idPestana(base, "evaluaciones") } : {})} className="space-y-3">
+
         {sinConfigurar && !r.cerrado ? (
           <div className="rounded-xl border border-dashed border-line-strong p-4 text-center">
             <p className="text-sm font-semibold">¿Cómo se evalúa este ramo?</p>
@@ -247,7 +314,7 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
           </div>
         ) : (
           entrada.categorias.length > 0 && (
-            <ul className="divide-y divide-line rounded-xl border border-line">
+            <ul className="divide-y divide-line rounded-2xl bg-surface-2">
               {entrada.categorias.map((cat, ci) => {
                 const st = statsCategoria(cat);
                 const prom = r.modo === "actual" ? st.promRendido : st.prom;
@@ -272,8 +339,8 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
                         const titulo = [etiqueta, n.fecha ? fechaCorta(n.fecha) : null, n.f !== 1 ? `vale ×${numeroConComa(n.f)}` : null, saltado ? "no lo rindes" : null].filter(Boolean).join(" · ");
                         const contenido = n.n === null ? (saltado ? "—" : n.fecha ? fechaCorta(n.fecha) : <Plus aria-hidden="true" className="size-3.5" />) : fmtNota(n.n);
                         const clase = cx(
-                          "inline-flex h-9 min-w-11 items-center justify-center rounded-lg border px-2 font-mono text-[13px] font-bold tabular transition-colors",
-                          n.n === null ? "border-dashed border-line-strong text-fg-3" : cx("border-line-strong bg-surface-2", claseNota(n.n)),
+                          "inline-flex h-9 min-w-11 items-center justify-center rounded-xl border px-2 font-mono text-[13px] font-bold tabular transition-colors",
+                          n.n === null ? "border-dashed border-line-strong text-fg-3" : cx("border-transparent bg-surface", claseNota(n.n)),
                           n.f === 0 && "opacity-50",
                           n.n === null && n.fecha && "font-sans text-[11px] font-semibold",
                         );
@@ -322,9 +389,11 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
             )}
           </div>
         )}
+        </div>
+        )}
       </div>
 
-      <footer className="flex items-center gap-2 border-t border-line px-3 py-2.5">
+      <footer className="flex flex-wrap items-center gap-2 px-3 pt-1 pb-3">
         {r.cerrado ? (
           <Boton tamano="sm" variante="fantasma" icono={<RotateCcw className="size-4" />} onClick={() => editar(`Reabrir ${nombre}`, (e, c, p) => reabrirEntrada(c, p, e))}>
             Reabrir
@@ -334,9 +403,9 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
             Registrar nota
           </Boton>
         )}
-        {!r.cerrado && !sinConfigurar && (
+        {!r.cerrado && !sinConfigurar && pestana !== "reglas" && (
           <Boton tamano="sm" variante="fantasma" icono={<ClipboardList className="size-4" />} onClick={() => setEditando(true)}>
-            Evaluaciones
+            Editar reglas
           </Boton>
         )}
         <BotonIcono ref={refMenu} tamano="sm" className="ml-auto" etiqueta={`Más opciones de ${nombre}`} aria-expanded={menu} aria-haspopup="dialog" onClick={() => setMenu((v) => !v)}>
@@ -345,18 +414,6 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
         <Popover ancla={refMenu} abierto={menu} onCerrar={() => setMenu(false)} ancho={250}>
           {!r.cerrado && (
             <>
-              <OpcionMenu icono={<Target />} onClick={opcion(definirMeta)} descripcion="Calcula cuánto necesitas para lograrla">
-                {entrada.meta ? `Meta: ${fmtNota(entrada.meta)}` : "Ponerme una meta"}
-              </OpcionMenu>
-              {!sinConfigurar && (
-                <OpcionMenu
-                  icono={<TrendingDown />}
-                  onClick={opcion(() => editar(null, (e) => (e.modo = r.modo === "peor" ? "actual" : "peor")))}
-                  descripcion={r.modo === "peor" ? "Volver al promedio de lo rendido" : "Lo pendiente cuenta como 1,0"}
-                >
-                  {r.modo === "peor" ? "Ver promedio actual" : "Ver peor caso"}
-                </OpcionMenu>
-              )}
               <OpcionMenu icono={<Flag />} onClick={opcion(registrarFinal)} descripcion="Cuando ya tienes la nota oficial">
                 Cerrar con nota final
               </OpcionMenu>

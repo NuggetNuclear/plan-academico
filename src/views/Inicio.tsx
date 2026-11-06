@@ -336,17 +336,17 @@ function Resumen() {
 
 type TonoRiesgo = "neutro" | "info" | "ok" | "warn" | "danger";
 const CLASE_TONO: Record<TonoRiesgo, string> = {
-  neutro: "border-line",
-  info: "border-info/25 bg-info-soft",
-  ok: "border-ok/25 bg-ok-soft",
-  warn: "border-warn/25 bg-warn-soft",
-  danger: "border-danger/25 bg-danger-soft",
+  neutro: "bg-surface-2",
+  info: "bg-info-soft",
+  ok: "bg-ok-soft",
+  warn: "bg-warn-soft",
+  danger: "bg-danger-soft",
 };
 
 function Contador({ causal, valor, detalle, tono }: { causal: string; valor: React.ReactNode; detalle: React.ReactNode; tono: TonoRiesgo }) {
   return (
-    <div className={cx("rounded-xl border px-3 py-2.5", CLASE_TONO[tono])}>
-      <p className="text-[11.5px] font-bold tracking-wide text-fg-3 uppercase">Causal {causal}</p>
+    <div className={cx("rounded-2xl px-3.5 py-3", CLASE_TONO[tono])}>
+      <p className="text-[12px] font-bold text-fg-2">Causal {causal}</p>
       <p className={cx("text-[20px] leading-tight font-extrabold tabular", tono === "danger" ? "text-danger" : tono === "info" ? "text-info" : "text-fg")}>{valor}</p>
       <p className="text-[12px] text-fg-2">{detalle}</p>
     </div>
@@ -396,7 +396,7 @@ function CausalesUDP() {
         </ul>
       )}
       {ultimo && (
-        <div className="space-y-2 rounded-xl border border-line px-3 py-2 text-[13px]">
+        <div className="space-y-2 rounded-2xl bg-surface-2 px-3.5 py-2.5 text-[13px]">
           <p>
             Puedes solicitar tu permanencia por escrito al Comité de Carrera (art. 39).
             {reincidencia ? " Ya tuviste una permanencia aceptada: si te la rechazan, la apelación a la Comisión Especial de Gracia es solo para la primera causal (art. 40)." : " Si la rechaza, puedes ir a la Comisión de Gracia de la Facultad y luego a la Comisión Especial de Gracia (art. 40)."}
@@ -552,13 +552,13 @@ function SituacionUDP() {
         />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-line p-4">
+        <div className="rounded-2xl bg-surface-2 p-4">
           <p className="mb-3 flex items-center gap-2 text-[13.5px] font-bold">
             <Info className="size-4 text-info" /> Causales de eliminación
           </p>
           <CausalesUDP />
         </div>
-        <div className="rounded-2xl border border-line p-4">
+        <div className="rounded-2xl bg-surface-2 p-4">
           <p className="mb-3 flex items-center gap-2 text-[13.5px] font-bold">
             <ShieldAlert className="size-4 text-accent" /> Para no caer este semestre · S{s.semestre}
           </p>
@@ -618,7 +618,7 @@ function MisRamos({ onRegistrar }: { onRegistrar: AbrirRegistro }) {
           .
         </div>
       ) : (
-        <ul className="grid gap-2.5">
+        <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5">
           {entradas.map((e) => {
             const c = calcularRamo(e);
             const nota = c.nf !== null ? Math.min(7, c.nf + (c.decimas || 0)) : null;
@@ -679,7 +679,7 @@ function ProximasEvaluaciones() {
   const fmt = new Intl.DateTimeFormat("es-CL", { weekday: "short", day: "numeric", month: "short" });
   return (
     <Tarjeta>
-      <CabeceraTarjeta icono={<CalendarClock className="size-[18px]" />} titulo="Próximas evaluaciones" descripcion="Agrega fechas a tus evaluaciones en Notas y aparecerán aquí." />
+      <CabeceraTarjeta icono={<CalendarClock className="size-[18px]" />} titulo="Próximas evaluaciones" descripcion="Las que tienen fecha, en orden." acciones={<Boton tamano="sm" variante="fantasma" onClick={() => irA("agenda")}>Ver agenda</Boton>} />
       {proximas.length === 0 ? (
         <p className="text-[13px] text-fg-2">
           No tienes evaluaciones con fecha.{" "}

@@ -1,5 +1,5 @@
-import { Calculator, CalendarPlus, FileDown, FolderPlus, Search, Target, Trash2, Gauge, Plus, NotebookPen, MoreHorizontal } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { Calculator, CalendarDays, FileDown, FolderPlus, Search, Trash2, Plus, NotebookPen, MoreHorizontal } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   calcularPPA,
   clavePeriodo,
@@ -8,119 +8,20 @@ import {
   nombrePeriodo,
   notaEntrada,
   periodosOrdenados,
-  resumenCreditos,
   siglaEntrada,
 } from "../core/academic";
-import { evaluacionesConFecha, generarICS } from "../core/calendar";
 import { NOTA_APROB, fmtNota, normalizarTexto, plural } from "../core/format";
 import { notaDesdePuntaje, puntajeParaNota } from "../core/grades";
 import type { Periodo, TipoPeriodo } from "../core/state";
 import { escaparHTML, abrirImpresion } from "../lib/imprimir";
-import { descargarArchivo } from "../store/respaldo";
 import { useApp, useCtx } from "../store/app";
 import { agregarRamoAPeriodo, eliminarPeriodo, obtenerPeriodo, periodoPorClave } from "../store/mutaciones";
-import { confirmar, toast } from "../store/ui";
+import { confirmar, toast, useUI } from "../store/ui";
 import { CampoNumero } from "../ui/CampoNumero";
 import { CabeceraModal, Modal, OpcionMenu, PieModal, Popover } from "../ui/overlays";
-import { Boton, BotonIcono, Segmentado, cx } from "../ui/primitives";
+import { Boton, BotonIcono, cx } from "../ui/primitives";
 import { RegistroNota, type SeleccionNota } from "./notas/RegistroNota";
 import { RamoCard } from "./notas/RamoCard";
-import { PlanificacionNotas, type EscenarioNotas } from "./notas/PlanificacionNotas";
-import { crearSimulacion } from "./notas/planificacion";
-
-function Simulador() {
-  const ctx = useCtx();
-  const mutar = useApp((s) => s.mutar);
-  const [nota, setNota] = useState(5);
-  const { ppa, creditos } = calcularPPA(ctx);
-  const cred = resumenCreditos(ctx);
-  const enCurso = cred.cursando;
-  const suma = ppa !== null ? ppa * creditos : 0;
-  const total = creditos + enCurso;
-  const simulado = total > 0 && enCurso > 0 ? (suma + nota * enCurso) / total : ppa;
-  const necesaria4 = enCurso > 0 ? (NOTA_APROB * total - suma) / enCurso : null;
-  const meta = ctx.st.prefs.metaPPA;
-  // Créditos que faltan por cursar hasta titularte (pendientes + en curso).
-  const porCursar = Math.max(0, cred.total - cred.avance);
-  const necesariaMeta = meta !== null && porCursar > 0 ? ((meta - 0.0005) * (creditos + porCursar) - suma) / porCursar : null;
-
-  return (
-    <div>
-      <div className="grid gap-5 md:grid-cols-2">
-        <div>
-          <p className="flex items-center gap-2 text-[13px] font-semibold text-fg-2">
-            <Gauge className="size-4 text-accent" /> Simulador de PPA
-          </p>
-          <p className="mt-1 text-[13.5px]">
-            Si cierras el semestre con <strong className="text-accent tabular">{fmtNota(nota)}</strong> en tus {enCurso} créditos en curso, tu PPA queda en{" "}
-            <strong className={cx("tabular", simulado !== null && simulado < NOTA_APROB ? "text-danger" : "text-fg")}>{fmtNota(simulado, 3)}</strong>
-          </p>
-          <input
-            type="range"
-            className="rango mt-3 w-full"
-            min={1}
-            max={7}
-            step={0.1}
-            value={nota}
-            disabled={enCurso === 0}
-            style={{ ["--avance" as string]: `${((nota - 1) / 6) * 100}%` }}
-            onChange={(e) => setNota(Number(e.target.value))}
-            aria-label="Nota promedio simulada para el semestre"
-          />
-          <div className="mt-1 flex justify-between text-[10.5px] text-fg-3 tabular">
-            <span>1,0</span>
-            <span>4,0</span>
-            <span>7,0</span>
-          </div>
-          <p className="mt-2 text-[12.5px] text-fg-2">
-            {enCurso === 0
-              ? "Marca ramos como Cursando para simular."
-              : necesaria4 === null
-                ? ""
-                : necesaria4 <= 1
-                  ? "✓ Con cualquier nota quedas sobre 4,0 de PPA."
-                  : necesaria4 > 7
-                    ? "Este semestre no alcanza para llegar a 4,0 de PPA."
-                    : `Necesitas al menos ${fmtNota(necesaria4)} este semestre para quedar con PPA 4,0.`}
-          </p>
-        </div>
-        <div className="rounded-2xl bg-surface-2 p-4">
-          <p className="flex items-center gap-2 text-[13px] font-semibold text-fg-2">
-            <Target className="size-4 text-accent" /> Meta de PPA al titularte
-          </p>
-          <div className="mt-2 flex items-center gap-2">
-            <span className="text-[13px] text-fg-2">Quiero egresar con</span>
-            <CampoNumero
-              className="input w-20 text-center font-bold"
-              valor={meta}
-              min={1}
-              max={7}
-              placeholder="5,5"
-              decimales={2}
-              aria-label="PPA objetivo"
-              onGuardar={(v) => mutar("Meta de PPA", ({ st }) => (st.prefs.metaPPA = v))}
-            />
-          </div>
-          <p className="mt-3 text-[13px]">
-            {meta === null ? (
-              <span className="text-fg-3">Escribe un PPA objetivo y te diremos qué promedio necesitas en lo que te queda.</span>
-            ) : porCursar === 0 ? (
-              <span className="text-fg-2">No te quedan créditos por cursar.</span>
-            ) : necesariaMeta === null ? null : necesariaMeta > 7 ? (
-              <span className="font-semibold text-danger">Con {porCursar} créditos por delante ya no alcanza: el máximo posible es {fmtNota((suma + 7 * porCursar) / (creditos + porCursar), 2)}.</span>
-            ) : necesariaMeta <= 1 ? (
-              <span className="font-semibold text-ok">¡Meta asegurada pase lo que pase!</span>
-            ) : (
-              <>
-                Necesitas promediar <strong className="text-accent tabular">{fmtNota(necesariaMeta, 2)}</strong> en los {porCursar} créditos que te quedan.
-              </>
-            )}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function ModalPeriodo({ abierto, onCerrar, onCrear }: { abierto: boolean; onCerrar: () => void; onCrear: (tipo: TipoPeriodo, n: number) => void }) {
   const ctx = useCtx();
@@ -314,24 +215,23 @@ function BuscadorRamo({ periodo }: { periodo: Periodo }) {
 }
 
 export function Notas() {
-  const ctx = useCtx();
-  const [modo, setModo] = useState<"registro" | "planificacion">("registro");
-  const [escenario, setEscenario] = useState<EscenarioNotas>(() => ({ origen: "", entrada: crearSimulacion() }));
-  return <div className="space-y-4">
-    <Segmentado etiqueta="Modo de notas" valor={modo} onChange={setModo} opciones={[
-      { valor: "registro", etiqueta: "Registro" },
-      { valor: "planificacion", etiqueta: "Planificación" },
-    ]} />
-    {modo === "planificacion" ? <PlanificacionNotas ctx={ctx} escenario={escenario} onCambiar={setEscenario} /> : <RegistroNotas />}
-  </div>;
+  return <RegistroNotas />;
 }
+
+/** Periodo y búsqueda elegidos: se conservan al ir a otra sección y volver (no al recargar). */
+const memoria: { sel: string | null; buscar: string } = { sel: null, buscar: "" };
 
 function RegistroNotas() {
   const ctx = useCtx();
+  const irA = useUI((s) => s.irA);
   const mutar = useApp((s) => s.mutar);
-  const [sel, setSel] = useState<string | null>(null);
+  const [sel, setSel] = useState<string | null>(memoria.sel);
   const [registro, setRegistro] = useState<SeleccionNota | null>(null);
-  const [buscar, setBuscar] = useState("");
+  const [buscar, setBuscar] = useState(memoria.buscar);
+  useEffect(() => {
+    memoria.sel = sel;
+    memoria.buscar = buscar;
+  }, [sel, buscar]);
   const [agregando, setAgregando] = useState(false);
   const [modalPeriodo, setModalPeriodo] = useState(false);
   const [modalEscala, setModalEscala] = useState(false);
@@ -369,13 +269,6 @@ function RegistroNotas() {
     abrirImpresion("Notas y PPA", `${ctx.cur.malla.carrera} · ${ctx.cur.malla.universidad}`, cuerpo);
   };
 
-  const exportarICS = () => {
-    const evs = evaluacionesConFecha(ctx);
-    if (!evs.length) return toast("Primero agrega una fecha al registrar o editar una evaluación.", "info");
-    descargarArchivo(`evaluaciones-s${ctx.st.semestreActual}.ics`, generarICS(evs, `Evaluaciones · ${ctx.cur.malla.carrera}`), "text/calendar");
-    toast(`${plural(evs.length, "evaluación exportada", "evaluaciones exportadas")}. Ábrelo con Google Calendar o tu app de calendario.`);
-  };
-
   const eliminarEstePeriodo = async () => {
     if (!periodo) return;
     const ok = await confirmar({
@@ -406,6 +299,33 @@ function RegistroNotas() {
             {pendientes > 0 && ` · ${plural(pendientes, "evaluación pendiente", "evaluaciones pendientes")}`}
             {promedio !== null && <> · promedio <strong className={cx("tabular", promedio < NOTA_APROB ? "text-danger" : "text-fg")}>{fmtNota(promedio, 2)}</strong></>}
           </p>
+          {periodo && periodo.tipo === "regular" && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <label className="text-[12.5px] font-semibold text-fg-2" htmlFor="ventana" title="Tu ventana de inscripción de este semestre">
+              Ventana de inscripción
+            </label>
+            <input
+              id="ventana"
+              key={claveSel}
+              className="input !w-20 !py-1 text-center font-bold uppercase placeholder:font-normal placeholder:normal-case"
+              defaultValue={periodo.ventana ?? ""}
+              placeholder="Ej. A5"
+              maxLength={2}
+              title="Letra de A a E y número de 1 a 5, por ejemplo A5"
+              onBlur={(e) => {
+                const v = e.target.value.trim().toUpperCase();
+                if (v && !/^[A-E][1-5]$/.test(v)) {
+                  e.target.value = periodo.ventana ?? "";
+                  return toast("Ventana inválida. Usa una letra de A a E y un número de 1 a 5 (ej. A5).", "error");
+                }
+                if (v !== (periodo.ventana ?? "")) mutar("Ventana del semestre", (c) => {
+                  const p = periodoPorClave(c.st, claveSel);
+                  if (p) p.ventana = v || undefined;
+                });
+              }}
+            />
+          </div>
+        )}
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <BotonIcono ref={refMenu} etiqueta="Más herramientas" aria-expanded={menu} aria-haspopup="dialog" className="border border-line-strong" onClick={() => setMenu((v) => !v)}>
@@ -413,7 +333,7 @@ function RegistroNotas() {
           </BotonIcono>
           <Popover ancla={refMenu} abierto={menu} onCerrar={() => setMenu(false)} ancho={260}>
             <OpcionMenu icono={<Calculator />} onClick={opcion(() => setModalEscala(true))} descripcion="Convierte puntaje en nota">Escala de notas</OpcionMenu>
-            <OpcionMenu icono={<CalendarPlus />} onClick={opcion(exportarICS)} descripcion="Fechas de evaluaciones a tu calendario">Exportar calendario</OpcionMenu>
+            <OpcionMenu icono={<CalendarDays />} onClick={opcion(() => irA("agenda"))} descripcion="Tus evaluaciones por fecha y exportación al calendario">Ver agenda</OpcionMenu>
             <OpcionMenu icono={<FileDown />} onClick={opcion(exportarPDF)} descripcion="Todas tus notas finales y PPA">Exportar PDF</OpcionMenu>
             <OpcionMenu icono={<FolderPlus />} onClick={opcion(() => setModalPeriodo(true))} descripcion="Semestre pasado, verano o convalidaciones">Crear periodo</OpcionMenu>
             {periodo && !esPeriodoActual(ctx.st, periodo) && (
@@ -462,39 +382,6 @@ function RegistroNotas() {
         </section>
       )}
 
-      <details className="card p-4 sm:p-5">
-        <summary className="cursor-pointer font-semibold text-fg-2">Simulador de PPA y ventana del semestre</summary>
-        <div className="mt-4 space-y-4">
-          <Simulador />
-          {periodo && periodo.tipo === "regular" && (
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="text-[12.5px] font-semibold text-fg-2" htmlFor="ventana">
-                Ventana de {nombrePeriodo(periodo, verano)}
-              </label>
-              <input
-                id="ventana"
-                key={claveSel}
-                className="input w-24 text-center font-bold uppercase placeholder:font-normal placeholder:normal-case"
-                defaultValue={periodo.ventana ?? ""}
-                placeholder="Ej. A5"
-                maxLength={2}
-                title="Letra de A a E y número de 1 a 5, por ejemplo A5"
-                onBlur={(e) => {
-                  const v = e.target.value.trim().toUpperCase();
-                  if (v && !/^[A-E][1-5]$/.test(v)) {
-                    e.target.value = periodo.ventana ?? "";
-                    return toast("Ventana inválida. Usa una letra de A a E y un número de 1 a 5 (ej. A5).", "error");
-                  }
-                  if (v !== (periodo.ventana ?? "")) mutar("Ventana del semestre", (c) => {
-                    const p = periodoPorClave(c.st, claveSel);
-                    if (p) p.ventana = v || undefined;
-                  });
-                }}
-              />
-            </div>
-          )}
-        </div>
-      </details>
       {registro && periodo && <RegistroNota ctx={ctx} periodo={periodo} seleccion={registro} onCerrar={() => setRegistro(null)} />}
 
       <ModalPeriodo

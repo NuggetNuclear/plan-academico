@@ -11,7 +11,7 @@ const fmtFecha = (ms: number | null) => (ms ? new Date(ms).toLocaleString("es-CL
 
 function AccionDatos({ icono, titulo, descripcion, onClick }: { icono: React.ReactNode; titulo: string; descripcion: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="flex items-start gap-3 rounded-2xl border border-line p-3.5 text-left transition-colors hover:border-accent hover:bg-accent-soft">
+    <button type="button" onClick={onClick} className="flex items-start gap-3 rounded-2xl bg-surface-2 p-3.5 text-left transition-colors hover:bg-accent-soft">
       <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent [&>svg]:size-[18px]">{icono}</span>
       <span>
         <strong className="block text-[13.5px]">{titulo}</strong>
@@ -58,18 +58,10 @@ function ModalConflicto() {
   );
 }
 
-export function Cuenta() {
-  const abierto = useUI((s) => s.cuentaAbierta);
-  const setCuenta = useUI((s) => s.setCuenta);
-  const carga = useApp((s) => s.carga);
+/** Importar, respaldar y borrar los datos de este navegador. Se usa en Mi cuenta y en Configuración. */
+export function DatosDelDispositivo({ alSalir }: { alSalir?: () => void }) {
   const sync = useSync();
   const archivo = useRef<HTMLInputElement>(null);
-  const estado = estadoSync(sync);
-
-  useEffect(() => {
-    if (carga === "listo") iniciarSync();
-  }, [carga]);
-
   const exportar = () => {
     const estados = leerTodosLosEstados();
     if (!Object.keys(estados).length) return toast("Todavía no hay datos guardados en este dispositivo.", "error");
@@ -91,7 +83,7 @@ export function Cuenta() {
       });
       if (!ok) return;
       useApp.getState().reemplazarTodo(r.estados);
-      setCuenta(false);
+      alSalir?.();
       toast("Respaldo importado correctamente.");
     } catch (e) {
       toast(e instanceof Error ? e.message : "No se pudo leer el archivo.", "error");
@@ -101,13 +93,69 @@ export function Cuenta() {
   };
 
   return (
+    <div className="space-y-4">
+      <section>
+        <p className="mb-2 text-[13.5px] font-bold">Mis datos</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <AccionDatos
+            icono={<FileUp />}
+            titulo="Importar desde la UDP"
+            descripcion="Sube tu Avance curricular (PDF) o tu Trabajo académico (Excel) y se rellena tu malla."
+            onClick={() => {
+              alSalir?.();
+              useUI.getState().setImportar(true);
+            }}
+          />
+          <AccionDatos icono={<Download />} titulo="Exportar respaldo" descripcion="Un archivo con tu malla, notas y planes." onClick={exportar} />
+          <AccionDatos icono={<Upload />} titulo="Importar respaldo" descripcion="Restaura un respaldo exportado desde esta app." onClick={() => archivo.current?.click()} />
+        </div>
+        <input ref={archivo} type="file" accept="application/json,.json" hidden aria-label="Archivo de respaldo" onChange={(e) => importar(e.target.files?.[0])} />
+      </section>
+      <section className="border-t border-line pt-4">
+        <Boton
+          tamano="sm"
+          variante="fantasma"
+          className="text-danger hover:!bg-danger-soft"
+          icono={<Trash2 className="size-4" />}
+          onClick={async () => {
+            const ok = await confirmar({
+              titulo: "Borrar datos de este dispositivo",
+              mensaje: sync.usuario ? "Se borrará el progreso de este navegador y se cerrará tu sesión. Tu cuenta en la nube no se modifica." : "Se borrará todo el progreso guardado en este navegador. Si no lo exportaste, no se podrá recuperar.",
+              aceptar: "Borrar",
+              peligro: true,
+            });
+            if (!ok) return;
+            if (sync.usuario) await cerrarSesion();
+            borrarEstadosLocales();
+            location.reload();
+          }}
+        >
+          Borrar datos de este dispositivo
+        </Boton>
+      </section>
+    </div>
+  );
+}
+
+export function Cuenta() {
+  const abierto = useUI((s) => s.cuentaAbierta);
+  const setCuenta = useUI((s) => s.setCuenta);
+  const carga = useApp((s) => s.carga);
+  const sync = useSync();
+  const estado = estadoSync(sync);
+
+  useEffect(() => {
+    if (carga === "listo") iniciarSync();
+  }, [carga]);
+
+  return (
     <>
       <Modal abierto={abierto} onCerrar={() => setCuenta(false)} etiqueta="Mi cuenta" ancho="lg">
         <CabeceraModal sobretitulo="Mi cuenta" titulo={sync.usuario ? sync.usuario.nombre : "Tus datos"} onCerrar={() => setCuenta(false)}>
           {sync.usuario ? sync.usuario.correo : "Todo se guarda en este navegador. Respáldalo o sincronízalo para usarlo en otros dispositivos."}
         </CabeceraModal>
         <div className="space-y-5 px-6 py-5">
-          <section className="rounded-2xl border border-line p-4">
+          <section className="rounded-2xl bg-surface-2 p-4">
             {sync.usuario ? (
               <div className="flex flex-wrap items-center gap-3">
                 <span className="grid size-11 place-items-center overflow-hidden rounded-full bg-accent-soft text-accent">
@@ -153,46 +201,10 @@ export function Cuenta() {
             )}
           </section>
 
-          <section>
-            <p className="mb-2 text-[13.5px] font-bold">Mis datos</p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <AccionDatos
-                icono={<FileUp />}
-                titulo="Importar desde la UDP"
-                descripcion="Sube tu Avance curricular (PDF) o tu Trabajo académico (Excel) y se rellena tu malla."
-                onClick={() => {
-                  setCuenta(false);
-                  useUI.getState().setImportar(true);
-                }}
-              />
-              <AccionDatos icono={<Download />} titulo="Exportar respaldo" descripcion="Un archivo con tu malla, notas y planes." onClick={exportar} />
-              <AccionDatos icono={<Upload />} titulo="Importar respaldo" descripcion="Restaura un respaldo exportado desde esta app." onClick={() => archivo.current?.click()} />
-            </div>
-            <input ref={archivo} type="file" accept="application/json,.json" hidden onChange={(e) => importar(e.target.files?.[0])} />
-          </section>
+          <DatosDelDispositivo alSalir={() => setCuenta(false)} />
 
+          {sync.usuario && (
           <section className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
-            <Boton
-              tamano="sm"
-              variante="fantasma"
-              className="text-danger hover:!bg-danger-soft"
-              icono={<Trash2 className="size-4" />}
-              onClick={async () => {
-                const ok = await confirmar({
-                  titulo: "Borrar datos de este dispositivo",
-                  mensaje: sync.usuario ? "Se borrará el progreso de este navegador y se cerrará tu sesión. Tu cuenta en la nube no se modifica." : "Se borrará todo el progreso guardado en este navegador. Si no lo exportaste, no se podrá recuperar.",
-                  aceptar: "Borrar",
-                  peligro: true,
-                });
-                if (!ok) return;
-                if (sync.usuario) await cerrarSesion();
-                borrarEstadosLocales();
-                location.reload();
-              }}
-            >
-              Borrar datos de este dispositivo
-            </Boton>
-            {sync.usuario && (
               <>
                 <Boton
                   tamano="sm"
@@ -211,8 +223,8 @@ export function Cuenta() {
                   Cerrar sesión
                 </Boton>
               </>
-            )}
           </section>
+          )}
         </div>
       </Modal>
       <ModalConflicto />

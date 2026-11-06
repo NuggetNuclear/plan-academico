@@ -6,17 +6,19 @@ import { estadoInicial } from "../../core/state";
 import { CampoNumero } from "../../ui/CampoNumero";
 import { Boton, Campo, Interruptor, cx } from "../../ui/primitives";
 
-export function TusDatos() {
+/** Datos académicos personales. `fijo`: siempre abierto, sin cabecera plegable (Configuración). */
+export function TusDatos({ fijo = false }: { fijo?: boolean }) {
   const ctx = useCtx();
   const { st, cur } = ctx;
   const mutar = useApp((s) => s.mutar);
   const setWizard = useUI((s) => s.setWizard);
-  const [abierto, setAbierto] = useState(false);
+  const [plegado, setAbierto] = useState(false);
+  const abierto = fijo || plegado;
   const niveles = (cur.malla.nivelesIngles ?? []).filter((id) => cur.map[id] || cur.catalogo[id]);
 
   return (
-    <section className="card overflow-hidden">
-      <button type="button" onClick={() => setAbierto((v) => !v)} aria-expanded={abierto} className="flex w-full items-center gap-3 px-5 py-4 text-left sm:px-6">
+    <section className={cx("card overflow-hidden", fijo && "pt-1")}>
+      {!fijo && <button type="button" onClick={() => setAbierto((v) => !v)} aria-expanded={abierto} className="flex w-full items-center gap-3 px-5 py-4 text-left sm:px-6">
         <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent">
           <IdCard className="size-[18px]" />
         </span>
@@ -28,9 +30,9 @@ export function TusDatos() {
           </span>
         </span>
         <ChevronDown className={cx("size-5 text-fg-3 transition-transform", abierto && "rotate-180")} />
-      </button>
+      </button>}
       {abierto && (
-        <div className="animar-entrada space-y-5 border-t border-line px-5 py-5 sm:px-6">
+        <div className={cx("animar-entrada space-y-5 px-5 py-5 sm:px-6", !fijo && "border-t border-line")}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Campo etiqueta="Semestre actual" htmlFor="td-sem" ayuda="El que estás cursando ahora, sin contar congelaciones.">
               <CampoNumero
@@ -64,7 +66,7 @@ export function TusDatos() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-line p-4">
+          <div className="rounded-2xl bg-surface-2 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="flex items-center gap-2 text-[13.5px] font-bold">
