@@ -79,6 +79,7 @@ export function Ayuda() {
               ["Marca tu malla.", "Usa «Marcar semestres completos» y luego desmarca lo que debes. Marca como Cursando los ramos de este semestre."],
               ["Revisa tu plan.", "En Planificación ya tienes un plan recomendado. Ajusta tus créditos y la práctica, arrastra ramos y presiona «Quedarme con este plan»."],
               ["Registra tus notas.", "En Notas, el semestre en curso ya existe con tus ramos. Al registrar la nota final, el ramo pasa a aprobado en la malla."],
+              ["Prueba valores.", "En Notas › Planificación puedes usar una plantilla o copiar un ramo para probar notas y ver promedios. Las pruebas se conservan al alternar con Registro y se descartan al salir de Notas o recargar; no afectan tu PPA ni avance."],
               ["Cierra el semestre.", "Cuando todos tus ramos tengan nota final, Inicio te ofrece pasar al semestre siguiente y el plan se recalcula."],
             ].map(([t, d], i) => (
               <li key={t} className="flex gap-3">
@@ -195,6 +196,7 @@ export function Ayuda() {
               <li><strong>Peor caso:</strong> todo lo pendiente cuenta como 1,0. Si igual da 4,0, ya aprobaste.</li>
               <li><strong>Lo que necesitas:</strong> (3,95 − lo asegurado) ÷ % que falta. Si las categorías aún no suman 100%, lo no definido también cuenta como pendiente.</li>
               <li><strong>Hay que aprobarla por separado:</strong> la categoría debe promediar 4,0 por sí sola, aunque el promedio general apruebe. Se activa en «Evaluaciones › Reglas especiales».</li>
+              <li><strong>Quitar valor:</strong> la goma junto a una nota, o «Quitar valor» en su editor, borra solo el número y deja la evaluación pendiente con su fecha, nombre y ponderación. «Eliminar evaluación» quita la evaluación completa. Puedes deshacer ambos cambios.</li>
               <li><strong>Examen final:</strong> se activa en «Evaluaciones». Lo demás forma tu nota de presentación. Sus % pueden ser de la presentación (suman 100% y esa nota vale, por ejemplo, 70% del ramo) o del ramo (suman 70% y se normalizan); la app lo deduce según cuánto sumen. Si el ramo exime y tu presentación alcanza la nota de eximición (ej. 5,0, redondeada a una décima) con la asistencia exigida, tu nota final es la de presentación y no rindes examen.</li>
               <li><strong>Mínimos:</strong> en «Reglas especiales», cada categoría puede exigir un promedio o una nota mínima en cada evaluación para eximirse (ej. tareas ≥ 5,5 y cada tarea ≥ 4,0), y un promedio para dar examen (ej. tareas ≥ 4,0). También puedes exigir una nota de presentación mínima para dar examen (ej. 3,5). Sin derecho a examen, se reprueba el ramo.</li>
               <li>Se aprueba con <strong>3,95</strong>, que se redondea a 4,0.</li>

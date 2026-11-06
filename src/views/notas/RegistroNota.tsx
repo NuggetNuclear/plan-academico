@@ -10,7 +10,7 @@ import { toast } from "../../store/ui";
 import { CabeceraModal, Modal, PieModal } from "../../ui/overlays";
 import { Boton, cx } from "../../ui/primitives";
 import { alertaTrasNota } from "../riesgoCausal";
-import { guardarRegistro, validarRegistro, type Registro } from "./registro";
+import { guardarRegistro, quitarValorNota, validarRegistro, type Registro } from "./registro";
 
 export interface SeleccionNota { uid?: string; categoria?: string; nota?: string }
 
@@ -149,6 +149,17 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
   const [ciActual, niActual] = existente ? ubicar(entrada, destino) : [-1, -1];
   const catActual = existente ? entrada?.categorias[ciActual] : null;
   const tieneNota = (catActual?.notas[niActual]?.n ?? null) !== null;
+  const quitarValor = () => {
+    const [cid, nid] = destino.split(":");
+    let quitada = false;
+    useApp.getState().mutar(`Quitar valor de ${nombre}`, (actual) => {
+      const ramo = periodoPorClave(actual.st, clavePeriodo(periodo))?.ramos.find((r) => r.uid === uid);
+      if (ramo) quitada = quitarValorNota(ramo, cid, nid);
+    });
+    if (!quitada) return mostrarError("La evaluación ya no tiene una nota editable.");
+    toast("Valor quitado: la evaluación queda pendiente", "info", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
+    onCerrar();
+  };
 
   return (
     <Modal abierto onCerrar={onCerrar} etiqueta="Registrar nota" ancho="md">
@@ -225,8 +236,8 @@ export function RegistroNota({ ctx, periodo, seleccion, onCerrar }: { ctx: Ctx; 
           {error && <p id="registro-error" ref={errorRef} tabIndex={-1} role="alert" className="rounded-xl bg-danger-soft p-3 text-sm text-danger">{error}</p>}
         </div>
         <PieModal>
-          {existente && <Boton variante="fantasma" className="mr-auto hover:!text-danger" icono={<Trash2 className="size-4" />} onClick={eliminar}>Eliminar</Boton>}
-          {tieneNota && <Boton variante="fantasma" icono={<Eraser className="size-4" />} onClick={() => registrar("")}>Quitar nota</Boton>}
+          {existente && <Boton variante="fantasma" className="mr-auto hover:!text-danger" icono={<Trash2 className="size-4" />} onClick={eliminar}>Eliminar evaluación</Boton>}
+          {tieneNota && <Boton variante="fantasma" icono={<Eraser className="size-4" />} onClick={quitarValor}>Quitar valor</Boton>}
           <Boton variante="fantasma" onClick={onCerrar}>Cancelar</Boton>
           <Boton type="submit" variante="primario" icono={<Check className="size-4" />} disabled={!entrada}>Guardar nota</Boton>
         </PieModal>

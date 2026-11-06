@@ -16,6 +16,7 @@ import { PaletaComandos } from "./PaletaComandos";
 import { RegistroNota } from "../views/notas/RegistroNota";
 import { EditorEvaluacion } from "../views/notas/EditorEvaluacion";
 import { Wizard } from "../views/Wizard";
+import { Notas } from "../views/Notas";
 
 let root: Root;
 let host: HTMLDivElement;
@@ -137,5 +138,65 @@ describe("accesibilidad de las vistas", () => {
     const botones = [...document.querySelectorAll("button")].map((b) => b.textContent);
     expect(botones).toContain("Agregar tu primer ramo");
     expect(botones).not.toContain("Registrar nota");
+  });
+
+  it("quitar valor desde la tarjeta deja la evaluación pendiente y permite deshacer", async () => {
+    const antes = structuredClone(useApp.getState().st);
+    await act(async () => root.render(createElement(Notas)));
+    const quitar = document.querySelector<HTMLButtonElement>('[aria-label="Quitar valor de Solemnes 1"]')!;
+    await act(async () => quitar.click());
+    const notas = useApp.getState().st.periodos[1].ramos[0].categorias[0].notas;
+    expect(notas).toHaveLength(2);
+    expect(notas[0]).toEqual({ ...antes.periodos[1].ramos[0].categorias[0].notas[0], n: null });
+    await act(async () => { useApp.getState().deshacer(); });
+    expect(useApp.getState().st).toEqual(antes);
+  });
+
+  it("el modo Planificación es accesible y conserva el escenario al alternar con Registro", async () => {
+    const antes = structuredClone(useApp.getState().st);
+    const guardado = localStorage.getItem("notas.v1.estado.inf");
+    useUI.setState({ vista: "notas" });
+    await act(async () => root.render(createElement(Shell)));
+    const pulsar = async (texto: string) => {
+      const boton = [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === texto)!;
+      expect(boton).toBeDefined();
+      await act(async () => boton.click());
+    };
+    await pulsar("Planificación");
+    const base = document.querySelector<HTMLSelectElement>('select')!;
+    await act(async () => { base.value = "ramo:actual"; base.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(document.querySelector('[role="status"]')!.textContent).toContain("5,00");
+    const pendiente = document.querySelector<HTMLInputElement>('[aria-label="Nota de prueba: Solemnes 2"]')!;
+    await act(async () => pendiente.focus());
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(pendiente, "7");
+      pendiente.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => pendiente.blur());
+    expect(document.querySelector('[role="status"]')!.textContent).toContain("6,33");
+    await pulsar("Vaciar valores de prueba");
+    expect(document.querySelector('[role="status"]')!.textContent).toContain("—");
+    await pulsar("Registro");
+    expect(document.body.textContent).toContain("5,0");
+    await pulsar("Planificación");
+    expect(document.querySelector('[role="status"]')!.textContent).toContain("—");
+    expect(useApp.getState().st).toEqual(antes);
+    expect(useApp.getState().pilaDeshacer).toHaveLength(0);
+    expect(localStorage.getItem("notas.v1.estado.inf")).toBe(guardado);
+    await auditar();
+  });
+
+  it("el editor ofrece quitar solo el valor de una nota existente", async () => {
+    const { cur, st } = useApp.getState();
+    const periodo = st.periodos[1];
+    const categoria = periodo.ramos[0].categorias[0];
+    const anterior = structuredClone(categoria.notas[0]);
+    const cerrar = vi.fn();
+    await act(async () => root.render(createElement(RegistroNota, { ctx: { cur: cur!, st }, periodo,
+      seleccion: { uid: "actual", categoria: categoria.id, nota: categoria.notas[0].id }, onCerrar: cerrar })));
+    const quitar = [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Quitar valor")!;
+    await act(async () => quitar.click());
+    expect(useApp.getState().st.periodos[1].ramos[0].categorias[0].notas[0]).toEqual({ ...anterior, n: null });
+    expect(cerrar).toHaveBeenCalledTimes(1);
   });
 });

@@ -22,9 +22,11 @@ import { agregarRamoAPeriodo, eliminarPeriodo, obtenerPeriodo, periodoPorClave }
 import { confirmar, toast } from "../store/ui";
 import { CampoNumero } from "../ui/CampoNumero";
 import { CabeceraModal, Modal, OpcionMenu, PieModal, Popover } from "../ui/overlays";
-import { Boton, BotonIcono, cx } from "../ui/primitives";
+import { Boton, BotonIcono, Segmentado, cx } from "../ui/primitives";
 import { RegistroNota, type SeleccionNota } from "./notas/RegistroNota";
 import { RamoCard } from "./notas/RamoCard";
+import { PlanificacionNotas, type EscenarioNotas } from "./notas/PlanificacionNotas";
+import { crearSimulacion } from "./notas/planificacion";
 
 function Simulador() {
   const ctx = useCtx();
@@ -312,6 +314,19 @@ function BuscadorRamo({ periodo }: { periodo: Periodo }) {
 }
 
 export function Notas() {
+  const ctx = useCtx();
+  const [modo, setModo] = useState<"registro" | "planificacion">("registro");
+  const [escenario, setEscenario] = useState<EscenarioNotas>(() => ({ origen: "", entrada: crearSimulacion() }));
+  return <div className="space-y-4">
+    <Segmentado etiqueta="Modo de notas" valor={modo} onChange={setModo} opciones={[
+      { valor: "registro", etiqueta: "Registro" },
+      { valor: "planificacion", etiqueta: "Planificación" },
+    ]} />
+    {modo === "planificacion" ? <PlanificacionNotas ctx={ctx} escenario={escenario} onCambiar={setEscenario} /> : <RegistroNotas />}
+  </div>;
+}
+
+function RegistroNotas() {
   const ctx = useCtx();
   const mutar = useApp((s) => s.mutar);
   const [sel, setSel] = useState<string | null>(null);

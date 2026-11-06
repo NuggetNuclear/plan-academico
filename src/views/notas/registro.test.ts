@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Entrada } from "../../core/state";
 import { calcularRamo } from "../../core/grades";
-import { guardarRegistro, type Registro } from "./registro";
+import { guardarRegistro, quitarValorNota, type Registro } from "./registro";
 
 const entrada = (): Entrada => ({ uid: "ramo-1", id: "calculo", notaFinal: null, categorias: [] });
 const registro = (cambio: Partial<Registro> = {}): Registro => ({ categoria: null, evaluacion: null, nombre: "Solemne 1", nota: "5,5", porcentaje: "30", fecha: "", ...cambio });
@@ -85,6 +85,23 @@ describe("registro rápido de notas", () => {
     expect(guardarRegistro(ramo, registro({ categoria: 0, evaluacion: 1, nota: "" }))).toBeNull();
     expect(ramo.categorias[0].notas[1]).toMatchObject({ n: null, f: 1 });
     expect(guardarRegistro(ramo, registro({ nota: "" }))).not.toBeNull();
+  });
+
+  it("quitar solo el valor conserva identidad, fecha, etiqueta y factores sin tocar otras notas", () => {
+    const ramo = entrada();
+    ramo.categorias = [{ id: "categoria", nombre: "Controles", peso: 100, req: true, notas: [
+      { id: "nota", n: 6, f: 2, fecha: "2026-11-06", etiqueta: "Control 1" }, { id: "otra", n: 4, f: 1 },
+    ] }];
+    const esperado = structuredClone(ramo);
+    esperado.categorias[0].notas[0].n = null;
+    expect(quitarValorNota(ramo, "categoria", "nota")).toBe(true);
+    expect(ramo).toEqual(esperado);
+    expect(calcularRamo(ramo).nfActual).toBe(4);
+    expect(quitarValorNota(ramo, "categoria", "nota")).toBe(false);
+    expect(quitarValorNota(ramo, "categoria", "ausente")).toBe(false);
+    ramo.notaFinal = 5;
+    expect(quitarValorNota(ramo, "categoria", "otra")).toBe(false);
+    expect(ramo.categorias[0].notas[1].n).toBe(4);
   });
 
   it("rechaza días que no existen en vez de pasarlos al mes siguiente", () => {

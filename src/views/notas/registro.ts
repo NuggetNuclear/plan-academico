@@ -14,6 +14,15 @@ export interface Registro {
   factor?: string;
 }
 
+/** Quita únicamente el valor; conserva la evaluación, su fecha, nombre y ponderación. */
+export function quitarValorNota(entrada: Entrada, categoriaId: string, notaId: string): boolean {
+  if (entrada.notaFinal !== null) return false;
+  const nota = entrada.categorias.find((c) => c.id === categoriaId)?.notas.find((n) => n.id === notaId);
+  if (!nota || nota.n === null) return false;
+  nota.n = null;
+  return true;
+}
+
 export function validarRegistro(entrada: Entrada, datos: Registro): string | null {
   if (entrada.notaFinal !== null) return "Este ramo está cerrado. Reábrelo para editar sus evaluaciones.";
   const nota = leerNumero(datos.nota);

@@ -1,4 +1,4 @@
-import { Asterisk, ChevronDown, CircleCheck, CircleX, ClipboardList, Flag, GraduationCap, MoreHorizontal, Plus, RotateCcw, Target, Trash2, TrendingDown } from "lucide-react";
+import { Asterisk, ChevronDown, CircleCheck, CircleX, ClipboardList, Eraser, Flag, GraduationCap, MoreHorizontal, Plus, RotateCcw, Target, Trash2, TrendingDown } from "lucide-react";
 import { useRef, useState } from "react";
 import { clavePeriodo, creditosEntrada, esPeriodoActual, nombreEntrada, siglaEntrada, situacionSemestreUDP, type Ctx } from "../../core/academic";
 import { NOTA_APROB, fmtNota, fmtPct, leerNumero, numeroConComa } from "../../core/format";
@@ -13,6 +13,7 @@ import { Boton, BotonIcono, Insignia, cx } from "../../ui/primitives";
 import { AvisoCausalRamo, letrasCausal } from "../riesgoCausal";
 import { EditorEvaluacion } from "./EditorEvaluacion";
 import type { SeleccionNota } from "./RegistroNota";
+import { quitarValorNota } from "./registro";
 
 type Editor = (etiqueta: string | null, fn: (e: Entrada, ctx: Ctx, p: Periodo) => void) => void;
 
@@ -197,6 +198,11 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
   };
 
   const opcion = (fn: () => void) => () => (setMenu(false), fn());
+  const quitarValor = (categoriaId: string, notaId: string, etiqueta: string) => {
+    let quitada = false;
+    editar(`Quitar valor de ${etiqueta}`, (e) => { quitada = quitarValorNota(e, categoriaId, notaId); });
+    if (quitada) toast(`${etiqueta}: queda pendiente`, "info", { etiqueta: "Deshacer", fn: () => useApp.getState().deshacer() });
+  };
 
   return (
     <article
@@ -274,9 +280,12 @@ export function RamoCard({ ctx, periodo, entrada, onRegistrar }: { ctx: Ctx; per
                         return r.cerrado ? (
                           <span key={n.id} className={clase} title={titulo}>{contenido}</span>
                         ) : (
-                          <button key={n.id} type="button" className={cx(clase, "hover:border-accent hover:text-accent")} title={titulo} aria-label={`${etiqueta}: ${n.n === null ? "pendiente, registrar nota" : `${fmtNota(n.n)}, editar`}`} onClick={() => onRegistrar({ categoria: cat.id, nota: n.id })}>
-                            {contenido}
-                          </button>
+                          <span key={n.id} className="inline-flex items-center gap-0.5">
+                            <button type="button" className={cx(clase, "hover:border-accent hover:text-accent")} title={titulo} aria-label={`${etiqueta}: ${n.n === null ? "pendiente, registrar nota" : `${fmtNota(n.n)}, editar`}`} onClick={() => onRegistrar({ categoria: cat.id, nota: n.id })}>
+                              {contenido}
+                            </button>
+                            {n.n !== null && <BotonIcono tamano="sm" etiqueta={`Quitar valor de ${etiqueta}`} title="Quitar solo el valor; la evaluación queda pendiente" onClick={() => quitarValor(cat.id!, n.id!, etiqueta)}><Eraser className="size-3.5" /></BotonIcono>}
+                          </span>
                         );
                       })}
                     </div>
