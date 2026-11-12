@@ -1,7 +1,7 @@
-import { CheckCircle2, DatabaseBackup, Download, IdCard, Laptop, Moon, Palette, Share, SquarePlus, Sun } from "lucide-react";
+import { CheckCircle2, DatabaseBackup, Download, IdCard, Laptop, Moon, Palette, RefreshCw, Share, SquarePlus, Sun } from "lucide-react";
 import { useState } from "react";
-import { INICIOS_AL_ABRIR, useUI, type InicioAlAbrir, type Tema } from "../store/ui";
-import { formaInstalar, instalar, usePWA } from "../pwa";
+import { INICIOS_AL_ABRIR, toast, useUI, type InicioAlAbrir, type Tema } from "../store/ui";
+import { buscarActualizacion, formaInstalar, instalar, usePWA } from "../pwa";
 import { Boton, Interruptor, PanelPestana, Pestanas, Tarjeta, cx } from "../ui/primitives";
 import { DatosDelDispositivo } from "./Cuenta";
 import { TusDatos } from "./malla/TusDatos";
@@ -46,6 +46,28 @@ function InstalarApp() {
           )}
         </>
       )}
+    </Tarjeta>
+  );
+}
+
+function Actualizaciones() {
+  const [buscando, setBuscando] = useState(false);
+  const buscar = async () => {
+    setBuscando(true);
+    const r = await buscarActualizacion();
+    setBuscando(false);
+    if (r === "al-dia") toast("Ya tienes la versión más reciente.");
+    else if (r === "error") toast("No se pudo buscar. Revisa tu conexión e inténtalo de nuevo.", "error");
+    else if (r === "sin-sw") toast("Las actualizaciones solo se buscan en la app publicada.", "info");
+    // "nueva": el aviso con el botón «Actualizar» lo muestra el service worker.
+  };
+  return (
+    <Tarjeta>
+      <h2 className="text-[15px] font-bold">Actualizaciones</h2>
+      <p className="mt-0.5 text-[13px] text-fg-2">La app busca sola al abrirla, pero puedes revisar ahora si hay una versión nueva.</p>
+      <Boton className="mt-3" icono={<RefreshCw aria-hidden="true" className={cx("size-4", buscando && "animate-spin")} />} disabled={buscando} onClick={() => void buscar()}>
+        {buscando ? "Buscando…" : "Buscar actualizaciones"}
+      </Boton>
     </Tarjeta>
   );
 }
@@ -151,6 +173,7 @@ export function Configuracion() {
         ) : (
           <div className="space-y-4">
             <InstalarApp />
+            <Actualizaciones />
             <Apariencia />
           </div>
         )}

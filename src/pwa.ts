@@ -41,6 +41,18 @@ export async function instalar() {
   }
 }
 
+export type ResultadoBusqueda = "nueva" | "al-dia" | "error" | "sin-sw";
+
+/** Se define cuando el service worker queda registrado (solo en la app publicada). */
+let revisar: (() => Promise<ResultadoBusqueda>) | null = null;
+
+/** Pide al navegador que busque una versión nueva del service worker ahora mismo. */
+export async function buscarActualizacion(): Promise<ResultadoBusqueda> {
+  return revisar ? revisar() : "sin-sw";
+}
+
+const MENSAJE_VERSION = "Hay una versión nueva de la app.";
+
 /** Registra el service worker, ofrece instalar y avisa cuando hay una versión nueva. */
 export function iniciarPWA() {
   window.addEventListener("beforeinstallprompt", (e) => {
@@ -66,10 +78,12 @@ export function iniciarPWA() {
     // Un solo aviso aunque lleguen varias versiones; activa siempre la más reciente.
     let pendiente: ServiceWorker | null = null;
     const avisar = (sw: ServiceWorker) => {
-      const yaAvisado = pendiente !== null;
+      // Si el aviso ya está en pantalla basta con recordar la versión más reciente; si se cerró, vuelve a mostrarse.
+      const visible = useUI.getState().toasts.some((t) => t.fijo && t.mensaje === MENSAJE_VERSION);
+      const yaAvisado = pendiente !== null && visible;
       pendiente = sw;
       if (yaAvisado) return;
-      useUI.getState().toast("Hay una versión nueva de la app.", "info", {
+      useUI.getState().toast(MENSAJE_VERSION, "info", {
         etiqueta: "Actualizar",
         fn: () => (reg.waiting ?? pendiente)?.postMessage("activar"),
       }, true);
@@ -82,6 +96,20 @@ export function iniciarPWA() {
         if (nuevo.state === "installed" && navigator.serviceWorker.controller) avisar(nuevo);
       });
     });
+    revisar = async () => {
+      try {
+        await reg.update();
+      } catch {
+        return "error";
+      }
+      if (!navigator.serviceWorker.controller) return "al-dia";
+      // Si ya hay una versión esperando se avisa ahora; si se está instalando, avisará el statechange de arriba.
+      if (reg.waiting) {
+        avisar(reg.waiting);
+        return "nueva";
+      }
+      return reg.installing ? "nueva" : "al-dia";
+    };
     // Una app instalada puede quedar abierta días: revisa al volver a primer plano.
     document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && reg.update().catch(() => {}));
   });
