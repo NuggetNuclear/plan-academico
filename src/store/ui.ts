@@ -40,6 +40,10 @@ interface DialogoActivo {
 
 export type Tema = "claro" | "oscuro" | "sistema";
 
+/** Pantallas que el usuario puede elegir para abrir la app. */
+export type InicioAlAbrir = Extract<Vista, "inicio" | "notas" | "agenda">;
+export const INICIOS_AL_ABRIR: InicioAlAbrir[] = ["inicio", "notas", "agenda"];
+
 interface UIStore {
   vista: Vista;
   toasts: Toast[];
@@ -50,6 +54,7 @@ interface UIStore {
   importarAbierto: boolean;
   tema: Tema;
   lateralCompacta: boolean;
+  inicioAlAbrir: InicioAlAbrir;
   /** Ramo a enfocar al llegar a una vista (desde la paleta de comandos). */
   foco: { vista: Vista; id: string } | null;
   irA: (v: Vista, foco?: string) => void;
@@ -62,6 +67,7 @@ interface UIStore {
   setImportar: (v: boolean) => void;
   setTema: (t: Tema) => void;
   setLateralCompacta: (v: boolean) => void;
+  setInicioAlAbrir: (v: InicioAlAbrir) => void;
   limpiarFoco: () => void;
   _abrirDialogo: (d: DialogoActivo | null) => void;
 }
@@ -83,8 +89,15 @@ export function escribirLocal(clave: string, valor: string | null) {
   }
 }
 
+function inicioPreferido(): InicioAlAbrir {
+  const v = leerLocal("notas.v1.inicio");
+  return INICIOS_AL_ABRIR.includes(v as InicioAlAbrir) ? (v as InicioAlAbrir) : "inicio";
+}
+
+/** Sin hash en la URL, la app abre en la pantalla elegida en Ajustes. */
 export function vistaDesdeHash(): Vista {
   const h = location.hash.replace("#", "").split("/")[0] as Vista;
+  if (!h) return inicioPreferido();
   return VISTAS.includes(h) ? h : "inicio";
 }
 
@@ -100,6 +113,7 @@ export const useUI = create<UIStore>((set, get) => ({
   importarAbierto: false,
   tema: (leerLocal("notas.v1.tema") as Tema) || "sistema",
   lateralCompacta: leerLocal("notas.v1.lateral") === "compacta",
+  inicioAlAbrir: inicioPreferido(),
   foco: null,
 
   irA(v, foco) {
@@ -128,6 +142,10 @@ export const useUI = create<UIStore>((set, get) => ({
   setLateralCompacta(v) {
     escribirLocal("notas.v1.lateral", v ? "compacta" : "normal");
     set({ lateralCompacta: v });
+  },
+  setInicioAlAbrir(v) {
+    escribirLocal("notas.v1.inicio", v);
+    set({ inicioAlAbrir: v });
   },
   limpiarFoco: () => set({ foco: null }),
   _abrirDialogo: (d) => set({ dialogo: d }),

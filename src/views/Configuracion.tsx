@@ -1,6 +1,6 @@
 import { CheckCircle2, DatabaseBackup, Download, IdCard, Laptop, Moon, Palette, Share, SquarePlus, Sun } from "lucide-react";
 import { useState } from "react";
-import { useUI, type Tema } from "../store/ui";
+import { INICIOS_AL_ABRIR, useUI, type InicioAlAbrir, type Tema } from "../store/ui";
 import { formaInstalar, instalar, usePWA } from "../pwa";
 import { Boton, Interruptor, PanelPestana, Pestanas, Tarjeta, cx } from "../ui/primitives";
 import { DatosDelDispositivo } from "./Cuenta";
@@ -50,6 +50,34 @@ function InstalarApp() {
   );
 }
 
+const NOMBRE_INICIO: Record<InicioAlAbrir, string> = { inicio: "Inicio", notas: "Notas", agenda: "Agenda" };
+
+/** Pantalla con la que se abre la app cuando la URL no indica una. */
+function AlAbrir() {
+  const inicio = useUI((s) => s.inicioAlAbrir);
+  const setInicio = useUI((s) => s.setInicioAlAbrir);
+  return (
+    <fieldset>
+      <legend className="text-[15px] font-bold">Pantalla al abrir la app</legend>
+      <p className="mt-0.5 text-[13px] text-fg-2">Elige con qué pantalla empieza la app cuando la abres desde su ícono o desde el navegador.</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        {INICIOS_AL_ABRIR.map((v) => (
+          <label
+            key={v}
+            className={cx(
+              "flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl px-4 py-3 text-[14px] font-semibold transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent",
+              inicio === v ? "bg-accent text-accent-fg" : "bg-surface-2 hover:bg-surface-3",
+            )}
+          >
+            <input type="radio" name="inicio-al-abrir" className="sr-only" checked={inicio === v} onChange={() => setInicio(v)} />
+            {NOMBRE_INICIO[v]}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 function Apariencia() {
   const tema = useUI((s) => s.tema);
   const setTema = useUI((s) => s.setTema);
@@ -62,6 +90,8 @@ function Apariencia() {
   ];
   return (
     <Tarjeta className="space-y-6">
+      <AlAbrir />
+      <div className="border-t border-line pt-5">
       <fieldset>
         <legend className="text-[15px] font-bold">Tema</legend>
         <p className="mt-0.5 text-[13px] text-fg-2">«Según el sistema» cambia solo cuando tu dispositivo pasa a modo oscuro.</p>
@@ -81,6 +111,7 @@ function Apariencia() {
           ))}
         </div>
       </fieldset>
+      </div>
       <div className="hidden border-t border-line pt-5 lg:block">
         <p className="text-[15px] font-bold">Barra lateral</p>
         <p className="mt-0.5 mb-3 text-[13px] text-fg-2">Muestra solo los íconos para dejar más espacio al contenido.</p>
